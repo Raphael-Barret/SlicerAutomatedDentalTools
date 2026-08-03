@@ -63,7 +63,9 @@ def butterflyPatch(surf,
         adjust_anterior_left,
         adjust_posterior_right,
         adjust_posterior_left,
-        index
+        index,
+        shift_lr=0.0,
+        shift_ap=0.0
          ):
     
   
@@ -93,10 +95,16 @@ def butterflyPatch(surf,
     V = torch.tensor(vtk_to_numpy(surf_tmp.GetPoints().GetData())).to(torch.float32)
     F = torch.tensor(vtk_to_numpy(surf_tmp.GetPolys().GetData()).reshape(-1, 4)[:,1:]).to(torch.int64)
 
-    c_ar = centroid[str(tooth_anterior_right)] + np.array([0, adjust_anterior_right, 0], dtype=np.float32)
-    c_al = centroid[str(tooth_anterior_left)] + np.array([0, adjust_anterior_left, 0], dtype=np.float32)
-    c_pr = centroid[str(tooth_posterior_right)] + np.array([0, - adjust_posterior_right, 0], dtype=np.float32)
-    c_pl = centroid[str(tooth_posterior_left)] + np.array([0, -adjust_posterior_left, 0], dtype=np.float32)
+    # Same vector on the four centroids : each landmark is an affine
+    # combination of two of them with weights summing to 1, so the shift comes
+    # back out of the interpolation and the patch is translated as a whole,
+    # with its shape untouched.
+    shift = np.array([shift_lr, shift_ap, 0], dtype=np.float32)
+
+    c_ar = centroid[str(tooth_anterior_right)] + shift + np.array([0, adjust_anterior_right, 0], dtype=np.float32)
+    c_al = centroid[str(tooth_anterior_left)] + shift + np.array([0, adjust_anterior_left, 0], dtype=np.float32)
+    c_pr = centroid[str(tooth_posterior_right)] + shift + np.array([0, - adjust_posterior_right, 0], dtype=np.float32)
+    c_pl = centroid[str(tooth_posterior_left)] + shift + np.array([0, -adjust_posterior_left, 0], dtype=np.float32)
 
     landmark_anterior_right = (1 - ratio_anterior_right) * c_ar + ratio_anterior_right * c_al
     landmark_posterior_right = (1 - ratio_posterior_right) * c_pr + ratio_posterior_right * c_pl

@@ -211,7 +211,7 @@ class ButterflyPreview:
         '''Tooth centroids in the canonical frame, keyed by corner.'''
         return {key: self._centroids[tooth] for key, tooth in self._teeth.items()}
 
-    def landmarks(self, ratios, adjusts):
+    def landmarks(self, ratios, adjusts, shift=(0.0, 0.0)):
         '''
         The four corners of the patch, in the canonical frame. Reproduces
         butterflyPatch : the ratio is mapped through (1 - r) / 2, then used to
@@ -221,11 +221,19 @@ class ButterflyPreview:
         tooth itself, at the outer edge of the arch, and 0 at mid-arch.
         Keys are 'anterior_left', 'anterior_right', 'posterior_left',
         'posterior_right'.
+
+        shift is (medio-lateral, antero-posterior) in mm, added to every
+        centroid at once. Each landmark is an affine combination of two
+        centroids whose weights sum to 1, so the same vector comes back out of
+        the interpolation : the patch moves, its shape does not change.
         '''
+        translation = np.array([float(shift[0]), float(shift[1]), 0.0])
+
         centroids = {}
         for key, tooth in self._teeth.items():
             centroid = np.array(self._centroids[tooth], dtype=np.float64)
-            centroids[key] = centroid + np.array([0.0, ADJUST_SIGN[key] * float(adjusts[key]), 0.0])
+            centroids[key] = (centroid + translation
+                              + np.array([0.0, ADJUST_SIGN[key] * float(adjusts[key]), 0.0]))
 
         facing = {
             'anterior_left': 'anterior_right',
@@ -283,13 +291,13 @@ class ButterflyPreview:
         points = np.atleast_2d(points)
         return points @ self._inverse[:3, :3].T + self._inverse[:3, 3]
 
-    def compute(self, ratios, adjusts, with_fill=True):
+    def compute(self, ratios, adjusts, shift=(0.0, 0.0), with_fill=True):
         '''
         Full preview for one set of values.
         Returns (contour_polydata, labels, landmarks_scene) with the contour
         and the landmarks already expressed in scene coordinates.
         '''
-        landmarks = self.landmarks(ratios, adjusts)
+        landmarks = self.landmarks(ratios, adjusts, shift)
         contour = self.contour(landmarks)
 
         labels = self.fill(contour) if with_fill else None

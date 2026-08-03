@@ -69,6 +69,10 @@ from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
 # larger value in the line edit still works, the knob just saturates.
 ADJUST_RANGE = 5.0
 
+# Travel of the translation pad, in mm, on both axes. It moves the four
+# centroids together, so it is a rigid shift of the whole patch.
+SHIFT_RANGE = 5.0
+
 # Side of the joystick pads, in pixels. The whole 0-1 ratio range is spread
 # across the pad, so this is what sets how much a single pixel of mouse travel
 # is worth : roughly 0.016 of ratio at 96 px, 0.009 at 128, 0.006 at 192.
@@ -76,6 +80,10 @@ ADJUST_RANGE = 5.0
 # over per scan. Ctrl while dragging is the finer tool -- it divides the
 # sensitivity by five without costing a pixel.
 PAD_SIZE = 128
+
+# The translation pad drives one patch instead of one corner, and sits on a row
+# of its own, so it does not need to be as large.
+SHIFT_PAD_SIZE = 96
 
 
 
@@ -397,7 +405,8 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         '''
         add one widget of list_widget_scan
         '''
-        self.list_widget_scan.append(WidgetParameter(self.ui.verticalLayout_2,self.parent,title))
+        self.list_widget_scan.append(
+            WidgetParameter(self.ui.verticalLayout_2,self.parent,title,self.list_widget_scan))
 
     def openFinder(self,nom : str,_) -> None : 
         """
@@ -750,7 +759,9 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
                  path_output="",
                  suffix="",
                  index_patch=0,
-                 lower_arch="None"):
+                 lower_arch="None",
+                 shift_lr=0.0,
+                 shift_ap=0.0):
         """
         Called when the logic class is instantiated. Can be used for initializing member variables.
         """
@@ -770,6 +781,10 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         self.lineedit_adjust_right_top=lineedit_adjust_right_top
         self.lineedit_adjust_left_bot=lineedit_adjust_left_bot
         self.lineedit_adjust_right_bot=lineedit_adjust_right_bot
+
+        # Translation of the whole patch, in mm, in the oriented frame.
+        self.shift_lr=shift_lr
+        self.shift_ap=shift_ap
 
         self.curve=curve
         self.middle_point=middle_point
@@ -826,6 +841,9 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         parameters ["lineedit_adjust_right_top"] = self.lineedit_adjust_right_top
         parameters ["lineedit_adjust_left_bot"] = self.lineedit_adjust_left_bot
         parameters ["lineedit_adjust_right_bot"] = self.lineedit_adjust_right_bot
+
+        parameters ["shift_lr"] = self.shift_lr
+        parameters ["shift_ap"] = self.shift_ap
 
         parameters ["curve"] = self.curve
         parameters ["middle_point"] = self.middle_point
@@ -1402,6 +1420,11 @@ class JoystickPad(QWidget):
     (adjust_sign) -- push up on any of the four pads and the point moves
     anteriorly.
 
+    The same pad also drives the whole-patch translation, with ratio_range
+    turning the horizontal axis into millimetres instead of a 0-1 ratio and
+    side_labels naming both ends of it. Either way the two values are called
+    ratio and adjust here : what they mean is the caller's business.
+
     Dragging, the wheel, the arrow keys and the line edits all funnel into
     setValues(), and any change calls onChanged.
     '''
@@ -1411,11 +1434,19 @@ class JoystickPad(QWidget):
     KNOB = 7
     FINE = 0.2       # sensitivity multiplier while Ctrl is held
 
-    def __init__(self, outward_right=True, adjust_range=5.0, size=None, adjust_sign=1.0, parent=None):
+    def __init__(self, outward_right=True, adjust_range=5.0, size=None, adjust_sign=1.0,
+                 ratio_range=(0.0, 1.0), side_labels=None, parent=None):
         QWidget.__init__(self, parent)
         self.outward_right = outward_right
         self.adjust_range = adjust_range
         self.adjust_sign = float(adjust_sign)
+        self.ratio_min = float(ratio_range[0])
+        self.ratio_max = float(ratio_range[1])
+        # One notch of the wheel, or one arrow key, walks a hundredth of the
+        # horizontal range -- 0.01 of ratio on a corner pad, 0.1 mm on a range
+        # of 10 mm.
+        self.ratio_step = (self.ratio_max - self.ratio_min) / 100.0
+        self.side_labels = side_labels
         self.SIDE = int(size or PAD_SIZE)
         self.ratio = 0.0
         self.adjust = 0.0
@@ -1440,7 +1471,7 @@ class JoystickPad(QWidget):
     # ---- values ---------------------------------------------------------
 
     def setValues(self, ratio, adjust, notify=False):
-        ratio = min(max(float(ratio), 0.0), 1.0)
+        ratio = min(max(float(ratio), self.ratio_min), self.ratio_max)
         adjust = min(max(float(adjust), -self.adjust_range), self.adjust_range)
         if ratio == self.ratio and adjust == self.adjust:
             return
@@ -1464,6 +1495,10 @@ class JoystickPad(QWidget):
 
     def _box(self):
         '''The pad itself. Labels sit outside it, the knob never leaves it.'''
+        if self.side_labels:
+            # Both ends of the axis are named, so both gutters are taken.
+            return (self.OUT_GUTTER, self.GUTTER,
+                    self.SIDE - 2 * self.OUT_GUTTER, self.SIDE - 2 * self.GUTTER)
         left = 0 if self.outward_right else self.OUT_GUTTER
         return left, self.GUTTER, self.SIDE - self.OUT_GUTTER, self.SIDE - 2 * self.GUTTER
 
@@ -1476,7 +1511,10 @@ class JoystickPad(QWidget):
     def _knobPosition(self):
         left, top, width, height = self._area()
         # ratio 1 is the outer edge, so the knob walks towards OUT as it grows
-        fraction = self.ratio if self.outward_right else 1.0 - self.ratio
+        span = self.ratio_max - self.ratio_min
+        fraction = (self.ratio - self.ratio_min) / span
+        if not self.outward_right:
+            fraction = 1.0 - fraction
         anterior = self.adjust * self.adjust_sign
         x = left + fraction * width
         y = top + (1.0 - (anterior + self.adjust_range) / (2 * self.adjust_range)) * height
@@ -1485,7 +1523,9 @@ class JoystickPad(QWidget):
     def _valuesAt(self, x, y):
         left, top, width, height = self._area()
         fraction = min(max((x - left) / float(width), 0.0), 1.0)
-        ratio = fraction if self.outward_right else 1.0 - fraction
+        if not self.outward_right:
+            fraction = 1.0 - fraction
+        ratio = self.ratio_min + fraction * (self.ratio_max - self.ratio_min)
         vertical = min(max((y - top) / float(height), 0.0), 1.0)
         anterior = (1.0 - vertical) * 2 * self.adjust_range - self.adjust_range
         return ratio, anterior * self.adjust_sign
@@ -1542,7 +1582,7 @@ class JoystickPad(QWidget):
         steps = _wheelSteps(event)
         if slicer.app.keyboardModifiers() & Qt.ShiftModifier:
             # scrolling up walks the point outwards, which is the ratio going up
-            self.setValues(self.ratio + 0.01 * steps, self.adjust, notify=True)
+            self.setValues(self.ratio + self.ratio_step * steps, self.adjust, notify=True)
         else:
             self.setValues(self.ratio, self.adjust + 0.1 * steps * self.adjust_sign, notify=True)
 
@@ -1553,9 +1593,9 @@ class JoystickPad(QWidget):
         # arrows are screen-directional : Right always walks the knob right
         horizontal = 1.0 if self.outward_right else -1.0
         if key == Qt.Key_Left:
-            self.setValues(self.ratio - 0.01 * horizontal, self.adjust, notify=True)
+            self.setValues(self.ratio - self.ratio_step * horizontal, self.adjust, notify=True)
         elif key == Qt.Key_Right:
-            self.setValues(self.ratio + 0.01 * horizontal, self.adjust, notify=True)
+            self.setValues(self.ratio + self.ratio_step * horizontal, self.adjust, notify=True)
         elif key == Qt.Key_Up:
             self.setValues(self.ratio, self.adjust + 0.1 * self.adjust_sign, notify=True)
         elif key == Qt.Key_Down:
@@ -1613,9 +1653,14 @@ class JoystickPad(QWidget):
         # Which way the arch faces outwards. A ratio of 0 sits on the tooth
         # itself, so the knob travels towards OUT as the value goes down.
         painter.setPen(qt.QPen(colors['label'], 1))
-        gutter = (qt.QRect(self.SIDE - self.OUT_GUTTER, 0, self.OUT_GUTTER, self.SIDE)
-                  if self.outward_right else qt.QRect(0, 0, self.OUT_GUTTER, self.SIDE))
-        painter.drawText(gutter, Qt.AlignCenter, 'O\nU\nT')
+        left_gutter = qt.QRect(0, 0, self.OUT_GUTTER, self.SIDE)
+        right_gutter = qt.QRect(self.SIDE - self.OUT_GUTTER, 0, self.OUT_GUTTER, self.SIDE)
+        if self.side_labels:
+            painter.drawText(left_gutter, Qt.AlignCenter, '\n'.join(self.side_labels[0]))
+            painter.drawText(right_gutter, Qt.AlignCenter, '\n'.join(self.side_labels[1]))
+        else:
+            painter.drawText(right_gutter if self.outward_right else left_gutter,
+                             Qt.AlignCenter, 'O\nU\nT')
 
         if not self.enabled_preview:
             painter.setPen(qt.QPen(colors['text'], 1))
@@ -1635,7 +1680,7 @@ class JoystickPad(QWidget):
 
 # Class with widget
 class WidgetParameter:
-    def __init__(self,layout,parent,title) -> None:
+    def __init__(self,layout,parent,title,scans=None) -> None:
         self.parent_layout = layout
         self.parent = parent
         self.surf = None
@@ -1645,6 +1690,10 @@ class WidgetParameter:
         self.matrix = None
         self.title=title
         self.camera = True
+        # The live list of scan widgets, shared by all of them, so the Copy
+        # button can read the values of the one above. It is still being filled
+        # while this one is built, hence the lookup at click time.
+        self.scans = scans if scans is not None else []
 
         # Live preview of the butterfly patch. The contour and an approximate
         # fill are recomputed on every joystick move (a few ms); the real patch
@@ -1753,13 +1802,18 @@ class WidgetParameter:
          self.lineedit_ratio_right_bot ,
             self.lineedit_adjust_right_bot) = self.displayParamater(self.layout_right_bot,4,[14,0.32,-2],'posterior_right',True)
 
+        # Translation of the whole patch, on top of the four corners.
+        self.layout_shift = QGridLayout()
+        self.layout_widget.addLayout(self.layout_shift,2,0,1,2)
+        self.lineedit_shift_lr, self.lineedit_shift_ap = self.displayShift(self.layout_shift)
+
         self.label_preview = QLabel('')
         self.label_preview.setVisible(False)
-        self.layout_widget.addWidget(self.label_preview,2,0,1,2)
+        self.layout_widget.addWidget(self.label_preview,3,0,1,2)
 
         self.button_update = QPushButton('Update')
         self.button_update.pressed.connect(self.processPatch)
-        self.layout_widget.addWidget(self.button_update,3,0,1,2)
+        self.layout_widget.addWidget(self.button_update,4,0,1,2)
 
        
 
@@ -2081,6 +2135,62 @@ class WidgetParameter:
 
         return lineedit_teeth, lineedit_ratio, lineedit_adjust
 
+    def displayShift(self,layout):
+        '''
+        The translation pad : it slides the whole patch without touching its
+        shape. Each corner is an affine combination of two tooth centroids
+        whose weights sum to 1, so the same vector added to all four centroids
+        comes straight back out of the interpolation and every corner moves
+        together. Both axes are millimetres in the oriented frame : horizontal
+        towards the patient's right or left, vertical anterior or posterior.
+        '''
+        label_title = QLabel('Move the whole patch')
+        label_lr = QLabel('Shift (R-L)')
+        lineedit_lr = QLineEdit('0.0')
+        label_ap = QLabel('Shift (A-P)')
+        lineedit_ap = QLineEdit('0.0')
+
+        for lineedit in (lineedit_lr, lineedit_ap):
+            lineedit.setMaximumWidth(64)
+
+        # The horizontal axis is millimetres here, not a ratio, and both of its
+        # ends are named : the left column of the panel holds the teeth on the
+        # patient's right.
+        pad = JoystickPad(outward_right=True, adjust_range=SHIFT_RANGE, size=SHIFT_PAD_SIZE,
+                          ratio_range=(-SHIFT_RANGE, SHIFT_RANGE), side_labels=('R', 'L'))
+        pad.setToolTip(
+            'Drag to slide the whole patch. Its shape and size do not change.\n'
+            'Horizontal : towards the patient right or left, in mm\n'
+            'Vertical : anterior or posterior, in mm\n'
+            'Ctrl+drag : five times finer\n'
+            'Wheel : antero-posterior step, Shift+wheel : medio-lateral step\n'
+            'Arrow keys : one step, double-click : back to no shift'
+        )
+        pad.setDefaults(0.0, 0.0)
+        pad.onChanged = self.onShiftPadMoved
+
+        self.button_copy = QPushButton('Copy the parameters of the fix scan')
+        self.button_copy.setToolTip('Read every teeth, ratio, adjust and shift value of the '
+                                    'scan above and apply them here.')
+        self.button_copy.pressed.connect(self.copyParameters)
+        # The fix scan is the one being copied from, so it has nothing to copy.
+        self.button_copy.setVisible(self.title != 1)
+
+        layout.addWidget(pad,0,0,4,1)
+        layout.addWidget(label_title,0,1,1,2)
+        layout.addWidget(label_lr,1,1)
+        layout.addWidget(lineedit_lr,1,2)
+        layout.addWidget(label_ap,2,1)
+        layout.addWidget(lineedit_ap,2,2)
+        layout.addWidget(self.button_copy,3,1,1,2)
+
+        self.shift_pad = pad
+
+        lineedit_lr.textChanged.connect(self.onShiftFieldEdited)
+        lineedit_ap.textChanged.connect(self.onShiftFieldEdited)
+
+        return lineedit_lr, lineedit_ap
+
 
     # ---- live preview ---------------------------------------------------
 
@@ -2117,6 +2227,82 @@ class WidgetParameter:
         '''A different tooth invalidates the cached centroids.'''
         self.preview.clear()
         self.markPreviewDirty()
+
+    def onShiftPadMoved(self, pad):
+        '''The translation pad moved : mirror it into the two shift fields.'''
+        if self._syncing:
+            return
+        self._syncing = True
+        try:
+            self.lineedit_shift_lr.setText(f'{pad.ratio:.2f}')
+            self.lineedit_shift_ap.setText(f'{pad.adjust:.2f}')
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onShiftFieldEdited(self, _text=None):
+        '''A shift was typed : mirror it into the translation pad.'''
+        if self._syncing:
+            return
+        shift_lr, shift_ap = self.readFloat(self.lineedit_shift_lr), self.readFloat(self.lineedit_shift_ap)
+        if shift_lr is None or shift_ap is None:
+            return  # half-typed number, wait for the rest
+        self._syncing = True
+        try:
+            self.shift_pad.setValues(shift_lr, shift_ap)
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def shiftValues(self):
+        '''
+        Translation of the whole patch, in mm : (medio-lateral,
+        antero-posterior). The fields are what counts, so that a value typed
+        beyond the travel of the pad is still honoured; the pad only stands in
+        while a number is half-typed.
+        '''
+        shift_lr, shift_ap = self.readFloat(self.lineedit_shift_lr), self.readFloat(self.lineedit_shift_ap)
+        return (self.shift_pad.ratio if shift_lr is None else shift_lr,
+                self.shift_pad.adjust if shift_ap is None else shift_ap)
+
+    # ---- copying one scan onto another ----------------------------------
+
+    def sourceWidget(self):
+        '''The scan the Copy button reads from : the first one that is not us.'''
+        for widget in self.scans:
+            if widget is not self:
+                return widget
+        return None
+
+    def parameterValues(self):
+        '''Every value of the patch panel, as the text of its field.'''
+        values = {corner: tuple(field.text for field in fields)
+                  for corner, fields in self.fields.items()}
+        values['shift'] = (self.lineedit_shift_lr.text, self.lineedit_shift_ap.text)
+        return values
+
+    def setParameterValues(self, values):
+        '''
+        Write values in through the line edits : their textChanged already
+        mirrors them into the pads and schedules the preview. Untouched fields
+        are left alone, so copying the same teeth does not throw away the
+        cached centroids.
+        '''
+        for corner, fields in self.fields.items():
+            for field, text in zip(fields, values[corner]):
+                if field.text != text:
+                    field.setText(text)
+
+        for field, text in zip((self.lineedit_shift_lr, self.lineedit_shift_ap), values['shift']):
+            if field.text != text:
+                field.setText(text)
+
+    def copyParameters(self):
+        '''Take every value of the fix scan and apply it to this one.'''
+        source = self.sourceWidget()
+        if source is None:
+            return
+        self.setParameterValues(source.parameterValues())
 
     def readFloat(self, lineedit):
         try:
@@ -2168,7 +2354,8 @@ class WidgetParameter:
         adjusts = {corner: pad.adjust for corner, pad in self.pads.items()}
 
         try:
-            contour, labels, _ = self.preview.compute(ratios, adjusts, with_fill=self.preview_dirty)
+            contour, labels, _ = self.preview.compute(ratios, adjusts, self.shiftValues(),
+                                                      with_fill=self.preview_dirty)
         except Exception as error:
             logging.warning(f'FlexReg : preview failed ({error})')
             return
@@ -2188,7 +2375,7 @@ class WidgetParameter:
                 self.pads[corner].setOutwardRight(centroid[0] > 0)
 
     def setPreviewAvailable(self, available, message=None):
-        for pad in self.pads.values():
+        for pad in list(self.pads.values()) + [self.shift_pad]:
             pad.setPreviewEnabled(available)
         self.label_preview.setVisible(not available)
         if not available:
@@ -2835,7 +3022,8 @@ class WidgetParameter:
                             "None",
                             "None",
                             index,
-                            "None")
+                            "None",
+                            *self.shiftValues())
                 self.logic.process()
                 self.start_time = time.time()
                 try:

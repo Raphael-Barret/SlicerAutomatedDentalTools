@@ -1,4 +1,4 @@
-import os, sys, platform, shutil, zipfile, urllib, textwrap, time, threading, re, io
+import os, sys, platform, shutil, zipfile, urllib, textwrap, time, threading, re, io, tempfile
 try:
     import importlib.metadata as importlib_metadata
 except ImportError:
@@ -63,7 +63,7 @@ def _get_installed_version(lib_name):
 
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 from FlexReg_utils.orientation import orientation_f
-from FlexReg_utils.butterfly_preview import ButterflyPreview
+from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
 
 # Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
 # larger value in the line edit still works, the knob just saturates.
@@ -302,9 +302,11 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.list_widget_scan = []
         self.manageNumberWidgetScan(2)
         self.ui.applyButton.enabled = True
+        self.ui.seeButton.enabled = True
         self.ui.buttonSelectOutput.connect("clicked(bool)",partial(self.openFinder,"Output"))
         self.ui.ButtonLowerArch.connect("clicked(bool)",partial(self.openFinder,"LowerArch"))
         self.ui.applyButton.connect("clicked(bool)",self.on_apply_button_clicked)
+        self.ui.seeButton.connect("clicked(bool)",self.on_see_button_clicked)
         
         # Apply dark mode styling
         self.applyDarkModeStyles()
@@ -350,6 +352,14 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.reg.run(output_text, suffix_text, lower_arch)
         else :
             self.reg.run(output_text, suffix_text, "None")
+
+    def on_see_button_clicked(self)->None:
+        '''
+        Same registration, shown in the third view, but nothing is kept : the
+        CLI writes into a temporary folder that is removed once the result has
+        been loaded into the scene.
+        '''
+        self.reg.run(None, self.ui.lineEditSuffix.text, "None", preview=True)
 
     def manageNumberWidgetScan(self,number)->None:
         '''
@@ -1144,14 +1154,28 @@ class Reg:
         self.output_folder=None
         self.suffix=None
         self.lower_arch=None
+        self.preview=False
+        self.temp_folder=None
         self.timer = QTimer()
 
-    def run(self,output_folder:str,suffix:str, lower_arch:str)->None:
+    def run(self,output_folder:str,suffix:str, lower_arch:str, preview:bool=False)->None:
         '''
         call the cli for the registration with icp method and launch onProcessUpdateICP
+
+        preview : run exactly the same registration but into a throwaway
+        folder, removed as soon as the result is in the scene. Looking at a
+        result then no longer leaves a .vtk and a .tfm behind every time.
         '''
         if self.T1.getSurf()!=None and  self.T2.getSurf()!=None :
             if self.isButterflyPatchAvailable(self.T1.getSurf()) and self.isButterflyPatchAvailable(self.T2.getSurf()) :
+                self.preview = preview
+                self.temp_folder = None
+                if preview:
+                    # The CLI only reports back through files, so it still
+                    # writes -- just somewhere that gets deleted.
+                    self.temp_folder = tempfile.mkdtemp(prefix="FlexReg_see_")
+                    output_folder = self.temp_folder
+                    lower_arch = "None"
                 self.output_folder=output_folder
                 self.suffix=suffix
                 self.lower_arch=lower_arch
@@ -1221,7 +1245,21 @@ class Reg:
             self.timer.stop()
             self.timerDialog.endTimer()
             del self.timerDialog
-            self.endProcess()
+            try:
+                self.endProcess()
+            finally:
+                self.discardTempFolder()
+
+    def discardTempFolder(self)->None:
+        '''
+        Drop the throwaway folder used by See. endProcess has already read the
+        meshes into the scene, so the files are no longer needed.
+        '''
+        if not self.temp_folder:
+            return
+        shutil.rmtree(self.temp_folder, ignore_errors=True)
+        logger.info(f"Preview folder discarded : {self.temp_folder}")
+        self.temp_folder = None
 
 
 
@@ -1235,6 +1273,15 @@ class Reg:
         path_newT2 = outpath.split('.vtk')[0].split('vtp')[0]+self.suffix+'.vtk'
         self.surfT1 = slicer.util.loadModel(self.T1.getPath())
         self.surfT2 = slicer.util.loadModel(path_newT2)
+
+        if self.preview:
+            # The file behind this node is about to disappear, so keep the node
+            # out of any scene save and say plainly that nothing was written.
+            self.surfT2.SetName(f"{os.path.basename(self.T2.getPath())} registered (preview, not saved)")
+            self.surfT2.SetSaveWithScene(False)
+            storage = self.surfT2.GetStorageNode()
+            if storage:
+                storage.SetSaveWithScene(False)
 
         # Get data model
         displayNodeT1 = self.surfT1.GetDisplayNode()
@@ -1345,11 +1392,15 @@ class JoystickPad(QWidget):
     '''
     Absolute 2D pad driving one corner of the butterfly patch. The knob
     position *is* the state : horizontal is the medio-lateral ratio, vertical
-    the antero-posterior adjust in mm. Because a ratio of 0 puts the landmark
-    on the tooth itself -- the outer edge of the arch -- and 1 pulls it to
-    mid-arch, the horizontal axis is flipped for the corners sitting on the
-    other side of the arch, so that pushing the knob outwards always moves the
-    point outwards.
+    the antero-posterior adjust in mm.
+
+    Both axes are read spatially rather than numerically, so the knob always
+    sits where the point sits. A ratio of 1 lands on the tooth itself, at the
+    outer edge of the arch, and 0 at mid-arch, so the horizontal axis is
+    mirrored for the corners on the other side (outward_right). The CLI negates
+    the adjust of the posterior corners, so their vertical axis is mirrored too
+    (adjust_sign) -- push up on any of the four pads and the point moves
+    anteriorly.
 
     Dragging, the wheel, the arrow keys and the line edits all funnel into
     setValues(), and any change calls onChanged.
@@ -1360,10 +1411,11 @@ class JoystickPad(QWidget):
     KNOB = 7
     FINE = 0.2       # sensitivity multiplier while Ctrl is held
 
-    def __init__(self, outward_right=True, adjust_range=5.0, size=None, parent=None):
+    def __init__(self, outward_right=True, adjust_range=5.0, size=None, adjust_sign=1.0, parent=None):
         QWidget.__init__(self, parent)
         self.outward_right = outward_right
         self.adjust_range = adjust_range
+        self.adjust_sign = float(adjust_sign)
         self.SIDE = int(size or PAD_SIZE)
         self.ratio = 0.0
         self.adjust = 0.0
@@ -1423,18 +1475,20 @@ class JoystickPad(QWidget):
 
     def _knobPosition(self):
         left, top, width, height = self._area()
-        fraction = 1.0 - self.ratio if self.outward_right else self.ratio
+        # ratio 1 is the outer edge, so the knob walks towards OUT as it grows
+        fraction = self.ratio if self.outward_right else 1.0 - self.ratio
+        anterior = self.adjust * self.adjust_sign
         x = left + fraction * width
-        y = top + (1.0 - (self.adjust + self.adjust_range) / (2 * self.adjust_range)) * height
+        y = top + (1.0 - (anterior + self.adjust_range) / (2 * self.adjust_range)) * height
         return x, y
 
     def _valuesAt(self, x, y):
         left, top, width, height = self._area()
         fraction = min(max((x - left) / float(width), 0.0), 1.0)
-        ratio = 1.0 - fraction if self.outward_right else fraction
+        ratio = fraction if self.outward_right else 1.0 - fraction
         vertical = min(max((y - top) / float(height), 0.0), 1.0)
-        adjust = (1.0 - vertical) * 2 * self.adjust_range - self.adjust_range
-        return ratio, adjust
+        anterior = (1.0 - vertical) * 2 * self.adjust_range - self.adjust_range
+        return ratio, anterior * self.adjust_sign
 
     # ---- interaction ----------------------------------------------------
 
@@ -1487,24 +1541,25 @@ class JoystickPad(QWidget):
         '''
         steps = _wheelSteps(event)
         if slicer.app.keyboardModifiers() & Qt.ShiftModifier:
-            outward = -1.0 if self.outward_right else 1.0
-            self.setValues(self.ratio + 0.01 * steps * outward, self.adjust, notify=True)
+            # scrolling up walks the point outwards, which is the ratio going up
+            self.setValues(self.ratio + 0.01 * steps, self.adjust, notify=True)
         else:
-            self.setValues(self.ratio, self.adjust + 0.1 * steps, notify=True)
+            self.setValues(self.ratio, self.adjust + 0.1 * steps * self.adjust_sign, notify=True)
 
     def keyPressEvent(self, event):
         key = event.key
         if callable(key):
             key = key()
+        # arrows are screen-directional : Right always walks the knob right
         horizontal = 1.0 if self.outward_right else -1.0
         if key == Qt.Key_Left:
-            self.setValues(self.ratio + 0.01 * horizontal, self.adjust, notify=True)
-        elif key == Qt.Key_Right:
             self.setValues(self.ratio - 0.01 * horizontal, self.adjust, notify=True)
+        elif key == Qt.Key_Right:
+            self.setValues(self.ratio + 0.01 * horizontal, self.adjust, notify=True)
         elif key == Qt.Key_Up:
-            self.setValues(self.ratio, self.adjust + 0.1, notify=True)
+            self.setValues(self.ratio, self.adjust + 0.1 * self.adjust_sign, notify=True)
         elif key == Qt.Key_Down:
-            self.setValues(self.ratio, self.adjust - 0.1, notify=True)
+            self.setValues(self.ratio, self.adjust - 0.1 * self.adjust_sign, notify=True)
 
     # ---- painting -------------------------------------------------------
 
@@ -1680,21 +1735,23 @@ class WidgetParameter:
 
         # The 2x2 grid mirrors the arch : left column is the side of teeth 5/3,
         # right column the side of teeth 12/14, top row anterior.
+        # Base values come from 'FIX: Fix base values for FlexReg' and go with
+        # the (1 - ratio) / 2 mapping in make_butterfly.
         (self.lineedit_teeth_left_top ,
          self.lineedit_ratio_left_top ,
-            self.lineedit_adjust_left_top) = self.displayParamater(self.layout_left_top,1,[5,0.3,0],'anterior_left',False)
+            self.lineedit_adjust_left_top) = self.displayParamater(self.layout_left_top,1,[5,0.345,-0.1],'anterior_left',False)
 
         (self.lineedit_teeth_right_top ,
          self.lineedit_ratio_right_top ,
-            self.lineedit_adjust_right_top) = self.displayParamater(self.layout_right_top,2,[12,0.3,0],'anterior_right',True)
+            self.lineedit_adjust_right_top) = self.displayParamater(self.layout_right_top,2,[12,0.345,-0.1],'anterior_right',True)
 
         (self.lineedit_teeth_left_bot ,
          self.lineedit_ratio_left_bot ,
-            self.lineedit_adjust_left_bot) = self.displayParamater(self.layout_left_bot,3,[3,0.33,0],'posterior_left',False)
+            self.lineedit_adjust_left_bot) = self.displayParamater(self.layout_left_bot,3,[3,0.32,-2],'posterior_left',False)
 
         (self.lineedit_teeth_right_bot ,
          self.lineedit_ratio_right_bot ,
-            self.lineedit_adjust_right_bot) = self.displayParamater(self.layout_right_bot,4,[14,0.33,0],'posterior_right',True)
+            self.lineedit_adjust_right_bot) = self.displayParamater(self.layout_right_bot,4,[14,0.32,-2],'posterior_right',True)
 
         self.label_preview = QLabel('')
         self.label_preview.setVisible(False)
@@ -2001,7 +2058,8 @@ class WidgetParameter:
         for lineedit in (lineedit_teeth, lineedit_ratio, lineedit_adjust):
             lineedit.setMaximumWidth(64)
 
-        pad = JoystickPad(outward_right=outward_right, adjust_range=ADJUST_RANGE)
+        pad = JoystickPad(outward_right=outward_right, adjust_range=ADJUST_RANGE,
+                          adjust_sign=ADJUST_SIGN[corner])
         pad.setValues(float(parameter[1]), float(parameter[2]))
         pad.setDefaults(float(parameter[1]), float(parameter[2]))
         pad.onChanged = partial(self.onPadMoved, corner)

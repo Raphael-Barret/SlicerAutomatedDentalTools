@@ -25,6 +25,16 @@ ORIENT_TARGET = [[-0.5, -0.5, 0], [0, 0, 0], [0.5, -0.5, 0]]
 ORIENT_TEETH = ['3', '5', '12', '14']
 RADIUS = 0.7
 
+# make_butterfly negates the adjust of the two posterior corners, so that a
+# positive value pushes both ends of the patch outwards and grows it. Keep the
+# same convention here : these signs must track the CLI.
+ADJUST_SIGN = {
+    'anterior_left': 1.0,
+    'anterior_right': 1.0,
+    'posterior_left': -1.0,
+    'posterior_right': -1.0,
+}
+
 # In the canonical frame : +x is the side of teeth 12/14, +y is anterior,
 # z is the occlusal axis (sign resolved per scan in prepare).
 CELL = 1.0          # height map resolution, in mm
@@ -204,16 +214,18 @@ class ButterflyPreview:
     def landmarks(self, ratios, adjusts):
         '''
         The four corners of the patch, in the canonical frame. Reproduces
-        butterflyPatch : the ratio is halved, then used to interpolate between
-        the tooth centroid and the centroid of the tooth facing it, and the
-        adjust shifts the centroid along the antero-posterior axis.
+        butterflyPatch : the ratio is mapped through (1 - r) / 2, then used to
+        interpolate between the tooth centroid and the centroid of the tooth
+        facing it, and the adjust shifts the centroid along the antero-posterior
+        axis with the sign of its corner. A ratio of 1 therefore lands on the
+        tooth itself, at the outer edge of the arch, and 0 at mid-arch.
         Keys are 'anterior_left', 'anterior_right', 'posterior_left',
         'posterior_right'.
         '''
         centroids = {}
         for key, tooth in self._teeth.items():
             centroid = np.array(self._centroids[tooth], dtype=np.float64)
-            centroids[key] = centroid + np.array([0.0, float(adjusts[key]), 0.0])
+            centroids[key] = centroid + np.array([0.0, ADJUST_SIGN[key] * float(adjusts[key]), 0.0])
 
         facing = {
             'anterior_left': 'anterior_right',
@@ -224,7 +236,7 @@ class ButterflyPreview:
 
         result = {}
         for key, other in facing.items():
-            ratio = float(ratios[key]) / 2.0
+            ratio = (1.0 - float(ratios[key])) / 2.0
             result[key] = (1 - ratio) * centroids[key] + ratio * centroids[other]
         return result
 

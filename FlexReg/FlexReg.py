@@ -69,6 +69,14 @@ from FlexReg_utils.butterfly_preview import ButterflyPreview
 # larger value in the line edit still works, the knob just saturates.
 ADJUST_RANGE = 5.0
 
+# Side of the joystick pads, in pixels. The whole 0-1 ratio range is spread
+# across the pad, so this is what sets how much a single pixel of mouse travel
+# is worth : roughly 0.016 of ratio at 96 px, 0.009 at 128, 0.006 at 192.
+# Raise it for a coarser hand, and remember it costs panel width four times
+# over per scan. Ctrl while dragging is the finer tool -- it divides the
+# sensitivity by five without costing a pixel.
+PAD_SIZE = 128
+
 
 
 def check_lib_installed(lib_name, required_version=None):
@@ -1347,15 +1355,16 @@ class JoystickPad(QWidget):
     setValues(), and any change calls onChanged.
     '''
 
-    SIDE = 96
     GUTTER = 11      # room above and below the pad, for the ANT / POST labels
     OUT_GUTTER = 15  # room for the OUT marker, on the outward side only
     KNOB = 7
+    FINE = 0.2       # sensitivity multiplier while Ctrl is held
 
-    def __init__(self, outward_right=True, adjust_range=5.0, parent=None):
+    def __init__(self, outward_right=True, adjust_range=5.0, size=None, parent=None):
         QWidget.__init__(self, parent)
         self.outward_right = outward_right
         self.adjust_range = adjust_range
+        self.SIDE = int(size or PAD_SIZE)
         self.ratio = 0.0
         self.adjust = 0.0
         self.default_ratio = 0.0
@@ -1363,6 +1372,7 @@ class JoystickPad(QWidget):
         self.onChanged = None
         self.enabled_preview = True
         self._dragging = False
+        self._anchor = None
 
         self.setFixedSize(self.SIDE, self.SIDE)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -1370,6 +1380,7 @@ class JoystickPad(QWidget):
             'Drag to move this corner of the patch.\n'
             'Horizontal : ratio (outwards / inwards on the arch)\n'
             'Vertical : adjust (anterior / posterior, in mm)\n'
+            'Ctrl+drag : five times finer\n'
             'Wheel : fine adjust step, Shift+wheel : fine ratio step\n'
             'Arrow keys : one fine step, double-click : back to the default'
         )
@@ -1427,18 +1438,38 @@ class JoystickPad(QWidget):
 
     # ---- interaction ----------------------------------------------------
 
+    def _isFine(self):
+        return bool(slicer.app.keyboardModifiers() & Qt.ControlModifier)
+
     def mousePressEvent(self, event):
         self._dragging = True
+        self._anchor = None
         x, y = _eventPosition(event)
+        if self._isFine():
+            # Fine drag : hold the knob where it is and scale the motion down,
+            # rather than jumping it under the cursor.
+            self._anchor = ((x, y), self._knobPosition())
+            return
         self.setValues(*self._valuesAt(x, y), notify=True)
 
     def mouseMoveEvent(self, event):
-        if self._dragging:
-            x, y = _eventPosition(event)
-            self.setValues(*self._valuesAt(x, y), notify=True)
+        if not self._dragging:
+            return
+        x, y = _eventPosition(event)
+        if self._isFine():
+            if self._anchor is None:
+                # Ctrl pressed mid-drag : rebase so the knob does not jump.
+                self._anchor = ((x, y), self._knobPosition())
+            (anchor_x, anchor_y), (knob_x, knob_y) = self._anchor
+            x = knob_x + (x - anchor_x) * self.FINE
+            y = knob_y + (y - anchor_y) * self.FINE
+        else:
+            self._anchor = None
+        self.setValues(*self._valuesAt(x, y), notify=True)
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
+        self._anchor = None
 
     def setDefaults(self, ratio, adjust):
         '''Where a double-click sends the knob back to.'''

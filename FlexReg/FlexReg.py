@@ -34,7 +34,7 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
 
 import vtk
-from vtk.util.numpy_support import vtk_to_numpy
+from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 
 import subprocess
 
@@ -63,6 +63,11 @@ def _get_installed_version(lib_name):
 
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 from FlexReg_utils.orientation import orientation_f
+from FlexReg_utils.butterfly_preview import ButterflyPreview
+
+# Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
+# larger value in the line edit still works, the knob just saturates.
+ADJUST_RANGE = 5.0
 
 
 
@@ -764,6 +769,11 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         self.isCondaSetUp = False
         self.conda = self.init_conda()
         self.name_env = "shapeaxi"
+        # ALI, AREG and ASO share this environment and build it on 3.9. It has
+        # to stay there : shapeaxi 1.0.10 pins grpcio==1.51.1, whose newest
+        # wheels are cp311, so anything newer falls back to a source build that
+        # fails on modern setuptools.
+        self.python_version = "3.9"
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -864,7 +874,7 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         self.process.start()
         
     def install_shapeaxi(self):
-        self.run_conda_command(target=self.conda.condaCreateEnv, command=(self.name_env,"3.12",["ocnn==2.2.1","shapeaxi==1.0.10"],)) #run in parallel to not block slicer
+        self.run_conda_command(target=self.conda.condaCreateEnv, command=(self.name_env,self.python_version,["ocnn==2.2.1","shapeaxi==1.0.10"],)) #run in parallel to not block slicer
         
     def check_if_pytorch3d(self):
         conda_exe = self.conda.getCondaExecutable()
@@ -872,17 +882,33 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         return self.conda.condaRunCommand(command)
     
     def install_pytorch3d(self):
+        '''
+        Start the pytorch3d installation in the conda environment.
+        Returns whether it could be started : the caller waits on
+        self.process, so it must not wait on a thread that never ran.
+        '''
         result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
         if not result_pythonpath :
             self.give_pythonpath_windows()
             result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
-        
-        if result_pythonpath : 
-            conda_exe = self.conda.getCondaExecutable()
-            path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
-            command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"FlexReg_utils.install_pytorch",path_pip]
+
+        if not result_pythonpath :
+            # Nothing to run. Falling through to run_conda_command here used to
+            # raise an UnboundLocalError on 'command', which hid the real
+            # failure -- usually that the environment cannot import the module.
+            logger.error(
+                f"The conda environment '{self.name_env}' cannot import "
+                "FlexReg_utils.install_pytorch. Run that import by hand in the "
+                "environment to see why."
+            )
+            return False
+
+        conda_exe = self.conda.getCondaExecutable()
+        path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
+        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"FlexReg_utils.install_pytorch",path_pip]
 
         self.run_conda_command(target=self.conda.condaRunCommand, command=(command,))
+        return True
         
     def setup_cli_command(self):
         args = self.find_cli_parameters()
@@ -1280,6 +1306,247 @@ class Reg:
         self.T2 = T2
 
 
+def _eventPosition(event):
+    '''
+    Read a mouse position out of a Qt event. PythonQt exposes some getters as
+    plain attributes and others as methods depending on the build, so try both
+    rather than betting on one.
+    '''
+    position = event.pos
+    if callable(position):
+        position = position()
+    x = position.x() if callable(position.x) else position.x
+    y = position.y() if callable(position.y) else position.y
+    return float(x), float(y)
+
+
+def _wheelSteps(event):
+    '''Number of notches scrolled, positive upwards.'''
+    try:
+        delta = event.angleDelta
+        delta = delta() if callable(delta) else delta
+        value = delta.y() if callable(delta.y) else delta.y
+    except AttributeError:
+        value = event.delta
+        if callable(value):
+            value = value()
+    return float(value) / 120.0
+
+
+class JoystickPad(QWidget):
+    '''
+    Absolute 2D pad driving one corner of the butterfly patch. The knob
+    position *is* the state : horizontal is the medio-lateral ratio, vertical
+    the antero-posterior adjust in mm. Because a ratio of 0 puts the landmark
+    on the tooth itself -- the outer edge of the arch -- and 1 pulls it to
+    mid-arch, the horizontal axis is flipped for the corners sitting on the
+    other side of the arch, so that pushing the knob outwards always moves the
+    point outwards.
+
+    Dragging, the wheel, the arrow keys and the line edits all funnel into
+    setValues(), and any change calls onChanged.
+    '''
+
+    SIDE = 96
+    GUTTER = 11      # room above and below the pad, for the ANT / POST labels
+    OUT_GUTTER = 15  # room for the OUT marker, on the outward side only
+    KNOB = 7
+
+    def __init__(self, outward_right=True, adjust_range=5.0, parent=None):
+        QWidget.__init__(self, parent)
+        self.outward_right = outward_right
+        self.adjust_range = adjust_range
+        self.ratio = 0.0
+        self.adjust = 0.0
+        self.default_ratio = 0.0
+        self.default_adjust = 0.0
+        self.onChanged = None
+        self.enabled_preview = True
+        self._dragging = False
+
+        self.setFixedSize(self.SIDE, self.SIDE)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setToolTip(
+            'Drag to move this corner of the patch.\n'
+            'Horizontal : ratio (outwards / inwards on the arch)\n'
+            'Vertical : adjust (anterior / posterior, in mm)\n'
+            'Wheel : fine adjust step, Shift+wheel : fine ratio step\n'
+            'Arrow keys : one fine step, double-click : back to the default'
+        )
+
+    # ---- values ---------------------------------------------------------
+
+    def setValues(self, ratio, adjust, notify=False):
+        ratio = min(max(float(ratio), 0.0), 1.0)
+        adjust = min(max(float(adjust), -self.adjust_range), self.adjust_range)
+        if ratio == self.ratio and adjust == self.adjust:
+            return
+        self.ratio = ratio
+        self.adjust = adjust
+        self.update()
+        if notify and self.onChanged:
+            self.onChanged(self)
+
+    def setOutwardRight(self, outward_right):
+        if bool(outward_right) != self.outward_right:
+            self.outward_right = bool(outward_right)
+            self.update()
+
+    def setPreviewEnabled(self, enabled):
+        '''Greys the pad out when the scan cannot be previewed.'''
+        self.enabled_preview = bool(enabled)
+        self.update()
+
+    # ---- geometry -------------------------------------------------------
+
+    def _box(self):
+        '''The pad itself. Labels sit outside it, the knob never leaves it.'''
+        left = 0 if self.outward_right else self.OUT_GUTTER
+        return left, self.GUTTER, self.SIDE - self.OUT_GUTTER, self.SIDE - 2 * self.GUTTER
+
+    def _area(self):
+        '''Where the centre of the knob is allowed to travel.'''
+        left, top, width, height = self._box()
+        inset = self.KNOB + 2
+        return left + inset, top + inset, width - 2 * inset, height - 2 * inset
+
+    def _knobPosition(self):
+        left, top, width, height = self._area()
+        fraction = 1.0 - self.ratio if self.outward_right else self.ratio
+        x = left + fraction * width
+        y = top + (1.0 - (self.adjust + self.adjust_range) / (2 * self.adjust_range)) * height
+        return x, y
+
+    def _valuesAt(self, x, y):
+        left, top, width, height = self._area()
+        fraction = min(max((x - left) / float(width), 0.0), 1.0)
+        ratio = 1.0 - fraction if self.outward_right else fraction
+        vertical = min(max((y - top) / float(height), 0.0), 1.0)
+        adjust = (1.0 - vertical) * 2 * self.adjust_range - self.adjust_range
+        return ratio, adjust
+
+    # ---- interaction ----------------------------------------------------
+
+    def mousePressEvent(self, event):
+        self._dragging = True
+        x, y = _eventPosition(event)
+        self.setValues(*self._valuesAt(x, y), notify=True)
+
+    def mouseMoveEvent(self, event):
+        if self._dragging:
+            x, y = _eventPosition(event)
+            self.setValues(*self._valuesAt(x, y), notify=True)
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+
+    def setDefaults(self, ratio, adjust):
+        '''Where a double-click sends the knob back to.'''
+        self.default_ratio = float(ratio)
+        self.default_adjust = float(adjust)
+
+    def mouseDoubleClickEvent(self, event):
+        self.setValues(self.default_ratio, self.default_adjust, notify=True)
+
+    def wheelEvent(self, event):
+        '''
+        The wheel is a vertical gesture, so it drives the vertical axis :
+        scrolling up walks the knob up, towards anterior. Shift swaps it onto
+        the other axis, where up means outwards.
+        '''
+        steps = _wheelSteps(event)
+        if slicer.app.keyboardModifiers() & Qt.ShiftModifier:
+            outward = -1.0 if self.outward_right else 1.0
+            self.setValues(self.ratio + 0.01 * steps * outward, self.adjust, notify=True)
+        else:
+            self.setValues(self.ratio, self.adjust + 0.1 * steps, notify=True)
+
+    def keyPressEvent(self, event):
+        key = event.key
+        if callable(key):
+            key = key()
+        horizontal = 1.0 if self.outward_right else -1.0
+        if key == Qt.Key_Left:
+            self.setValues(self.ratio + 0.01 * horizontal, self.adjust, notify=True)
+        elif key == Qt.Key_Right:
+            self.setValues(self.ratio - 0.01 * horizontal, self.adjust, notify=True)
+        elif key == Qt.Key_Up:
+            self.setValues(self.ratio, self.adjust + 0.1, notify=True)
+        elif key == Qt.Key_Down:
+            self.setValues(self.ratio, self.adjust - 0.1, notify=True)
+
+    # ---- painting -------------------------------------------------------
+
+    def _palette(self):
+        # Same test applyDarkModeStyles uses, so the pad follows the rest of
+        # the panel : the stylesheets it applies do not touch the palette.
+        window = qt.QApplication.instance().palette().color(qt.QPalette.Window)
+        if window.lightness() < 128:
+            return {
+                'background': qt.QColor('#2b3138'),
+                'border': qt.QColor('#4a5560'),
+                'grid': qt.QColor('#3d454e'),
+                'text': qt.QColor('#8b97a3'),
+                'label': qt.QColor('#b6c2ce'),
+                'knob': qt.QColor('#4ba3ff'),
+                'trail': qt.QColor('#3f5871'),
+            }
+        return {
+            'background': qt.QColor('#f4f7fa'),
+            'border': qt.QColor('#d3dce5'),
+            'grid': qt.QColor('#e3eaf1'),
+            'text': qt.QColor('#93a2b1'),
+            'label': qt.QColor('#6b7c8d'),
+            'knob': qt.QColor('#3498db'),
+            'trail': qt.QColor('#bcd7ef'),
+        }
+
+    def paintEvent(self, event):
+        colors = self._palette()
+        box_left, box_top, box_width, box_height = self._box()
+        centre_x = box_left + box_width / 2.0
+        centre_y = box_top + box_height / 2.0
+
+        painter = qt.QPainter(self)
+        painter.setRenderHint(qt.QPainter.Antialiasing)
+
+        painter.setPen(qt.QPen(colors['border'], 1))
+        painter.setBrush(qt.QBrush(colors['background']))
+        painter.drawRoundedRect(box_left, box_top, box_width - 1, box_height - 1, 6, 6)
+
+        painter.setPen(qt.QPen(colors['grid'], 1))
+        painter.drawLine(int(box_left + 4), int(centre_y), int(box_left + box_width - 4), int(centre_y))
+        painter.drawLine(int(centre_x), int(box_top + 4), int(centre_x), int(box_top + box_height - 4))
+
+        painter.setFont(qt.QFont('', 6))
+        painter.setPen(qt.QPen(colors['text'], 1))
+        painter.drawText(qt.QRect(box_left, 0, box_width, self.GUTTER), Qt.AlignCenter, 'ANT')
+        painter.drawText(qt.QRect(box_left, self.SIDE - self.GUTTER, box_width, self.GUTTER),
+                         Qt.AlignCenter, 'POST')
+
+        # Which way the arch faces outwards. A ratio of 0 sits on the tooth
+        # itself, so the knob travels towards OUT as the value goes down.
+        painter.setPen(qt.QPen(colors['label'], 1))
+        gutter = (qt.QRect(self.SIDE - self.OUT_GUTTER, 0, self.OUT_GUTTER, self.SIDE)
+                  if self.outward_right else qt.QRect(0, 0, self.OUT_GUTTER, self.SIDE))
+        painter.drawText(gutter, Qt.AlignCenter, 'O\nU\nT')
+
+        if not self.enabled_preview:
+            painter.setPen(qt.QPen(colors['text'], 1))
+            painter.drawText(qt.QRect(box_left, box_top, box_width, box_height), Qt.AlignCenter, 'n/a')
+            painter.end()
+            return
+
+        knob_x, knob_y = self._knobPosition()
+        painter.setPen(qt.QPen(colors['trail'], 2))
+        painter.drawLine(int(centre_x), int(centre_y), int(knob_x), int(knob_y))
+
+        painter.setPen(qt.QPen(colors['knob'].darker(120), 1))
+        painter.setBrush(qt.QBrush(colors['knob']))
+        painter.drawEllipse(int(knob_x - self.KNOB), int(knob_y - self.KNOB), 2 * self.KNOB, 2 * self.KNOB)
+        painter.end()
+
+
 # Class with widget
 class WidgetParameter:
     def __init__(self,layout,parent,title) -> None:
@@ -1292,6 +1559,20 @@ class WidgetParameter:
         self.matrix = None
         self.title=title
         self.camera = True
+
+        # Live preview of the butterfly patch. The contour and an approximate
+        # fill are recomputed on every joystick move (a few ms); the real patch
+        # still comes from the CLI when Update is pressed.
+        self.pads = {}
+        self.fields = {}
+        self.preview = ButterflyPreview()
+        self.preview_node = None
+        self.preview_dirty = False
+        self._syncing = False
+        self.preview_timer = QTimer()
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.timeout.connect(self.refreshPreview)
+
         self.main_widget = QWidget()
         layout.addWidget(self.main_widget)
         self.maint_layout = QVBoxLayout(self.main_widget)
@@ -1366,26 +1647,31 @@ class WidgetParameter:
         self.layout_widget.addLayout(self.layout_right_bot,1,1)
 
 
-        (self.lineedit_teeth_left_top , 
+        # The 2x2 grid mirrors the arch : left column is the side of teeth 5/3,
+        # right column the side of teeth 12/14, top row anterior.
+        (self.lineedit_teeth_left_top ,
          self.lineedit_ratio_left_top ,
-            self.lineedit_adjust_left_top) = self.displayParamater(self.layout_left_top,1,[5,0.3,0])
-        
-        (self.lineedit_teeth_right_top , 
-         self.lineedit_ratio_right_top ,
-            self.lineedit_adjust_right_top) = self.displayParamater(self.layout_right_top,2,[12,0.3,0])
-        
-        (self.lineedit_teeth_left_bot , 
-         self.lineedit_ratio_left_bot ,
-            self.lineedit_adjust_left_bot) = self.displayParamater(self.layout_left_bot,3,[3,0.33,0])
+            self.lineedit_adjust_left_top) = self.displayParamater(self.layout_left_top,1,[5,0.3,0],'anterior_left',False)
 
-        (self.lineedit_teeth_right_bot , 
+        (self.lineedit_teeth_right_top ,
+         self.lineedit_ratio_right_top ,
+            self.lineedit_adjust_right_top) = self.displayParamater(self.layout_right_top,2,[12,0.3,0],'anterior_right',True)
+
+        (self.lineedit_teeth_left_bot ,
+         self.lineedit_ratio_left_bot ,
+            self.lineedit_adjust_left_bot) = self.displayParamater(self.layout_left_bot,3,[3,0.33,0],'posterior_left',False)
+
+        (self.lineedit_teeth_right_bot ,
          self.lineedit_ratio_right_bot ,
-            self.lineedit_adjust_right_bot) = self.displayParamater(self.layout_right_bot,4,[14,0.33,0])
-        
-       
+            self.lineedit_adjust_right_bot) = self.displayParamater(self.layout_right_bot,4,[14,0.33,0],'posterior_right',True)
+
+        self.label_preview = QLabel('')
+        self.label_preview.setVisible(False)
+        self.layout_widget.addWidget(self.label_preview,2,0,1,2)
+
         self.button_update = QPushButton('Update')
         self.button_update.pressed.connect(self.processPatch)
-        self.layout_widget.addWidget(self.button_update,2,0,1,2)
+        self.layout_widget.addWidget(self.button_update,3,0,1,2)
 
        
 
@@ -1481,7 +1767,10 @@ class WidgetParameter:
         # Check if the new page is page 0 (index 0) and called hideLandmark if its the case.
         if index == 0:
             self.hideLandmark()
+            self.schedulePreview()
         else :
+            # The joystick preview has no meaning in the drawn-curve mode.
+            self.clearPreview()
             self.viewLandmark()
 
     def onCheckboxStateChanged(self):
@@ -1665,7 +1954,12 @@ class WidgetParameter:
 
 
 
-    def displayParamater(self,layout,number,parameter):
+    def displayParamater(self,layout,number,parameter,corner,outward_right):
+        '''
+        One corner of the patch : a joystick pad plus the values it drives.
+        The pad and the line edits stay in sync in both directions, so the
+        numbers remain readable and typeable.
+        '''
         label_teeth= QLabel(f'Teeth {number}')
         lineedit_teeth= QLineEdit(str(parameter[0]))
         label_ratio= QLabel('Ratio (R-L)')
@@ -1673,14 +1967,212 @@ class WidgetParameter:
         label_adjust = QLabel('Adjust (A-P)')
         lineedit_adjust = QLineEdit(str(parameter[2]))
 
-        layout.addWidget(label_teeth,0,0)
-        layout.addWidget(lineedit_teeth,0,1)
-        layout.addWidget(label_ratio,1,0)
-        layout.addWidget(lineedit_ratio,1,1)
-        layout.addWidget(label_adjust,2,0)
-        layout.addWidget(lineedit_adjust,2,1)
+        for lineedit in (lineedit_teeth, lineedit_ratio, lineedit_adjust):
+            lineedit.setMaximumWidth(64)
+
+        pad = JoystickPad(outward_right=outward_right, adjust_range=ADJUST_RANGE)
+        pad.setValues(float(parameter[1]), float(parameter[2]))
+        pad.setDefaults(float(parameter[1]), float(parameter[2]))
+        pad.onChanged = partial(self.onPadMoved, corner)
+
+        layout.addWidget(pad,0,0,3,1)
+        layout.addWidget(label_teeth,0,1)
+        layout.addWidget(lineedit_teeth,0,2)
+        layout.addWidget(label_ratio,1,1)
+        layout.addWidget(lineedit_ratio,1,2)
+        layout.addWidget(label_adjust,2,1)
+        layout.addWidget(lineedit_adjust,2,2)
+
+        self.pads[corner] = pad
+        self.fields[corner] = (lineedit_teeth, lineedit_ratio, lineedit_adjust)
+
+        lineedit_ratio.textChanged.connect(partial(self.onFieldEdited, corner))
+        lineedit_adjust.textChanged.connect(partial(self.onFieldEdited, corner))
+        lineedit_teeth.textChanged.connect(partial(self.onTeethEdited, corner))
 
         return lineedit_teeth, lineedit_ratio, lineedit_adjust
+
+
+    # ---- live preview ---------------------------------------------------
+
+    def onPadMoved(self, corner, pad):
+        '''A joystick moved : mirror it into the fields and repaint the patch.'''
+        if self._syncing:
+            return
+        self._syncing = True
+        try:
+            _, lineedit_ratio, lineedit_adjust = self.fields[corner]
+            lineedit_ratio.setText(f'{pad.ratio:.3f}')
+            lineedit_adjust.setText(f'{pad.adjust:.2f}')
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onFieldEdited(self, corner, _text=None):
+        '''A value was typed : mirror it into the joystick.'''
+        if self._syncing:
+            return
+        _, lineedit_ratio, lineedit_adjust = self.fields[corner]
+        ratio = self.readFloat(lineedit_ratio)
+        adjust = self.readFloat(lineedit_adjust)
+        if ratio is None or adjust is None:
+            return  # half-typed number, wait for the rest
+        self._syncing = True
+        try:
+            self.pads[corner].setValues(ratio, adjust)
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onTeethEdited(self, corner, _text=None):
+        '''A different tooth invalidates the cached centroids.'''
+        self.preview.clear()
+        self.markPreviewDirty()
+
+    def readFloat(self, lineedit):
+        try:
+            return float(lineedit.text)
+        except ValueError:
+            return None
+
+    def teethMapping(self):
+        '''Corner -> tooth number, in the order butterflyPatch expects.'''
+        try:
+            return {
+                'anterior_left': int(self.lineedit_teeth_left_top.text),
+                'anterior_right': int(self.lineedit_teeth_right_top.text),
+                'posterior_left': int(self.lineedit_teeth_left_bot.text),
+                'posterior_right': int(self.lineedit_teeth_right_bot.text),
+            }
+        except ValueError:
+            return None
+
+    def markPreviewDirty(self):
+        self.preview_dirty = True
+        self.button_update.setText('Update   (preview not applied)')
+        self.schedulePreview()
+
+    def schedulePreview(self):
+        '''
+        Coalesce the redraws : a drag fires far more events than the preview
+        needs, and one pending pass is always enough.
+        '''
+        if not self.preview_timer.isActive():
+            self.preview_timer.start(15)
+
+    def refreshPreview(self):
+        if self.surf is None or self.stackedWidget.currentIndex != 0:
+            return
+
+        teeth = self.teethMapping()
+        if teeth is None:
+            return
+
+        if not self.preview.matches(teeth):
+            if not self.preview.prepare(self.surf.GetPolyData(), teeth):
+                self.setPreviewAvailable(False, self.preview.error)
+                return
+            self.setPreviewAvailable(True)
+            self.alignPads()
+
+        ratios = {corner: pad.ratio for corner, pad in self.pads.items()}
+        adjusts = {corner: pad.adjust for corner, pad in self.pads.items()}
+
+        try:
+            contour, labels, _ = self.preview.compute(ratios, adjusts, with_fill=self.preview_dirty)
+        except Exception as error:
+            logging.warning(f'FlexReg : preview failed ({error})')
+            return
+
+        self.showContour(contour)
+        if self.preview_dirty:
+            self.showPreviewFill(labels)
+
+    def alignPads(self):
+        '''
+        Point each pad's OUT side at the real exterior of the arch, read from
+        the centroids rather than assumed from the grid position -- the teeth
+        numbers are editable.
+        '''
+        for corner, centroid in self.preview.centroids().items():
+            if corner in self.pads:
+                self.pads[corner].setOutwardRight(centroid[0] > 0)
+
+    def setPreviewAvailable(self, available, message=None):
+        for pad in self.pads.values():
+            pad.setPreviewEnabled(available)
+        self.label_preview.setVisible(not available)
+        if not available:
+            self.label_preview.setText(f'No live preview : {message}')
+
+    def previewViewNode(self):
+        viewNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLViewNode')
+        viewNodes.UnRegister(None)
+        if viewNodes.GetNumberOfItems() >= self.title:
+            return viewNodes.GetItemAsObject(self.title - 1)
+        return None
+
+    def showContour(self, polydata):
+        if self.preview_node is None:
+            node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', f'FlexReg preview {self.title}')
+            node.SetSaveWithScene(False)
+            node.CreateDefaultDisplayNodes()
+
+            display = node.GetDisplayNode()
+            display.SetColor(1.0, 0.78, 0.05)
+            display.SetLineWidth(3)
+            display.SetScalarVisibility(False)
+            display.SetLighting(False)
+            display.SetSelectable(False)
+
+            view = self.previewViewNode()
+            if view:
+                display.SetViewNodeIDs([view.GetID()])
+
+            self.preview_node = node
+
+        self.preview_node.SetAndObservePolyData(polydata)
+
+    def showPreviewFill(self, labels):
+        '''
+        Paint the approximate patch on the scan itself, under a name of its
+        own so the real Butterfly array is left untouched.
+        '''
+        polydata = self.surf.GetPolyData()
+        array = numpy_to_vtk(labels, deep=1)
+        array.SetName('ButterflyPreview')
+        polydata.GetPointData().AddArray(array)
+
+        display = self.surf.GetModelDisplayNode()
+        if display:
+            display.SetActiveScalarName('ButterflyPreview')
+            display.SetScalarRangeFlag(slicer.vtkMRMLDisplayNode.UseManualScalarRange)
+            display.SetScalarRange(0.0, 1.0)
+            display.SetScalarVisibility(True)
+        polydata.Modified()
+
+    def clearPreviewFill(self):
+        '''Hand the display back to the real patch.'''
+        if self.surf is None:
+            return
+        polydata = self.surf.GetPolyData()
+        if polydata is None:
+            return
+        if polydata.GetPointData().GetArray('ButterflyPreview'):
+            polydata.GetPointData().RemoveArray('ButterflyPreview')
+        display = self.surf.GetModelDisplayNode()
+        if display and polydata.GetPointData().GetArray('Butterfly'):
+            display.SetActiveScalarName('Butterfly')
+
+    def clearPreview(self):
+        self.preview_timer.stop()
+        self.clearPreviewFill()
+        if self.preview_node is not None:
+            slicer.mrmlScene.RemoveNode(self.preview_node)
+            self.preview_node = None
+        self.preview.clear()
+        self.preview_dirty = False
+        self.button_update.setText('Update')
 
 
     def selectFile(self):
@@ -1800,11 +2292,17 @@ class WidgetParameter:
                 if not self.combobox_patch.isVisible():
                     self.displayComboBox(self.surf)
 
+                # Outline the patch the current values describe, without
+                # touching the colours of the patch already stored in the scan.
+                self.preview_dirty = False
+                self.schedulePreview()
+
             else:
                 slicer.util.infoDisplay("Enter a path to a vtk file")
 
 
         else :
+            self.clearPreview()
             viewNode1 = slicer.mrmlScene.GetSingletonNode(str(self.title), "vtkMRMLViewNode")
             modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
             modelNodes.InitTraversal()
@@ -1950,6 +2448,19 @@ class WidgetParameter:
         
         output_command = self.logic.conda.condaRunCommand(["which","dentalmodelseg"],self.logic.name_env).strip()
         clean_output = re.search(r"Result: (.+)", output_command)
+        if clean_output is None:
+            # 'which' found nothing, which means shapeaxi is missing from the
+            # environment. Reading .group(1) off None here reported an
+            # AttributeError instead of the actual problem.
+            logger.error(f"dentalmodelseg not found in '{self.logic.name_env}' : {output_command}")
+            slicer.util.errorDisplay(
+                f"The conda environment '{self.logic.name_env}' does not provide "
+                "'dentalmodelseg', so the scan cannot be segmented automatically.\n\n"
+                "The shapeaxi package is missing from that environment. Delete it "
+                "and let the module rebuild it, or segment the scan beforehand so "
+                "it carries a Universal_ID array."
+            )
+            return False
         dentalmodelseg_path = clean_output.group(1).strip()
         dentalmodelseg_path_clean = dentalmodelseg_path.replace("\\n","")
         
@@ -2098,7 +2609,14 @@ class WidgetParameter:
 
 
         self.label_time.setText(f"Checking if pytorch3d is installed")
-        process = self.logic.install_pytorch3d()
+        if not self.logic.install_pytorch3d():
+            slicer.util.errorDisplay(
+                "The pytorch3d installation could not be started : the conda "
+                f"environment '{self.logic.name_env}' cannot import "
+                "FlexReg_utils.install_pytorch.\n\n"
+                "See the Python console for the underlying import error."
+            )
+            return False
         start_time = time.time()
         previous_time = start_time
         
@@ -2258,6 +2776,11 @@ class WidgetParameter:
             self.timer.stop()
             self.viewScan()
             self.displaySegmentation(self.surf)
+            # The real patch is now on screen : stop overriding it with the
+            # approximate fill, and keep the outline as a reference.
+            self.preview_dirty = False
+            self.button_update.setText('Update')
+            self.schedulePreview()
             if self.add_patch.isChecked():
                 number_to_add = self.addItemsCombobox()
                 self.combobox_patch.addItem(number_to_add)

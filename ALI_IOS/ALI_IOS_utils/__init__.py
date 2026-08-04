@@ -7,6 +7,6 @@ from .model import (
     dic_cam, dic_label, LANDMARKS, LOWER_DENTAL,
     UPPER_DENTAL, TYPE_LM, MODELS_DICT, LABEL_L, LABEL_U
 )
-from .io import GenControlPoint, WriteJson, TradLabel
+from .io import GenControlPoint, WriteJson, TradLabel, TradLabelMG
 from .agent import Agent
 from .mask_renderer import MaskRenderer

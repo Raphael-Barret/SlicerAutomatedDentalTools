@@ -17,6 +17,7 @@ import sys
 import vtk
 import platform
 import argparse
+import numpy as np
 import torch
 import logging
 
@@ -60,15 +61,15 @@ if check_platform()=="WSL":
     from ALI_IOS_utils.render import GenPhongRenderer
     from ALI_IOS_utils.surface import ReadSurf, ScaleSurf, GetSurfProp, RemoveExtraFaces, Upscale
     from ALI_IOS_utils.model import dic_cam, dic_label, MODELS_DICT
-    from ALI_IOS_utils.io import GenControlPoint, WriteJson, TradLabel
+    from ALI_IOS_utils.io import GenControlPoint, WriteJson, TradLabel, TradLabelMG
     from ALI_IOS_utils.agent import Agent
-    
+
 else :
     from ALI_IOS_utils import (
         GenPhongRenderer, ReadSurf, ScaleSurf,
         GetSurfProp, RemoveExtraFaces, Upscale,
         dic_cam, dic_label, MODELS_DICT,
-        GenControlPoint, WriteJson, TradLabel, Agent
+        GenControlPoint, WriteJson, TradLabel, TradLabelMG, Agent
     )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -91,23 +92,31 @@ def main(args):
     
     # Parse arguments
     try:
-        lm_types = args.lm_type.replace("'", "").replace('"', '').split(" ")
-        teeth = [tooth.strip().replace("'", "").replace('"', '') for tooth in args.teeth.split(" ")]
-        
-        if not lm_types or not teeth:
-            logger.error("Landmark types or teeth list is empty")
+        def clean_list(raw):
+            items = [item.strip().replace("'", "").replace('"', '') for item in raw.split(" ")]
+            return [item for item in items if item and item != "None"]
+
+        lm_types = clean_list(args.lm_type)
+        teeth = clean_list(args.teeth)
+        teeth_mg = clean_list(args.teeth_mg)
+
+        if not (lm_types and teeth) and not teeth_mg:
+            logger.error("Nothing to process: give teeth + landmark types and/or MG teeth")
             raise ValueError("Invalid landmark types or teeth list")
-        
+
         landmarks_selected = [tooth + lm_type for tooth in teeth for lm_type in lm_types]
+        # MG points are already named with their output labels (LL6...L0...LR6)
+        landmarks_selected += teeth_mg
         logger.info(f"Processing landmarks: {landmarks_selected}")
     except Exception as e:
         logger.error(f"Error parsing arguments: {e}")
         sys.exit(1)
-    
+
     # Translate labels
     try:
         dic_teeth = TradLabel(teeth)
-        logger.debug(f"Tooth labels translated: {dic_teeth}")
+        dic_teeth_mg = TradLabelMG(teeth_mg)
+        logger.debug(f"Tooth labels translated: {dic_teeth}, MG: {dic_teeth_mg}")
     except Exception as e:
         logger.error(f"Failed to translate tooth labels: {e}")
         sys.exit(1)
@@ -140,14 +149,24 @@ def main(args):
         logger.info(f'Available models: {available_models}')
 
         for model_id in MODELS_DICT.keys():
-            if model_id in available_models:
-                for lmtype in lm_types:
-                    if lmtype in MODELS_DICT[model_id].keys():
-                        if model_id not in models_to_use.keys():
-                            models_to_use[model_id] = available_models[model_id]
+            if model_id not in available_models:
+                continue
+            if model_id == "MG":
+                # The MG model is driven by its own teeth list, not by lm_types
+                if dic_teeth_mg['Lower'] and 'Lower' in available_models[model_id]:
+                    models_to_use[model_id] = available_models[model_id]
+                continue
+            for lmtype in lm_types:
+                if lmtype in MODELS_DICT[model_id].keys():
+                    if model_id not in models_to_use.keys():
+                        models_to_use[model_id] = available_models[model_id]
 
         logger.info(f'Models to use: {models_to_use}')
-        
+
+        if dic_teeth_mg['Lower'] and "MG" not in models_to_use:
+            logger.error("MG teeth selected but no mucogingival model found (expected a 'Lower_MG_*.pth' file in the models directory)")
+            raise RuntimeError("No MG model found")
+
         if not models_to_use:
             logger.error("No suitable models found for the specified landmark types")
             raise RuntimeError("No matching models found")
@@ -201,11 +220,17 @@ def main(args):
         for models_type in models_to_use.keys():
             try:
                 LABEL = dic_label[models_type]
-                sphere_radius = 0.2 if models_type == "O" else 0.3
+                sphere_radius = 0.2 if models_type in ("O", "MG") else 0.3
 
                 logger.debug(f"Processing model type: {models_type}")
-                
-                for jaw, lst_teeth in dic_teeth.items():
+
+                teeth_for_model = dic_teeth_mg if models_type == "MG" else dic_teeth
+                for jaw, lst_teeth in teeth_for_model.items():
+                    if models_type == "MG" and jaw != "Lower":
+                        continue
+                    if not lst_teeth:
+                        continue
+
                     group_data = {}
 
                     try:
@@ -225,7 +250,8 @@ def main(args):
                                     renderer=phong_renderer,
                                     renderer2=mask_renderer,
                                     radius=sphere_radius,
-                                    camera_position=camera_position
+                                    camera_position=camera_position,
+                                    lm_type=models_type
                                 )
 
                                 SURF = ReadSurf(path_vtk)
@@ -241,55 +267,106 @@ def main(args):
                                         images_model, tens_pix_to_face_model = agent.get_view_rasterize(meshe)
                                         tens_pix_to_face_model = tens_pix_to_face_model.permute(1, 0, 4, 2, 3)
 
-                                        net = UNet(
-                                            spatial_dims=2,
-                                            in_channels=4,
-                                            out_channels=4,
-                                            channels=(16, 32, 64, 128, 256, 512),
-                                            strides=(2, 2, 2, 2, 2),
-                                            num_res_units=4
-                                        ).to(DEVICE)
+                                        if models_type == "MG":
+                                            # MG network: 12 channels (3 cameras x RGB+Z) stacked
+                                            # in a single input, 3 output classes
+                                            net = UNet(
+                                                spatial_dims=2,
+                                                in_channels=12,
+                                                out_channels=3,
+                                                channels=(16, 32, 64, 128, 256, 512),
+                                                strides=(2, 2, 2, 2, 2),
+                                                num_res_units=4
+                                            ).to(DEVICE)
 
-                                        inputs = torch.cat([batch.to(DEVICE) for batch in images_model], dim=0).float()
+                                            b, cam, c, h, w = images_model.shape
+                                            inputs = images_model.reshape(b, cam * c, h, w).to(dtype=torch.float32).to(DEVICE)
+                                        else:
+                                            net = UNet(
+                                                spatial_dims=2,
+                                                in_channels=4,
+                                                out_channels=4,
+                                                channels=(16, 32, 64, 128, 256, 512),
+                                                strides=(2, 2, 2, 2, 2),
+                                                num_res_units=4
+                                            ).to(DEVICE)
+
+                                            inputs = torch.cat([batch.to(DEVICE) for batch in images_model], dim=0).float()
+
                                         net.load_state_dict(torch.load(model, map_location=DEVICE))
                                         images_pred = net(inputs)
 
-                                        post_pred = AsDiscrete(argmax=True, to_onehot=4)
+                                        if models_type != "MG":
+                                            post_pred = AsDiscrete(argmax=True, to_onehot=4)
 
-                                        val_pred = torch.empty((0)).to(DEVICE)
-                                        for image in images_pred:
-                                            val_pred = torch.cat((val_pred, post_pred(image).unsqueeze(0).to(DEVICE)), dim=0)
+                                            val_pred = torch.empty((0)).to(DEVICE)
+                                            for image in images_pred:
+                                                val_pred = torch.cat((val_pred, post_pred(image).unsqueeze(0).to(DEVICE)), dim=0)
 
-                                        pred_data = images_pred.detach().cpu().unsqueeze(0).type(torch.int16)
-                                        pred_data = torch.argmax(pred_data, dim=2).unsqueeze(2)
+                                        if models_type == "MG":
+                                            # argmax on the raw scores, NOT on an int16 cast of them:
+                                            # truncating the logits to integers merges classes that are
+                                            # close and, on a tie, argmax falls back to index 0
+                                            # (background), silently dropping pixels
+                                            logits = images_pred.detach().cpu().float()
+                                            pred_data = torch.argmax(logits, dim=1).unsqueeze(0).unsqueeze(2)
+                                        else:
+                                            pred_data = images_pred.detach().cpu().unsqueeze(0).type(torch.int16)
+                                            pred_data = torch.argmax(pred_data, dim=2).unsqueeze(2)
 
                                         # recover where there is the landmark in the image
                                         index_label_land_r = (pred_data == 1.).nonzero(as_tuple=False)
-                                        index_label_land_g = (pred_data == 2.).nonzero(as_tuple=False)
-                                        index_label_land_b = (pred_data == 3.).nonzero(as_tuple=False)
+
+                                        # Fallback: the landmark class won nowhere, so nothing would be
+                                        # written for this tooth. Keep the pixels where that class is the
+                                        # most likely anyway, so a point is always placed. Confidence is
+                                        # reported and stored in the json, because a forced point is
+                                        # markedly less accurate than a won one.
+                                        forced_conf = None
+                                        if models_type == "MG" and args.force_landmarks and len(index_label_land_r) == 0:
+                                            prob1 = torch.softmax(logits, dim=1)[:, 1]
+                                            k = min(args.force_topk, prob1.numel())
+                                            if k > 0:
+                                                conf, flat_idx = prob1.reshape(-1).topk(k)
+                                                cam, yy, xx = np.unravel_index(flat_idx.numpy(), tuple(prob1.shape))
+                                                index_label_land_r = torch.tensor(
+                                                    [[0, int(c), 0, int(y), int(x)] for c, y, x in zip(cam, yy, xx)])
+                                                forced_conf = float(conf.max())
+                                                logger.info(f"FORCED landmark for label {label} | max confidence {forced_conf:.3f}")
 
                                         def collect_faces(index_list):
                                             return [tens_pix_to_face_model[idx[0], idx[1], idx[2], idx[3], idx[4]] for idx in index_list]
 
                                         # recover the face in my mesh
                                         num_faces_r = collect_faces(index_label_land_r)
-                                        num_faces_g = collect_faces(index_label_land_g)
-                                        num_faces_b = collect_faces(index_label_land_b)
-
-                                        last_num_faces_r = RemoveExtraFaces(F, num_faces_r, RI, int(label))
-                                        last_num_faces_g = RemoveExtraFaces(F, num_faces_g, RI, int(label))
-                                        last_num_faces_b = RemoveExtraFaces(F, num_faces_b, RI, int(label))
 
                                         dico_rgb = {}
-                                        if models_type == "O":
-                                            logger.debug(f"Processing Occlusal model, label: {LABEL[str(label)]}")
-                                            dico_rgb[LABEL[str(label)][MODELS_DICT['O']['O']]] = last_num_faces_r
-                                            dico_rgb[LABEL[str(label)][MODELS_DICT['O']['MB']]] = last_num_faces_g
-                                            dico_rgb[LABEL[str(label)][MODELS_DICT['O']['DB']]] = last_num_faces_b
-
+                                        if models_type == "MG":
+                                            # The MG landmark lies on the gingiva, not on the tooth
+                                            # crown: keep every rendered face instead of filtering by
+                                            # the tooth region id (RemoveExtraFaces would drop them all)
+                                            last_num_faces_r = [face for face in num_faces_r if int(face.item()) >= 0]
+                                            dico_rgb[LABEL[str(label)][MODELS_DICT['MG']['MG']]] = last_num_faces_r
                                         else:
-                                            dico_rgb[LABEL[str(label)][MODELS_DICT['C']['CL']]] = last_num_faces_r
-                                            dico_rgb[LABEL[str(label)][MODELS_DICT['C']['CB']]] = last_num_faces_g
+                                            index_label_land_g = (pred_data == 2.).nonzero(as_tuple=False)
+                                            index_label_land_b = (pred_data == 3.).nonzero(as_tuple=False)
+
+                                            num_faces_g = collect_faces(index_label_land_g)
+                                            num_faces_b = collect_faces(index_label_land_b)
+
+                                            last_num_faces_r = RemoveExtraFaces(F, num_faces_r, RI, int(label))
+                                            last_num_faces_g = RemoveExtraFaces(F, num_faces_g, RI, int(label))
+                                            last_num_faces_b = RemoveExtraFaces(F, num_faces_b, RI, int(label))
+
+                                            if models_type == "O":
+                                                logger.debug(f"Processing Occlusal model, label: {LABEL[str(label)]}")
+                                                dico_rgb[LABEL[str(label)][MODELS_DICT['O']['O']]] = last_num_faces_r
+                                                dico_rgb[LABEL[str(label)][MODELS_DICT['O']['MB']]] = last_num_faces_g
+                                                dico_rgb[LABEL[str(label)][MODELS_DICT['O']['DB']]] = last_num_faces_b
+
+                                            else:
+                                                dico_rgb[LABEL[str(label)][MODELS_DICT['C']['CL']]] = last_num_faces_r
+                                                dico_rgb[LABEL[str(label)][MODELS_DICT['C']['CB']]] = last_num_faces_g
 
                                         locator = vtk.vtkOctreePointLocator()
                                         locator.SetDataSet(surf_unit)
@@ -300,14 +377,36 @@ def main(args):
                                             try:
                                                 all_verts = [int(F[0][int(face.item())][i].item()) for face in face_ids for i in range(3)]
                                                 if all_verts:
-                                                    vert_coord = sum(V[0][v] for v in all_verts)
-                                                    landmark_pos = vert_coord / len(all_verts)
+                                                    if models_type == "MG":
+                                                        # Tensor mean, matching the MG reference implementation
+                                                        # (sequential summation rounds differently in float32)
+                                                        landmark_pos = V[0][all_verts].mean(dim=0)
+                                                    else:
+                                                        vert_coord = sum(V[0][v] for v in all_verts)
+                                                        landmark_pos = vert_coord / len(all_verts)
                                                     pid = locator.FindClosestPoint(landmark_pos.cpu().numpy())
                                                     closest_pos = torch.tensor(surf_unit.GetPoint(pid))
                                                     upscale_pos = Upscale(closest_pos, mean_arr, scale_factor)
                                                     final = upscale_pos.detach().cpu().numpy()
-                                                    
-                                                    group_data[land_name] = {"x": final[0], "y": final[1], "z": final[2]}
+
+                                                    entry = {"x": final[0], "y": final[1], "z": final[2]}
+                                                    if forced_conf is not None:
+                                                        # Flag it in the json: a forced point needs a clinical review
+                                                        entry["desc"] = f"forced (confidence {forced_conf:.3f})"
+                                                    group_data[land_name] = entry
+                                                elif models_type == "MG" and args.force_landmarks:
+                                                    # Last resort: not one predicted pixel landed on the mesh.
+                                                    # Anchor the point on the tooth itself, lowered toward the
+                                                    # gum by the offset the cameras already aim at (0.2 in
+                                                    # unit-sphere space), then snapped to the surface.
+                                                    anchor = agent.positions.view(-1, 3)[0].clone()
+                                                    anchor[2] -= 0.2
+                                                    pid = locator.FindClosestPoint(anchor.detach().cpu().numpy())
+                                                    pos = Upscale(torch.tensor(surf_unit.GetPoint(pid)), mean_arr, scale_factor).detach().cpu().numpy()
+                                                    group_data[land_name] = {
+                                                        "x": pos[0], "y": pos[1], "z": pos[2],
+                                                        "desc": "fallback (nothing predicted on the mesh)"}
+                                                    logger.info(f"FALLBACK landmark for label {label} anchored on the tooth")
                                                 else:
                                                     logger.warning(f"No vertices found for landmark {land_name}")
                                             except Exception as e:
@@ -358,11 +457,21 @@ if __name__ == "__main__":
         parser.add_argument("dir_models", type=str, help="Directory containing trained models")
         parser.add_argument("lm_type", type=str, help="Type of landmarks to identify")
         parser.add_argument("teeth", type=str, help="Teeth to process")
+        parser.add_argument("teeth_mg", type=str, help="Lower teeth for mucogingival (MG) landmarks, 'None' to disable")
         parser.add_argument("output_dir", type=str, help="Output directory for predictions")
         parser.add_argument("image_size", default="224", type=str, help="Image size for neural network")
         parser.add_argument("blur_radius", default="0", type=str, help="Blur radius for rendering")
         parser.add_argument("faces_per_pixel", default="1", type=str, help="Faces per pixel in rasterization")
         parser.add_argument("log_path", type=str, help="Path to log file")
+        parser.add_argument("--force_landmarks", dest="force_landmarks", action="store_true", default=True,
+                            help="always place an MG point, even when the landmark class wins no pixel: "
+                                 "the most likely pixels for that class are used instead. Forced points "
+                                 "are ~5 mm off instead of ~1.2 mm and are marked 'forced' in the json "
+                                 "description. Use --no-force_landmarks to leave the landmark out instead")
+        parser.add_argument("--no-force_landmarks", dest="force_landmarks", action="store_false",
+                            help="leave an MG landmark out when the network predicts nothing")
+        parser.add_argument("--force_topk", type=int, default=50,
+                            help="number of most likely pixels averaged when an MG landmark is forced")
 
         args = parser.parse_args()
         

@@ -42,7 +42,7 @@ def GenControlPoint(group_data, selected_lm):
                     lm_lst.append({
                         "id": str(i),
                         "label": label,
-                        "description": "",
+                        "description": data.get("desc", ""),
                         "associatedNodeID": "",
                         "position": [data["x"], data["y"], data["z"]],
                         "orientation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
@@ -122,6 +122,38 @@ def WriteJson(lm_lst, out_path):
     except Exception as e:
         logger.error(f"Error writing JSON file {out_path}: {e}")
         raise
+
+def TradLabelMG(teeth_list):
+    """Translate mucogingival label names to lower universal ids.
+
+    MG labels are centered on the midline: L0 is the midline label
+    (universal id 25) and LL/LR numbering runs distally from it, so the
+    shared FDI mapping of TradLabel does not apply.
+    """
+    mapping = {
+        'LL6': 19, 'LL5': 20, 'LL4': 21, 'LL3': 22, 'LL2': 23, 'LL1': 24,
+        'L0': 25,
+        'LR1': 26, 'LR2': 27, 'LR3': 28, 'LR4': 29, 'LR5': 30, 'LR6': 31
+    }
+
+    if not teeth_list:
+        logger.warning("MG teeth_list is empty")
+        return {'Lower': [], 'Upper': []}
+
+    result = {'Lower': [], 'Upper': []}
+    unknown = []
+    for tooth in teeth_list:
+        if tooth in mapping:
+            result['Lower'].append(mapping[tooth])
+        else:
+            logger.warning(f"Unknown MG label: {tooth}")
+            unknown.append(tooth)
+
+    if unknown:
+        logger.warning(f"Failed to map MG labels: {unknown}")
+
+    logger.info(f"Translated MG labels - Lower: {result['Lower']}")
+    return result
 
 def TradLabel(teeth_list):
     """Translate tooth labels to FDI numbering system with error handling."""

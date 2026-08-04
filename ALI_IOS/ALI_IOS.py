@@ -105,7 +105,7 @@ def main(args):
             raise ValueError("Invalid landmark types or teeth list")
 
         landmarks_selected = [tooth + lm_type for tooth in teeth for lm_type in lm_types]
-        # MG points are already named with their output labels (LL6...L0...LR6)
+        # MG points are already named with their output labels (LL6MG...L0MG...LR6MG)
         landmarks_selected += teeth_mg
         logger.info(f"Processing landmarks: {landmarks_selected}")
     except Exception as e:

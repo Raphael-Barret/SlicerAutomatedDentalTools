@@ -115,10 +115,13 @@ TEETH = {
 }
 
 # Labels eligible for the mucogingival line (MG) model, lower jaw only.
-# MG naming is centered on the midline: L0 is the midline label
-# (universal id 25) and LL/LR numbering runs distally from it.
+# MG naming is centered on the midline: L0MG is the midline label
+# (universal id 25) and LL/LR numbering runs distally from it, so LR1MG
+# sits on tooth 26. Must match MG_OUTPUT_NAME in ALI_IOS_utils/model.py,
+# or TradLabelMG will not recognise what this tab sends.
 MG_TEETH = {
-  'MGL Lower' : ['LL6','LL5','LL4','LL3','LL2','LL1','L0','LR1','LR2','LR3','LR4','LR5','LR6'],
+  'MGL Lower' : ['LL6MG','LL5MG','LL4MG','LL3MG','LL2MG','LL1MG','L0MG',
+                 'LR1MG','LR2MG','LR3MG','LR4MG','LR5MG','LR6MG'],
 }
 
 SURFACE_LANDMARKS = {

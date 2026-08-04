@@ -5,6 +5,9 @@ import torch
 
 from pytorch3d.renderer import look_at_rotation
 from pytorch3d.structures import Meshes
+
+from ALI_IOS_utils.model import MG_AIM_OFFSET
+
 import logging
 import sys
 # --- LOGGING CONFIGURATION ---
@@ -87,11 +90,86 @@ class Agent:
                     final_pos = torch.cat((final_pos, torch.zeros((1, 3)).to(DEVICE)), dim=0)
             
             self.positions = final_pos
+            # The arch frame only drives the MG cameras. O and C go through the
+            # sphere scheme, which reads nothing of this, so skip it for them.
+            if self.lm_type == 'MG':
+                self.arch_tangents = self._arch_tangents(text, vert, label)
+                self.buccal_normals, self.aim_points = self._local_frame(vert, final_pos, label)
             logger.debug(f"Agent positioned with shape: {self.positions.shape}")
             return self.positions
         except Exception as e:
             logger.error(f"Error in position_agent: {e}")
             raise
+
+    def _arch_tangents(self, text, vert, label):
+        """Direction of the dental arch at `label`, one row per mesh, horizontal, unit norm.
+
+        Lower teeth carry consecutive universal ids along the arch (18 -> 31), so the
+        neighbours of `label` are label-1 and label+1 and their centroids give the local
+        tangent. At the ends of the arch one neighbour is missing, so a one-sided
+        difference is used instead. A zero row means "unknown": the caller falls back to
+        the old radial direction.
+        """
+        lab = int(label)
+        tangents = []
+        for mesh_idx in range(len(text)):
+            ids = text[mesh_idx]
+
+            def centroid(value):
+                idx = (ids == value).nonzero(as_tuple=True)[0]
+                return vert[mesh_idx][idx].mean(dim=0) if len(idx) > 0 else None
+
+            here, before, after = centroid(lab), centroid(lab - 1), centroid(lab + 1)
+            if before is not None and after is not None:
+                tangent = after - before
+            elif after is not None and here is not None:
+                tangent = after - here
+            elif before is not None and here is not None:
+                tangent = here - before
+            else:
+                tangent = torch.zeros(3, device=DEVICE)
+
+            tangent = tangent.clone()
+            tangent[2] = 0.0                      # keep it horizontal
+            norm = torch.norm(tangent)
+            tangents.append(tangent / norm if norm > 1e-6 else tangent)
+
+        return torch.stack(tangents)
+
+    def _local_frame(self, vert, positions, label):
+        """Buccal normal and camera aim point for each mesh, in unit-sphere space.
+
+        The buccal normal is horizontal, perpendicular to the arch tangent and pointing
+        away from the arch centre. The aim point is where the MG landmark is expected to
+        be (MG_AIM_OFFSET, an anatomical prior measured on the training scans), so the
+        cameras frame the gingival margin instead of the crown.
+        """
+        normals, aims = [], []
+        offset = MG_AIM_OFFSET.get(str(int(label)))
+        for mesh_idx in range(positions.shape[0]):
+            tangent = self.arch_tangents[mesh_idx]
+            centre = vert[mesh_idx].mean(dim=0)
+            outward = positions[mesh_idx] - centre
+            outward = outward.clone()
+            outward[2] = 0.0
+
+            normal = torch.stack([-tangent[1], tangent[0], torch.zeros_like(tangent[0])])
+            if torch.norm(normal) < 1e-6:                     # tangent unknown
+                normal = outward
+            if torch.dot(normal, outward) < 0:                # face the cheek, not the tongue
+                normal = -normal
+            normal = normal / (torch.norm(normal) + 1e-6)
+
+            aim = positions[mesh_idx].clone()
+            if offset is not None and torch.norm(self.arch_tangents[mesh_idx]) > 1e-6:
+                b, t, v = offset
+                aim = aim + normal * b + tangent * t
+                aim[2] = aim[2] + v
+            else:                                             # old behaviour as a fallback
+                aim[2] = aim[2] - 0.2
+            normals.append(normal)
+            aims.append(aim)
+        return torch.stack(normals), torch.stack(aims)
 
 
     def _mg_camera_directions(self, spc, meshes):
@@ -101,14 +179,27 @@ class Agent:
         keep the directions horizontal. Must stay identical to the training code,
         otherwise the model inputs no longer match what it was trained on.
         Returns directions of shape [B, 3, 3].
+
+        The buccal direction is the horizontal normal to the arch at this tooth, i.e.
+        perpendicular to the local arch tangent and pointing away from the arch centre.
+        The radial direction (tooth centre - mesh centre) used before is only buccal near
+        the midline: measured against the true normal it is off by 2-5 deg on the incisors
+        but 35 deg on tooth 19/30 and 53 deg on tooth 31, so on the molars the cameras
+        looked ALONG the arch and the landmark fell outside the render entirely.
         """
         center = meshes.verts_padded().mean(dim=1, keepdim=True)
         hauteur_idx = 2   # vertical axis (Z)
         plane_idx = 1     # horizontal rotation axis (Y)
 
-        direction = spc - center
-        direction[:, :, hauteur_idx] = 0
-        direction = direction / (torch.norm(direction, dim=-1, keepdim=True) + 1e-6)
+        outward = spc - center
+        outward[:, :, hauteur_idx] = 0
+        outward = outward / (torch.norm(outward, dim=-1, keepdim=True) + 1e-6)
+
+        normals = getattr(self, "buccal_normals", None)
+        if normals is not None and normals.shape[0] >= spc.shape[0]:
+            direction = normals[:spc.shape[0]].unsqueeze(1).to(spc.device)   # [B, 1, 3]
+        else:
+            direction = outward
 
         angle = 0.35
         cos_a, sin_a = math.cos(angle), math.sin(angle)
@@ -124,20 +215,29 @@ class Agent:
     def _mg_camera_RT(self, spc, directions):
         """
         Build the look-at rotation R and translation T for the MG camera directions.
-        The camera sits at distance self.radius along each direction with a slight
-        downward tilt, and aims at the landmark lowered toward the gum: this slightly
-        plunging framing distinguishes the muco-gingival margin better than aiming
-        straight at the landmark. Returns R [B*K, 3, 3] and T [B*K, 3].
+        Cameras aim at the expected landmark position (self.aim_points) and sit exactly
+        self.radius away from it, so every tooth is framed at the same scale and the
+        gingival margin lands near the centre of the image.
+
+        Aiming at the tooth centre lowered by a flat 0.2, as before, only framed the
+        incisors: the molar landmark is ~0.15 further buccal and projected outside the
+        224 px image (measured at 300-455 px), which is why its target was empty.
+        Returns R [B*K, 3, 3] and T [B*K, 3].
         """
         hauteur_idx = 2
         n_cameras = directions.shape[1]
 
-        cam_pos = spc + directions * self.radius
-        cam_pos[:, :, hauteur_idx] -= (self.radius * 0.15)
+        aims = getattr(self, "aim_points", None)
+        if aims is not None and aims.shape[0] >= spc.shape[0]:
+            centre = aims[:spc.shape[0]].unsqueeze(1).to(spc.device)   # [B, 1, 3]
+        else:
+            centre = spc.clone()
+            centre[:, :, hauteur_idx] -= 0.2
 
-        target = spc.expand(-1, n_cameras, -1).clone()
-        target[:, :, hauteur_idx] -= 0.2
-        target[:, :, hauteur_idx] -= (self.radius * 0.05)
+        cam_pos = centre + directions * self.radius
+        cam_pos[:, :, hauteur_idx] -= (self.radius * 0.15)      # keep the slight plunge
+
+        target = centre.expand(-1, n_cameras, -1).clone()
 
         cam_flat = cam_pos.reshape(-1, 3)
         target_flat = target.reshape(-1, 3)

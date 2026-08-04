@@ -126,14 +126,17 @@ def WriteJson(lm_lst, out_path):
 def TradLabelMG(teeth_list):
     """Translate mucogingival label names to lower universal ids.
 
-    MG labels are centered on the midline: L0 is the midline label
+    MG labels are centered on the midline: L0MG is the midline label
     (universal id 25) and LL/LR numbering runs distally from it, so the
-    shared FDI mapping of TradLabel does not apply.
+    shared FDI mapping of TradLabel does not apply. Beware the collision
+    with training names: LR1MG here is tooth 26, while the training name
+    LR1MG designates tooth 25 — this table only speaks the output naming,
+    which is the only one the GUI and the CLI exchange.
     """
     mapping = {
-        'LL6': 19, 'LL5': 20, 'LL4': 21, 'LL3': 22, 'LL2': 23, 'LL1': 24,
-        'L0': 25,
-        'LR1': 26, 'LR2': 27, 'LR3': 28, 'LR4': 29, 'LR5': 30, 'LR6': 31
+        'LL6MG': 19, 'LL5MG': 20, 'LL4MG': 21, 'LL3MG': 22, 'LL2MG': 23, 'LL1MG': 24,
+        'L0MG': 25,
+        'LR1MG': 26, 'LR2MG': 27, 'LR3MG': 28, 'LR4MG': 29, 'LR5MG': 30, 'LR6MG': 31
     }
 
     if not teeth_list:

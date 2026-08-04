@@ -71,7 +71,7 @@ ADJUST_RANGE = 5.0
 
 # Travel of the translation pad, in mm, on both axes. It moves the four
 # centroids together, so it is a rigid shift of the whole patch.
-SHIFT_RANGE = 5.0
+SHIFT_RANGE = 15.0
 
 # Side of the joystick pads, in pixels. The whole 0-1 ratio range is spread
 # across the pad, so this is what sets how much a single pixel of mouse travel
@@ -83,7 +83,7 @@ PAD_SIZE = 128
 
 # The translation pad drives one patch instead of one corner, and sits on a row
 # of its own, so it does not need to be as large.
-SHIFT_PAD_SIZE = 96
+SHIFT_PAD_SIZE = 128
 
 
 

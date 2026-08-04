@@ -44,9 +44,11 @@ class Auto_IOS(Method):
     
     def NumberLandmark(self, landmarks: str):
         import re
+        if not landmarks:
+            return 0
         cleaned = re.sub(r"[\[\]\"']", "", landmarks)
         teeth_list = re.split(r"[,\s]+", cleaned)
-        teeth_list = [t for t in teeth_list if t]
+        teeth_list = [t for t in teeth_list if t and t != "None"]
         return len(teeth_list)
 
     def TestScan(self, scan_folder: str):
@@ -273,11 +275,13 @@ class Auto_IOS(Method):
             "dentalmodelseg_path": dentalmodelseg_path
         }
         
+        # Key order matters: values are passed positionally to the ALI_IOS CLI
         parameter_ali = {
             "input": path_seg,
             "dir_models": kwargs["dir_models"],
             "lm_type": kwargs["lm_type"],
             "teeth": kwargs["teeth"],
+            "teeth_mg": kwargs.get("teeth_mg", "None"),
             "output_dir": kwargs["output_dir"],
             "image_size": "224",
             "blur_radius": "0",
@@ -299,6 +303,8 @@ class Auto_IOS(Method):
         )
         number_lm = self.NumberLandmark(
             kwargs["teeth"]
+        ) + self.NumberLandmark(
+            kwargs.get("teeth_mg", "None")
         )
         
         list_process = [

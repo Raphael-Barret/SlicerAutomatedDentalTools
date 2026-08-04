@@ -58,6 +58,7 @@ def main(args):
                 f"LB={args.lineedit_ratio_left_bot}, RB={args.lineedit_ratio_right_bot} | "
                 f"Adjust: LT={args.lineedit_adjust_left_top}, RT={args.lineedit_adjust_right_top}, "
                 f"LB={args.lineedit_adjust_left_bot}, RB={args.lineedit_adjust_right_bot} | "
+                f"Shift: LR={args.shift_lr}, AP={args.shift_ap} | "
                 f"Index: {args.index_patch}"
             )
         
@@ -80,8 +81,11 @@ def main(args):
             
             adjust_posterior_right=args.lineedit_adjust_right_bot,
             adjust_posterior_left=args.lineedit_adjust_left_bot,
-            
-            index=args.index_patch
+
+            index=args.index_patch,
+
+            shift_lr=args.shift_lr,
+            shift_ap=args.shift_ap
         )
     
     elif args.type=="curve":
@@ -347,7 +351,11 @@ if __name__ == "__main__":
     parser.add_argument('index_patch',type=int)
     
     parser.add_argument('lower_arch',type=str)
-    
+
+    # butterfly : translation of the whole patch, in mm, in the oriented frame
+    parser.add_argument('shift_lr',type=float)
+    parser.add_argument('shift_ap',type=float)
+
     
 
 

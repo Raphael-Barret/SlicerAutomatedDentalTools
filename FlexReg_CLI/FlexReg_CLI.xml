@@ -163,6 +163,20 @@
       <description>lower_arch : path to lower arch T2</description>
     </string>
 
+    <string>
+      <name>shift_lr</name>
+      <label>shift_lr</label>
+      <index>21</index>
+      <description>butterfly : translation of the whole patch along the medio-lateral axis, in mm</description>
+    </string>
+
+    <string>
+      <name>shift_ap</name>
+      <label>shift_ap</label>
+      <index>22</index>
+      <description>butterfly : translation of the whole patch along the antero-posterior axis, in mm</description>
+    </string>
+
 
 
 

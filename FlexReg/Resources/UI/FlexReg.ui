@@ -305,6 +305,19 @@ qMRMLNodeComboBox:focus {
     </widget>
    </item>
    <item>
+    <widget class="QPushButton" name="seeButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Run the registration and show the result in the third view, without writing anything to the output folder.</string>
+     </property>
+     <property name="text">
+      <string>See</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QPushButton" name="applyButton">
      <property name="enabled">
       <bool>false</bool>

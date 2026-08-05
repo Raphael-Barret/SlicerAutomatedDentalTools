@@ -2213,8 +2213,8 @@ qMRMLNodeComboBox:focus {
                         timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
                     else:
                         timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
-                    
-                self.ui.LabelTimer.setText(timer)
+
+                    self.ui.LabelTimer.setText(timer)
 
             del self.list_Processes_Parameters[0]
             

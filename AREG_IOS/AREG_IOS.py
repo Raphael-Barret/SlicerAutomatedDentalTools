@@ -2,6 +2,7 @@
 
 import os
 import sys
+import glob
 import shutil
 import argparse
 import platform
@@ -53,26 +54,100 @@ def check_platform():
         return "Unknown"
 
 if check_platform()=="WSL":
-    from AREG_IOS_utils.dataset import DatasetPatch
+    from AREG_IOS_utils.dataset import DatasetPatch, SortLower
     from AREG_IOS_utils.PredPatch import PredPatch
     from AREG_IOS_utils.vtkSegTeeth import vtkMeshTeeth
     from AREG_IOS_utils.ICP import vtkICP
     from AREG_IOS_utils.ICP import ICP
-    from AREG_IOS_utils.utils import WriteSurf
+    from AREG_IOS_utils.utils import WriteSurf, ReadSurf, LoadJsonLandmarks
     from AREG_IOS_utils.transformation import TransformSurf
     from AREG_IOS.AREG_IOS_utils.transformation import saveMatrixAsTfm
+    from AREG_IOS_utils.mgl_patch import MGLPatch, DEFAULT_RADIUS
 
-else : 
+else :
     from AREG_IOS_utils import (
         DatasetPatch,
+        SortLower,
         PredPatch,
         vtkMeshTeeth,
         vtkICP,
         ICP,
         WriteSurf,
+        ReadSurf,
+        LoadJsonLandmarks,
         TransformSurf,
         saveMatrixAsTfm,
+        MGLPatch,
+        DEFAULT_RADIUS,
     )
+
+
+def FindLandmarkFile(folder, surf_path):
+    """Locate the MG landmark json that goes with `surf_path`.
+
+    ALI_IOS names its output '<scan>_Lower_MG_Pred.json', which is tried first;
+    a folder produced by hand is then searched for any json carrying the scan
+    name, so users are not forced into that convention.
+    """
+    stem = os.path.splitext(os.path.basename(surf_path))[0]
+
+    expected = os.path.join(folder, f"{stem}_Lower_MG_Pred.json")
+    if os.path.isfile(expected):
+        return expected
+
+    candidates = sorted(f for f in glob.glob(os.path.join(folder, "*.json"))
+                        if stem in os.path.basename(f))
+    if candidates:
+        if len(candidates) > 1:
+            logger.warning(f"Several landmark files match {stem}, using {os.path.basename(candidates[0])}")
+        return candidates[0]
+
+    raise FileNotFoundError(f"No MG landmark json found for {stem} in {folder}")
+
+
+def RunMGL(args, icp):
+    """Register the lower arches on the band around the mucogingival line.
+
+    Mirrors the palatal flow: a stable region is painted on both timepoints,
+    the ICP runs on that region only, and T2 is written transformed. The upper
+    arches are left untouched, the MG model covering the mandible only.
+    """
+    pairs = SortLower(args.T1, args.T2)
+    if not pairs:
+        raise ValueError("MGL registration needs lower arches, none were paired between the input folders")
+
+    logger.info(f"MGL registration on {len(pairs)} lower pair(s), patch radius {args.patch_radius} mm")
+
+    processed, failed = 0, []
+    for idx, pair in enumerate(pairs):
+        context = f"sample {idx + 1}/{len(pairs)}"
+        try:
+            surfaces = {}
+            for time in ("T1", "T2"):
+                surf = ReadSurf(pair[time])
+                folder = args.lm_T1 if time == "T1" else args.lm_T2
+                landmarks = LoadJsonLandmarks(FindLandmarkFile(folder, pair[time]))
+                surfaces[time] = MGLPatch(surf, landmarks, radius=args.patch_radius)
+
+            output_icp = icp.run(surfaces["T2"], surfaces["T1"])
+
+            WriteSurf(surfaces["T1"], args.output, os.path.basename(pair["T1"]), args.suffix)
+            WriteSurf(output_icp["source_Or"], args.output,
+                      os.path.basename(pair["T2"]), args.suffix)
+
+            with open(args.log_path, "w") as log_f:
+                log_f.write(str(idx + 1))
+
+            processed += 1
+            logger.info(f"Successfully processed {context}")
+        except Exception as e:
+            logger.error(f"Failed to process {context}: {e}")
+            failed.append((idx, str(e)))
+            continue
+
+    logger.info(f"MGL registration completed: {processed}/{len(pairs)} pair(s) processed successfully")
+    for idx, error in failed:
+        logger.warning(f"  Pair {idx}: {error}")
 
 
 def main(args):
@@ -94,6 +169,25 @@ def main(args):
             logger.error(f"Error setting up log file: {e}")
             raise
 
+        # ===== REGISTRATION SETUP =====
+        try:
+            logger.debug("Initializing registration method (vtkICP)")
+            Method = [vtkICP()]
+            option = vtkMeshTeeth(list_teeth=[1], property="Butterfly")
+            icp = ICP(Method, option=option)
+            logger.debug("Registration method initialized")
+        except Exception as e:
+            logger.error(f"Error initializing registration method: {e}")
+            raise
+
+        # ===== MGL MODE =====
+        # The lower patch comes from the landmarks, so neither the palatal model
+        # nor the upper arches are involved, and the dataset of upper pairs is
+        # not built at all: the input may hold lower scans only.
+        if args.reg_type == "MGL":
+            RunMGL(args, icp)
+            return
+
         # ===== DATASET INITIALIZATION =====
         try:
             logger.debug(f"Loading dataset from T1: {args.T1}, T2: {args.T2}")
@@ -112,17 +206,6 @@ def main(args):
             logger.debug("Prediction model loaded")
         except Exception as e:
             logger.error(f"Error loading prediction model: {e}")
-            raise
-
-        # ===== REGISTRATION SETUP =====
-        try:
-            logger.debug("Initializing registration method (vtkICP)")
-            Method = [vtkICP()]
-            option = vtkMeshTeeth(list_teeth=[1], property="Butterfly")
-            icp = ICP(Method, option=option)
-            logger.debug("Registration method initialized")
-        except Exception as e:
-            logger.error(f"Error initializing registration method: {e}")
             raise
 
         # ===== CHECK DENTITION TYPE =====
@@ -312,6 +395,17 @@ if __name__ == "__main__":
             parser.add_argument("suffix", type=str)
             parser.add_argument("log_path", type=str)
             parser.add_argument("areg_mode", type=str)
+            # Appended after the historical arguments so the positional order
+            # the GUI relies on stays valid.
+            parser.add_argument("reg_type", type=str, nargs="?", default="Butterfly",
+                                help="'Butterfly' (palatal patch, upper arch) or "
+                                     "'MGL' (band along the mucogingival line, lower arch)")
+            parser.add_argument("patch_radius", type=float, nargs="?", default=DEFAULT_RADIUS,
+                                help="MGL only: half-height of the band around the curve, in mm")
+            parser.add_argument("lm_T1", type=str, nargs="?", default="None",
+                                help="MGL only: folder holding the T1 MG landmark json files")
+            parser.add_argument("lm_T2", type=str, nargs="?", default="None",
+                                help="MGL only: folder holding the T2 MG landmark json files")
 
             args = parser.parse_args()
             logger.debug(f"Arguments parsed successfully: T1={args.T1}, T2={args.T2}")

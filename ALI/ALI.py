@@ -927,10 +927,26 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark')
         return
       self.selected_lm = " ".join(selected_lm_lst)
-    if self.folder_as_input and not self.input_path:
-      # The path may have been typed directly instead of picked with the
-      # Search button, which is the only place that sets input_path
-      self.input_path = self.ui.lineEditScanPath.text.strip() or None
+    if self.folder_as_input:
+      if not self.input_path:
+        # The path may have been typed directly instead of picked with the
+        # Search button, which is the only place that sets input_path
+        self.input_path = self.ui.lineEditScanPath.text.strip() or None
+
+    else:
+      # Node as input: the file the node was loaded from is what gets processed,
+      # so a node that only lives in the scene has nothing to give us
+      self.onNodeChanged()
+      if self.MRMLNode_scan is None:
+        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select a model in the node list')
+        return
+      if not self.input_path:
+        qt.QMessageBox.warning(
+          self.parent, 'Warning',
+          f'"{self.MRMLNode_scan.GetName()}" is not saved on disk, so it cannot be processed.\n'
+          'Save it as a .vtk file first (File > Save), then select it again.'
+        )
+        return
 
     error = self.ActualMeth.TestProcess(
       input_folder=self.input_path,

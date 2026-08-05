@@ -348,6 +348,15 @@ class SegmentationWidget(qt.QWidget):
         self._itemWatchdog.setSingleShot(True)
         self._itemWatchdog.timeout.connect(self._onItemTimeout)
 
+        # RAM guard: nnUNet keeps a (numClasses, Z, Y, X) float32 array in memory,
+        # so a single wide field of view can ask for tens of GB and take the whole
+        # machine down. Sampled while a scan runs; see _onMemCheck.
+        self._memWatchdog = qt.QTimer(self)
+        self._memWatchdog.timeout.connect(self._onMemCheck)
+        self._ramHits = 0
+        self._ramWarned = False
+        self._ramPeakPercent = 0.0
+
         self._inferenceFinalized = False
         self._doneVolumeSeen = False
         self._fallbackCheckAttempts = 0
@@ -409,6 +418,22 @@ class SegmentationWidget(qt.QWidget):
         self.itemTimeoutSpinBox.setToolTip(
             "A scan exceeding this delay is marked failed and the queue moves on.")
 
+        self.ramLimitSpinBox = qt.QSpinBox(self)
+        self.ramLimitSpinBox.setRange(30, 99)
+        self.ramLimitSpinBox.setValue(85)
+        self.ramLimitSpinBox.setSuffix(" % of system RAM")
+        self.ramLimitSpinBox.setToolTip(
+            "RAM guard. A scan whose estimated peak does not fit in this budget is "
+            "skipped before nnUNet starts, and a running scan crossing the limit is "
+            "killed instead of letting the system swap or the OOM killer strike.")
+
+        self.ramPreflightCheckBox = qt.QCheckBox("Skip scans too large for the free RAM", self)
+        self.ramPreflightCheckBox.setChecked(True)
+        self.ramPreflightCheckBox.setToolTip(
+            "Estimate the peak memory of a scan from its field of view, the model "
+            "target spacing and its number of labels, and skip it when it cannot fit. "
+            "Uncheck to only rely on the runtime guard.")
+
         self.skipExistingCheckBox = qt.QCheckBox("Skip scans already segmented", self)
         self.skipExistingCheckBox.setChecked(True)
         self.skipExistingCheckBox.setToolTip(
@@ -437,6 +462,11 @@ class SegmentationWidget(qt.QWidget):
         buttonsLayout.addWidget(createButton(
             "Clear", callback=self.onClearQueue,
             toolTip="Empty the queue.", parent=self))
+        buttonsLayout.addWidget(createButton(
+            "Free memory", callback=self.onFreeMemoryClicked,
+            toolTip="Kill nnUNet processes left behind by a crashed scan and run a "
+                    "deep cleanup. Use it when the RAM stays full after a failure.",
+            parent=self))
 
         queueWidget = qt.QWidget(self)
         queueLayout = qt.QFormLayout(queueWidget)
@@ -446,6 +476,8 @@ class SegmentationWidget(qt.QWidget):
         queueLayout.addRow(self.queueSummaryLabel)
         queueLayout.addRow("Deep cleanup every:", self.chunkSizeSpinBox)
         queueLayout.addRow("Timeout per scan:", self.itemTimeoutSpinBox)
+        queueLayout.addRow("RAM limit:", self.ramLimitSpinBox)
+        queueLayout.addRow(self.ramPreflightCheckBox)
         queueLayout.addRow(self.skipExistingCheckBox)
         queueLayout.addRow(self.unattendedCheckBox)
 
@@ -618,6 +650,11 @@ class SegmentationWidget(qt.QWidget):
             loadedVolume = slicer.util.loadVolume(item.inputPath)
             self.currentVolumeNode = loadedVolume
             self.onInputChangedForLoadedVolume(loadedVolume)
+
+            if not self._ramPreflightOk(loadedVolume, item):
+                return
+            self._memWatchdogStart()
+
             self.onApplyClickedForVolume(loadedVolume)
 
         except Exception as e:
@@ -637,6 +674,13 @@ class SegmentationWidget(qt.QWidget):
             return
         self._itemFinalized = True
         self._itemWatchdog.stop()
+        self._memWatchdogStop()
+
+        # nnUNet workers can outlive their parent — a scan that died silently
+        # would otherwise keep its memory for the rest of the run.
+        self._reclaimStrayProcesses()
+        if self._ramPeakPercent:
+            self.onProgressInfo(f"[RAM] Peak during this scan: {self._ramPeakPercent:.0f}%")
 
         duration = 0.0
         if self._itemStartTime is not None:
@@ -658,20 +702,9 @@ class SegmentationWidget(qt.QWidget):
             f"[TIMEOUT] {name} exceeded {self.itemTimeoutSpinBox.value} min — skipping.")
         logger.error(f"Timeout on {name}")
 
-        # Killing the process may make the logic emit inferenceFinished: neutralize
-        # that path so the results of a timed-out scan are not processed anyway.
-        self._inferenceFinalized = True
-        try:
-            self.logic.stopSegmentation()
-            self.logic.waitForSegmentationFinished()
-        except Exception:
-            pass
-        try:
-            self._cleanupAfterCase(self.currentVolumeNode, self.getCurrentSegmentationNode())
-        except Exception as e:
-            # Never let a cleanup failure keep the queue from moving on.
-            logger.error(f"Cleanup after timeout failed: {e}", exc_info=True)
-        self._finishCurrentItem(STATUS_FAILED, f"timeout after {self.itemTimeoutSpinBox.value} min")
+        # Same exit as the RAM guard: kill the whole process tree, clean up,
+        # and move on. A hung scan usually holds memory too.
+        self._abortCurrentItem(f"timeout after {self.itemTimeoutSpinBox.value} min")
 
     def _onQueueFinished(self):
         self._queueRunning = False
@@ -687,6 +720,350 @@ class SegmentationWidget(qt.QWidget):
                 details += f"\n  … and {len(failed) - 20} more"
             self.onProgressInfo(f"Failed scans:\n{details}")
         self._notify(f"Queue finished — {summary}")
+
+    # ─── RAM guard ─────────────────────────────────────────────────────────────
+    #
+    # nnUNet resamples the scan to the model target spacing, then holds a
+    # (numClasses, Z, Y, X) float32 logits array. A wide field of view on a
+    # many-label model therefore needs tens of GB: one such scan filled 114 GB
+    # of a 125 GB machine, was killed by the OOM killer, and left its
+    # multiprocessing workers behind still holding that memory.
+    #
+    # Three lines of defence:
+    #   1. _ramPreflightOk   — estimate before starting, skip what cannot fit
+    #   2. _onMemCheck       — sample while running, abort before the system dies
+    #   3. _killInferenceTree / _reclaimStrayProcesses — always release the RAM
+
+    _RAM_SAMPLE_MS = 3000
+    _RAM_CONSECUTIVE_HITS = 2       # a transient spike must not kill a good scan
+    _RAM_FIXED_OVERHEAD_GB = 4.0    # torch + weights + workers, constant per scan
+    _NNUNET_PROCESS_MARKERS = ("nnunetv2_predict", "nnunetv2/inference", "nnunet")
+
+    @staticmethod
+    def _psutil():
+        try:
+            import psutil
+            return psutil
+        except ImportError:
+            return None
+
+    def _virtualMemory(self):
+        psutil = self._psutil()
+        if psutil is None:
+            return None
+        try:
+            return psutil.virtual_memory()
+        except Exception:
+            return None
+
+    def _memWatchdogStart(self):
+        self._ramHits = 0
+        self._ramWarned = False
+        self._ramPeakPercent = 0.0
+        if self._virtualMemory() is not None:
+            self._memWatchdog.start(self._RAM_SAMPLE_MS)
+
+    def _memWatchdogStop(self):
+        self._memWatchdog.stop()
+
+    def _onMemCheck(self):
+        vm = self._virtualMemory()
+        if vm is None or self._itemFinalized:
+            return
+
+        percent = vm.percent
+        limit = self.ramLimitSpinBox.value
+        self._ramPeakPercent = max(self._ramPeakPercent, percent)
+
+        if percent >= limit - 10 and not self._ramWarned:
+            self._ramWarned = True
+            self.onProgressInfo(
+                f"[RAM] {percent:.0f}% used, {vm.available / 2 ** 30:.1f} GB free — "
+                f"approaching the {limit}% limit.")
+
+        if percent < limit:
+            self._ramHits = 0
+            return
+
+        # Require several samples in a row: a short peak at the end of a scan is
+        # normal, a runaway allocation is not.
+        self._ramHits += 1
+        self.onProgressInfo(
+            f"[RAM] {percent:.0f}% used — over the {limit}% limit "
+            f"({self._ramHits}/{self._RAM_CONSECUTIVE_HITS} samples)")
+        if self._ramHits < self._RAM_CONSECUTIVE_HITS:
+            return
+
+        item = self.queue.current()
+        name = item.name if item else "unknown"
+        logger.error(f"RAM guard triggered on {name}: {percent:.1f}% used")
+        self.onProgressInfo(
+            f"[RAM] Aborting {name}: {percent:.0f}% of system RAM used "
+            f"({vm.available / 2 ** 30:.1f} GB free).")
+        self._abortCurrentItem(f"out of memory ({percent:.0f}% RAM used)")
+
+    def _abortCurrentItem(self, reason):
+        """Kill the inference, release its memory, and let the queue move on."""
+        self._memWatchdogStop()
+        self._itemWatchdog.stop()
+        # A killed process still emits inferenceFinished / errorOccurred:
+        # neutralize that path so a dead scan is not processed anyway.
+        self._inferenceFinalized = True
+
+        killed = self._killInferenceTree()
+        if killed:
+            self.onProgressInfo(f"Inference process tree killed ({killed} process(es)).")
+        try:
+            self._cleanupAfterCase(self.currentVolumeNode, self.getCurrentSegmentationNode())
+        except Exception as e:
+            # Never let a cleanup failure keep the queue from moving on.
+            logger.error(f"Cleanup after abort failed: {e}", exc_info=True)
+        self._coolDown()
+        self._finishCurrentItem(STATUS_FAILED, reason)
+
+    def _inferenceProcessId(self):
+        try:
+            return int(self.logic.inferenceProcess.process.processId())
+        except Exception:
+            return 0
+
+    def _isInferenceProcessRunning(self):
+        try:
+            return self.logic.inferenceProcess.process.state() != qt.QProcess.NotRunning
+        except Exception:
+            return False
+
+    def _killInferenceTree(self, timeoutSec=10):
+        """
+        Kill nnUNet *and every descendant*.
+
+        QProcess.kill() only reaches the direct child. nnUNet spawns
+        multiprocessing workers for preprocessing and export: those survive,
+        keep their share of the RAM, and are why a run stays wedged even after
+        the offending scan is removed from the queue.
+        """
+        killed = 0
+        psutil = self._psutil()
+        pid = self._inferenceProcessId()
+
+        if psutil is not None and pid:
+            try:
+                parent = psutil.Process(pid)
+                victims = parent.children(recursive=True) + [parent]
+                for proc in victims:
+                    try:
+                        proc.kill()
+                        killed += 1
+                    except psutil.NoSuchProcess:
+                        pass
+                    except Exception as e:
+                        logger.error(f"Could not kill pid {proc.pid}: {e}")
+                psutil.wait_procs(victims, timeout=timeoutSec)
+            except psutil.NoSuchProcess:
+                pass
+            except Exception as e:
+                logger.error(f"Killing the inference tree failed: {e}", exc_info=True)
+
+        try:
+            self.logic.stopSegmentation()
+            self.logic.waitForSegmentationFinished()
+        except Exception:
+            pass
+
+        return killed + self._reclaimStrayProcesses()
+
+    def _reclaimStrayProcesses(self):
+        """
+        Kill nnUNet processes nobody owns any more.
+
+        Only touches our own descendants and orphans re-parented to init, so a
+        second Slicer instance segmenting on the same machine is left alone.
+        Never runs while our own inference is alive.
+        """
+        psutil = self._psutil()
+        if psutil is None or self._isInferenceProcessRunning():
+            return 0
+
+        try:
+            me = psutil.Process()
+            ownPids = {me.pid} | {child.pid for child in me.children(recursive=True)}
+        except Exception:
+            return 0
+
+        killed = 0
+        for proc in psutil.process_iter(["pid", "ppid", "cmdline", "username"]):
+            try:
+                if proc.pid == me.pid:
+                    continue
+                info = proc.info
+                cmdline = " ".join(info.get("cmdline") or []).lower()
+                if not any(marker in cmdline for marker in self._NNUNET_PROCESS_MARKERS):
+                    continue
+                isOurs = proc.pid in ownPids
+                isOrphan = info.get("ppid") == 1 and info.get("username") == me.username()
+                if not (isOurs or isOrphan):
+                    continue
+                proc.kill()
+                killed += 1
+                logger.info(f"Killed stray nnUNet process {proc.pid}")
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            except Exception as e:
+                logger.error(f"Stray process sweep failed on a process: {e}")
+        if killed:
+            self.onProgressInfo(f"[RAM] {killed} stray nnUNet process(es) killed.")
+        return killed
+
+    def onFreeMemoryClicked(self):
+        """Manual recovery: release whatever a crashed scan left behind."""
+        if self._queueRunning:
+            slicer.util.warningDisplay(
+                "Stop the queue before freeing memory: this kills the running inference.")
+            return
+        before = self._virtualMemory()
+        killed = self._killInferenceTree()
+        self._removeOrphanNodes()
+        self._coolDown()
+        after = self._virtualMemory()
+        if before is not None and after is not None:
+            freed = (after.available - before.available) / 2 ** 30
+            self.onProgressInfo(
+                f"[RAM] {killed} process(es) killed, {freed:+.1f} GB reclaimed "
+                f"({after.available / 2 ** 30:.1f} GB free now).")
+        else:
+            self.onProgressInfo(f"[RAM] {killed} process(es) killed.")
+
+    # ─── RAM pre-flight estimate ───────────────────────────────────────────────
+
+    def _modelBasePath(self, modelName):
+        """Folder holding dataset.json / plans.json for the given model."""
+        resources = Path(__file__).parent.joinpath("..", "Resources", "ML").resolve()
+        datasets = {
+            "PediatricDentalsegmentator": "Dataset001_380CT",
+            "NasoMaxillaDentSeg": "Dataset001_max4",
+            "UniversalLabDentalsegmentator": "Dataset002_380CT",
+        }
+        if modelName in datasets:
+            return resources.joinpath(
+                datasets[modelName], "nnUNetTrainer__nnUNetPlans__3d_fullres")
+        # DentalSegmentator ships its own dataset folder under Resources/ML.
+        return resources
+
+    @staticmethod
+    def _configurationFolder(basePath, maxDepth=3):
+        """
+        Folder holding dataset.json, searched the way nnUNet itself does it:
+        shallowest match wins (see Parameter._getFirstFolderWithDatasetFile).
+        """
+        pattern = "dataset.json"
+        for _ in range(maxDepth):
+            match = next(Path(basePath).glob(pattern), None)
+            if match is not None:
+                return match.parent
+            pattern = f"*/{pattern}"
+        return None
+
+    @staticmethod
+    def _readJson(path):
+        import json
+        try:
+            with open(path, "r") as handle:
+                return json.load(handle)
+        except Exception as e:
+            logger.debug(f"Could not read {path}: {e}")
+            return None
+
+    def _estimatePeakRamGb(self, volumeNode, modelName):
+        """
+        Rough peak RAM for one nnUNet inference, in GB, or None if unknown.
+
+        Dominant term: the logits array, (numClasses, Z, Y, X) float32 on the
+        grid resampled to the model target spacing. The physical volume of the
+        field of view is spacing-independent, so the resampled voxel count is
+        simply fovVolume / targetVoxelVolume.
+        """
+        try:
+            imageData = volumeNode.GetImageData()
+            if imageData is None:
+                return None
+            dims = imageData.GetDimensions()
+            spacing = volumeNode.GetSpacing()
+            fovMm3 = (dims[0] * spacing[0]) * (dims[1] * spacing[1]) * (dims[2] * spacing[2])
+
+            # Both files must come from the same configuration folder, otherwise
+            # a spacing and a label count from two different models get mixed.
+            configFolder = self._configurationFolder(self._modelBasePath(modelName))
+            if configFolder is None:
+                return None
+            plans = self._readJson(configFolder.joinpath("plans.json"))
+            dataset = self._readJson(configFolder.joinpath("dataset.json"))
+            if not plans or not dataset:
+                return None
+
+            targetSpacing = plans.get("configurations", {}).get("3d_fullres", {}).get("spacing")
+            labels = dataset.get("labels") or {}
+            if not targetSpacing or not labels:
+                return None
+
+            targetVoxelMm3 = float(targetSpacing[0]) * float(targetSpacing[1]) * float(targetSpacing[2])
+            if targetVoxelMm3 <= 0:
+                return None
+
+            originalVoxels = float(dims[0]) * dims[1] * dims[2]
+            resampledVoxels = fovMm3 / targetVoxelMm3
+            numClasses = len(labels)
+
+            # nnUNet holds the logits twice around the last step: once on the
+            # resampled grid, once resampled back to the original grid
+            # (convert_predicted_logits_to_segmentation_with_correct_shape),
+            # both float32 with one plane per class. The image copies are noise
+            # next to that.
+            logitsGb = 4.0 * numClasses * (originalVoxels + resampledVoxels) / 2 ** 30
+            imagesGb = 4.0 * 3 * max(originalVoxels, resampledVoxels) / 2 ** 30
+            # torch, the weights and the worker processes cost the same on every
+            # scan; the arrays are what makes one scan explode.
+            return logitsGb + imagesGb + self._RAM_FIXED_OVERHEAD_GB
+        except Exception as e:
+            logger.debug(f"RAM estimate unavailable: {e}")
+            return None
+
+    def _ramPreflightOk(self, volumeNode, item):
+        """
+        False when the scan is skipped: it cannot fit in the RAM budget.
+
+        Skipping costs seconds; letting it run costs the machine.
+        """
+        estimate = self._estimatePeakRamGb(volumeNode, item.model)
+        vm = self._virtualMemory()
+        if estimate is None or vm is None:
+            return True
+
+        availableGb = vm.available / 2 ** 30
+        budgetGb = availableGb * (self.ramLimitSpinBox.value / 100.0)
+        self.onProgressInfo(
+            f"[RAM] Estimated peak: {estimate:.1f} GB — free: {availableGb:.1f} GB, "
+            f"budget: {budgetGb:.1f} GB")
+        if estimate <= budgetGb or not self.ramPreflightCheckBox.isChecked():
+            if estimate > budgetGb:
+                self.onProgressInfo(
+                    "[RAM] Over budget, but the pre-flight skip is disabled — "
+                    "the runtime guard stays armed.")
+            return True
+
+        self.onProgressInfo(
+            f"[RAM] Skipping {item.name}: needs ~{estimate:.0f} GB, "
+            f"only {budgetGb:.0f} GB usable. Crop the field of view or free memory "
+            f"and use « Retry failed ».")
+        self._memWatchdogStop()
+        self._inferenceFinalized = True
+        try:
+            self._cleanupAfterCase(volumeNode, None)
+        except Exception as e:
+            logger.error(f"Cleanup after pre-flight skip failed: {e}", exc_info=True)
+        self._finishCurrentItem(
+            STATUS_FAILED,
+            f"skipped: needs ~{estimate:.0f} GB RAM, {availableGb:.0f} GB free")
+        return False
 
     def _coolDown(self):
         """Deep cleanup at a chunk boundary, to keep a long run from drifting."""
@@ -1028,9 +1405,12 @@ class SegmentationWidget(qt.QWidget):
         watchdog = getattr(self, "_itemWatchdog", None)
         if watchdog is not None:
             watchdog.stop()
+        if getattr(self, "_memWatchdog", None) is not None:
+            self._memWatchdogStop()
         if self.logic is not None:
-            self.logic.stopSegmentation()
-            self.logic.waitForSegmentationFinished()
+            # Kill the descendants too, otherwise stopping the queue leaves the
+            # nnUNet workers running and the RAM taken.
+            self._killInferenceTree()
         slicer.app.processEvents()
         self.isStopping = False
         self._setApplyVisible(True)

@@ -7,6 +7,7 @@ set(MODULE_PYTHON_SCRIPTS
   BATCHDENTALSEGLib/__init__.py
   BATCHDENTALSEGLib/IconPath.py
   BATCHDENTALSEGLib/PythonDependencyChecker.py
+  BATCHDENTALSEGLib/Queue.py
   BATCHDENTALSEGLib/SegmentationWidget.py
   BATCHDENTALSEGLib/Signal.py
   BATCHDENTALSEGLib/Utils.py

@@ -648,6 +648,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.SpinMGLRadius = QDoubleSpinBox()
         self.SpinMGLRadius.setRange(1.0, 20.0)
         self.SpinMGLRadius.setSingleStep(0.5)
+        self.SpinMGLRadius.setDecimals(1)
+        self.SpinMGLRadius.setSuffix(" mm")
+        self.SpinMGLRadius.setMinimumWidth(90)
         self.SpinMGLRadius.setValue(5.0)
         self.SpinMGLRadius.setToolTip(
             "How far the patch spreads on each side of the mucogingival line, "
@@ -698,6 +701,15 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 "ALI Models Folder (MGL)" if is_mgl else "Registration Model Folder"
             )
 
+        # MGL takes its pose from the landmarks, so the ASO orientation reference
+        # and its segmentation model play no part: hide them rather than leave
+        # the user guessing what to fill in. Outside MGL they come back only in
+        # the mode that orients, which is index 0.
+        orientation_used = not is_mgl and self.ui.CbModeType.currentIndex == 0
+        for widget in (self.ui.label_7, self.ui.lineEditModel1, self.ui.ButtonSearchModel1,
+                       self.ui.label_6, self.ui.lineEditModel2, self.ui.ButtonSearchModel2):
+            widget.setVisible(orientation_used)
+
     def ShowRegistrationReference(self, visible):
         """Hide the whole choice outside IOS, where only one reference exists."""
         for widget in (self.label_reg_reference, self.CbRegReference):
@@ -710,7 +722,6 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 widget.setVisible(False)
 
     def SwitchModeIOS(self, index):
-        self.ShowRegistrationReference(True)
         self.ui.CbCBCTInputType.setVisible(False)
         self.ui.label_CBCTInputType.setVisible(False)
         self.ui.advancedCollapsibleButton.collapsed = True
@@ -760,6 +771,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditModel3.setVisible(True)
             self.ui.ButtonSearchModel3.setVisible(True)
 
+        # Last, so the selected reference decides which model fields survive
+        self.ShowRegistrationReference(True)
 
     def SwitchModeIOSCBCT(self, index):
         self.ShowRegistrationReference(False)

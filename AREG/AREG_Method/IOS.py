@@ -279,31 +279,34 @@ class Auto_IOS(Method):
         if isinstance(scan, str):
             out = out + f"{scan}\n"
 
-        reference = self.TestReference(kwargs["model_folder_2"])
-        if isinstance(reference, str):
-            out = out + f"{reference}\n"
-
         if kwargs["folder_output"] == "":
             out = out + "Please select output folder\n"
 
-        if kwargs["model_folder_1"] == "":
-            out = out + "Please select folder for the registration model\n"
-
+        # MGL builds its patch from the landmarks, so it needs neither the
+        # palatal orientation reference nor a registration checkpoint.
         if kwargs.get("reg_type") == "MGL":
             out = out + self.TestMGLModel(**kwargs)
 
-        elif len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
-            out = (
-                out + "Please select folder with only one model for the registration\n"
-            )
+        else:
+            reference = self.TestReference(kwargs["model_folder_2"])
+            if isinstance(reference, str):
+                out = out + f"{reference}\n"
 
-        if kwargs["model_folder_3"] == "":
-            out = out + "Please select folder for the segmentation model\n"
+            if kwargs["model_folder_1"] == "":
+                out = out + "Please select folder for the registration model\n"
 
-        if len(self.search(kwargs["model_folder_1"], ".pth")[".pth"]) != 1:
-            out = (
-                out + "Please select folder with only one model for the segmentation\n"
-            )
+            if len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
+                out = (
+                    out + "Please select folder with only one model for the registration\n"
+                )
+
+            if kwargs["model_folder_3"] == "":
+                out = out + "Please select folder for the segmentation model\n"
+
+            if len(self.search(kwargs["model_folder_1"], ".pth")[".pth"]) != 1:
+                out = (
+                    out + "Please select folder with only one model for the segmentation\n"
+                )
 
         if out != "":
             out = out[:-1]
@@ -442,6 +445,36 @@ class Auto_IOS(Method):
         }
         
 
+        numberscan = self.NumberScan(
+            kwargs["input_t1_folder"], kwargs["input_t2_folder"]
+        )
+
+        if kwargs.get("reg_type") == "MGL":
+            # The mucogingival band needs the teeth segmentation, not the palatal
+            # orientation: the landmarks carry the pose the patch is built on.
+            mgl_kwargs = dict(kwargs)
+            mgl_kwargs["input_t1_folder"] = path_seg_T1
+            mgl_kwargs["input_t2_folder"] = path_seg_T2
+            SegProcess = slicer.modules.crownsegmentationcli
+            return [
+                {
+                    "Process": SegProcess,
+                    "Parameter": parameter_segteeth_T1,
+                    "Module": "CrownSegmentationcli T1",
+                    "Display": DisplayCrownSeg(
+                        number_scan_toseg_T1, kwargs["logPath"], "T1 Scan"
+                    ),
+                },
+                {
+                    "Process": SegProcess,
+                    "Parameter": parameter_segteeth_T2,
+                    "Module": "CrownSegmentationcli T2",
+                    "Display": DisplayCrownSeg(
+                        number_scan_toseg_T2, kwargs["logPath"], "T2 Scan"
+                    ),
+                },
+            ] + MGLProcess(self, numberscan, "Auto_IOS", **mgl_kwargs)
+
         parameter_pre_aso_T1 = {
             "input": path_seg_T1,
             "gold_folder": kwargs["model_folder_2"],
@@ -484,35 +517,6 @@ class Auto_IOS(Method):
         PreOrientProcess = slicer.modules.pre_aso_ios
         SegProcess = slicer.modules.crownsegmentationcli
         RegProcess = slicer.modules.areg_ios
-
-        numberscan = self.NumberScan(
-            kwargs["input_t1_folder"], kwargs["input_t2_folder"]
-        )
-
-        if kwargs.get("reg_type") == "MGL":
-            # The mucogingival band needs the teeth segmentation, not the palatal
-            # orientation: the landmarks carry the pose the patch is built on.
-            mgl_kwargs = dict(kwargs)
-            mgl_kwargs["input_t1_folder"] = path_seg_T1
-            mgl_kwargs["input_t2_folder"] = path_seg_T2
-            return [
-                {
-                    "Process": SegProcess,
-                    "Parameter": parameter_segteeth_T1,
-                    "Module": "CrownSegmentationcli T1",
-                    "Display": DisplayCrownSeg(
-                        number_scan_toseg_T1, kwargs["logPath"], "T1 Scan"
-                    ),
-                },
-                {
-                    "Process": SegProcess,
-                    "Parameter": parameter_segteeth_T2,
-                    "Module": "CrownSegmentationcli T2",
-                    "Display": DisplayCrownSeg(
-                        number_scan_toseg_T2, kwargs["logPath"], "T2 Scan"
-                    ),
-                },
-            ] + MGLProcess(self, numberscan, "Auto_IOS", **mgl_kwargs)
 
         list_process = [
             {

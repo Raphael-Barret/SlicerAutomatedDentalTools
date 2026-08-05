@@ -1198,13 +1198,19 @@ class SegmentationWidget(qt.QWidget):
             resampledVoxels = fovMm3 / targetVoxelMm3
             numClasses = len(labels)
 
-            # nnUNet holds the logits twice around the last step: once on the
-            # resampled grid, once resampled back to the original grid
-            # (convert_predicted_logits_to_segmentation_with_correct_shape),
-            # both float32 with one plane per class. The image copies are noise
-            # next to that.
-            logitsGb = 4.0 * numClasses * (originalVoxels + resampledVoxels) / 2 ** 30
-            imagesGb = 4.0 * 3 * max(originalVoxels, resampledVoxels) / 2 ** 30
+            # Peak is reached in resample_data_or_seg, called on the way out
+            # through convert_predicted_logits_to_segmentation_with_correct_shape.
+            # Live at that moment, per class:
+            #   - the sliding-window accumulator, torch.half on the resampled
+            #     grid, still referenced by the caller          -> 2 bytes
+            #   - its float64 copy: `data = data.astype(float)` casts the whole
+            #     4D array at once, before the per-class loop   -> 8 bytes
+            #   - reshaped_final, torch.half on the original grid -> 2 bytes
+            logitsGb = (10.0 * numClasses * resampledVoxels
+                        + 2.0 * numClasses * originalVoxels) / 2 ** 30
+            # Per-class transients of skimage resize (spline coefficients and
+            # output buffer, float64).
+            imagesGb = 8.0 * (originalVoxels + resampledVoxels) / 2 ** 30
             # torch, the weights and the worker processes cost the same on every
             # scan; the arrays are what makes one scan explode.
             return logitsGb + imagesGb + self._RAM_FIXED_OVERHEAD_GB

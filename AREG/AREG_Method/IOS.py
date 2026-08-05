@@ -1,5 +1,5 @@
 from AREG_Method.Method import Method
-from AREG_Method.Progress import DisplayAREGIOS, DisplayCrownSeg, DisplayASOIOS
+from AREG_Method.Progress import DisplayAREGIOS, DisplayCrownSeg, DisplayASOIOS, DisplayALIIOS
 import slicer
 import webbrowser
 import glob
@@ -22,6 +22,76 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+
+
+# The 13 MG landmarks, in arch order. Must match MG_OUTPUT_NAME in
+# ALI_IOS/ALI_IOS_utils/model.py, which is what the CLI translates back.
+MGL_TEETH = ("LL6MG LL5MG LL4MG LL3MG LL2MG LL1MG L0MG "
+             "LR1MG LR2MG LR3MG LR4MG LR5MG LR6MG")
+
+
+def MGLProcess(method, numberscan, areg_mode, **kwargs):
+    """Processes registering the lower arches on the mucogingival band.
+
+    ALI predicts the landmarks for both timepoints unless the user points at a
+    folder that already holds them, which also lets a run be repeated without
+    paying for the prediction again.
+    """
+    landmarks_folder = kwargs.get("mgl_landmarks", "").strip()
+    predict = not landmarks_folder
+
+    if predict:
+        landmarks_folder = os.path.join(slicer.util.tempDirectory(), "MGL_landmarks")
+        os.makedirs(landmarks_folder, exist_ok=True)
+
+    list_process = []
+
+    if predict:
+        # Key order matters: the values are passed positionally to the ALI_IOS CLI
+        for time in ("T1", "T2"):
+            parameter_ali = {
+                "input": kwargs[f"input_{time.lower()}_folder"],
+                "dir_models": kwargs["model_folder_3"],
+                "lm_type": "None",
+                "teeth": "None",
+                "teeth_mg": MGL_TEETH,
+                "output_dir": landmarks_folder,
+                "image_size": "224",
+                "blur_radius": "0",
+                "faces_per_pixel": "1",
+                "log_path": kwargs["logPath"],
+            }
+            logger.info(f"Parameter ALI_IOS {time}: {parameter_ali}")
+            list_process.append({
+                "Process": slicer.modules.ali_ios,
+                "Parameter": parameter_ali,
+                "Module": f"ALI_IOS {time}",
+                "Display": DisplayALIIOS(13, numberscan),
+            })
+
+    # Key order matters: the values are passed positionally to the AREG_IOS CLI
+    parameter_reg = {
+        "T1": kwargs["input_t1_folder"],
+        "T2": kwargs["input_t2_folder"],
+        "output": kwargs["folder_output"],
+        "model": "None",                       # the palatal model is not used
+        "suffix": kwargs["add_in_namefile"],
+        "log_path": kwargs["logPath"],
+        "areg_mode": areg_mode,
+        "reg_type": "MGL",
+        "patch_radius": kwargs.get("patch_radius", "5.0"),
+        "lm_T1": landmarks_folder,
+        "lm_T2": landmarks_folder,
+    }
+    logger.info(f"Parameter AREG_IOS (MGL): {parameter_reg}")
+    list_process.append({
+        "Process": slicer.modules.areg_ios,
+        "Parameter": parameter_reg,
+        "Module": "AREG_IOS",
+        "Display": DisplayAREGIOS(numberscan, kwargs["logPath"]),
+    })
+
+    return list_process
 
 
 class Auto_IOS(Method):
@@ -185,6 +255,23 @@ class Auto_IOS(Method):
     def getALIModelList(self):
         return super().getALIModelList()
 
+
+    def TestMGLModel(self, **kwargs) -> str:
+        """Validate what MGL needs instead of the palatal checkpoint."""
+        if kwargs.get("mgl_landmarks", "").strip():
+            folder = kwargs["mgl_landmarks"].strip()
+            if len(self.search(folder, ".json")[".json"]) == 0:
+                return "The MGL landmarks folder holds no json file\n"
+            return ""
+
+        if kwargs["model_folder_3"] == "":
+            return "Please select the ALI models folder holding the MGL model\n"
+        if not [f for f in self.search(kwargs["model_folder_3"], ".pth")[".pth"]
+                if os.path.basename(f).split("_")[1:2] == ["MG"]]:
+            return ('No MGL model found in the models folder, a file named '
+                    '"Lower_MG_*.pth" is expected\n')
+        return ""
+
     def TestProcess(self, **kwargs) -> str:
         out = ""
 
@@ -202,7 +289,10 @@ class Auto_IOS(Method):
         if kwargs["model_folder_1"] == "":
             out = out + "Please select folder for the registration model\n"
 
-        if len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
+        if kwargs.get("reg_type") == "MGL":
+            out = out + self.TestMGLModel(**kwargs)
+
+        elif len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
             out = (
                 out + "Please select folder with only one model for the registration\n"
             )
@@ -398,6 +488,32 @@ class Auto_IOS(Method):
         numberscan = self.NumberScan(
             kwargs["input_t1_folder"], kwargs["input_t2_folder"]
         )
+
+        if kwargs.get("reg_type") == "MGL":
+            # The mucogingival band needs the teeth segmentation, not the palatal
+            # orientation: the landmarks carry the pose the patch is built on.
+            mgl_kwargs = dict(kwargs)
+            mgl_kwargs["input_t1_folder"] = path_seg_T1
+            mgl_kwargs["input_t2_folder"] = path_seg_T2
+            return [
+                {
+                    "Process": SegProcess,
+                    "Parameter": parameter_segteeth_T1,
+                    "Module": "CrownSegmentationcli T1",
+                    "Display": DisplayCrownSeg(
+                        number_scan_toseg_T1, kwargs["logPath"], "T1 Scan"
+                    ),
+                },
+                {
+                    "Process": SegProcess,
+                    "Parameter": parameter_segteeth_T2,
+                    "Module": "CrownSegmentationcli T2",
+                    "Display": DisplayCrownSeg(
+                        number_scan_toseg_T2, kwargs["logPath"], "T2 Scan"
+                    ),
+                },
+            ] + MGLProcess(self, numberscan, "Auto_IOS", **mgl_kwargs)
+
         list_process = [
             {
                 "Process": SegProcess,
@@ -456,13 +572,17 @@ class Semi_IOS(Auto_IOS):
         if kwargs["folder_output"] == "":
             out = out + "Please select output folder\n"
 
-        if kwargs["model_folder_3"] == "":
-            out = out + "Please select folder for the registration model\n"
+        if kwargs.get("reg_type") == "MGL":
+            out = out + self.TestMGLModel(**kwargs)
 
-        if len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
-            out = (
-                out + "Please select folder with only one model for the registration\n"
-            )
+        else:
+            if kwargs["model_folder_3"] == "":
+                out = out + "Please select folder for the registration model\n"
+
+            if len(self.search(kwargs["model_folder_3"], ".ckpt")[".ckpt"]) != 1:
+                out = (
+                    out + "Please select folder with only one model for the registration\n"
+                )
 
         if out != "":
             out = out[:-1]
@@ -472,6 +592,13 @@ class Semi_IOS(Auto_IOS):
         return out
 
     def Process(self, **kwargs):
+
+        numberscan = self.NumberScan(
+            kwargs["input_t1_folder"], kwargs["input_t2_folder"]
+        )
+
+        if kwargs.get("reg_type") == "MGL":
+            return MGLProcess(self, numberscan, "Semi_IOS", **kwargs)
 
         parameter_reg = {
             "T1": kwargs["input_t1_folder"],
@@ -485,9 +612,6 @@ class Semi_IOS(Auto_IOS):
 
         logger.info(f"Parameter AREG_IOS: {parameter_reg}")
         RegProcess = slicer.modules.areg_ios
-        numberscan = self.NumberScan(
-            kwargs["input_t1_folder"], kwargs["input_t2_folder"]
-        )
         processus = [
             {
                 "Process": RegProcess,

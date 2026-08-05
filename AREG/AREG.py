@@ -6,6 +6,11 @@ from qt import (
     QScrollArea,
     QTabWidget,
     QGridLayout,
+    QComboBox,
+    QDoubleSpinBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
 )
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
@@ -458,6 +463,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.tohideCBCT_3,
         )
 
+        self.initRegistrationReference()
         self.HideComputeItems()
         self.SwitchType()
         
@@ -545,6 +551,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.isDCMInput = True
 
     def SwitchModeCBCT(self, index):
+        self.ShowRegistrationReference(False)
         """Function to change the UI depending on the mode selected (Semi or Fully Automated)"""
         self.ui.CbCBCTInputType.setVisible(True)
         self.ui.label_CBCTInputType.setVisible(True)
@@ -615,7 +622,95 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.label_CBCTInputType.setVisible(False)
             self.isDCMInput = False
 
+    def initRegistrationReference(self):
+        """Build the IOS choice of registration reference, below the input fields.
+
+        Two stable regions are available and they do not describe the same arch:
+        the palate carries the upper registration, the band along the
+        mucogingival line carries the lower one.
+        """
+        grid = self.ui.gridLayout_2
+        row = grid.rowCount()
+
+        self.label_reg_reference = QLabel("Registration Reference")
+        self.CbRegReference = QComboBox()
+        self.CbRegReference.addItem("Palate (Butterfly) - upper arch")
+        self.CbRegReference.addItem("Mucogingival line (MGL) - lower arch")
+        self.CbRegReference.setToolTip(
+            "Surface the registration is computed on. The palate is painted by a "
+            "neural network on the upper arch; the mucogingival band is built from "
+            "the MGL landmarks on the lower arch."
+        )
+        grid.addWidget(self.label_reg_reference, row, 0)
+        grid.addWidget(self.CbRegReference, row, 1)
+
+        self.label_mgl_radius = QLabel("MGL Patch Height (mm)")
+        self.SpinMGLRadius = QDoubleSpinBox()
+        self.SpinMGLRadius.setRange(1.0, 20.0)
+        self.SpinMGLRadius.setSingleStep(0.5)
+        self.SpinMGLRadius.setValue(5.0)
+        self.SpinMGLRadius.setToolTip(
+            "How far the patch spreads on each side of the mucogingival line, "
+            "along the surface. Vertices belonging to the crowns are always left "
+            "out, whatever the value."
+        )
+        grid.addWidget(self.label_mgl_radius, row + 1, 0)
+        grid.addWidget(self.SpinMGLRadius, row + 1, 1)
+
+        self.label_mgl_lm = QLabel("MGL Landmarks Folder")
+        self.lineEditMGLLandmarks = QLineEdit()
+        self.lineEditMGLLandmarks.setPlaceholderText("optional, computed by ALI when left empty")
+        self.lineEditMGLLandmarks.setToolTip(
+            "Folder of MG landmark json files, T1 and T2 together: they are matched "
+            "to their scan by name. Leave it empty to have ALI predict them from the "
+            "models folder."
+        )
+        self.ButtonSearchMGLLandmarks = QPushButton("Browse")
+        self.ButtonSearchMGLLandmarks.clicked.connect(self.SearchMGLLandmarks)
+        grid.addWidget(self.label_mgl_lm, row + 2, 0)
+        grid.addWidget(self.lineEditMGLLandmarks, row + 2, 1)
+        grid.addWidget(self.ButtonSearchMGLLandmarks, row + 2, 2)
+
+        self.CbRegReference.currentIndexChanged.connect(self.SwitchRegReference)
+        self.SwitchRegReference(0)
+
+    def SearchMGLLandmarks(self):
+        folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select the MGL landmarks folder")
+        if folder:
+            self.lineEditMGLLandmarks.setText(folder)
+
+    def isMGLRegistration(self):
+        """True when the lower arch is registered on the mucogingival band."""
+        return (self.type == "IOS"
+                and getattr(self, "CbRegReference", None) is not None
+                and self.CbRegReference.currentIndex == 1)
+
+    def SwitchRegReference(self, index):
+        """Show the fields that belong to the selected reference."""
+        is_mgl = index == 1
+        for widget in (self.label_mgl_radius, self.SpinMGLRadius, self.label_mgl_lm,
+                       self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
+            widget.setVisible(is_mgl)
+
+        # The palatal patch is the only one that needs its own trained model.
+        if hasattr(self.ui, "label_4"):
+            self.ui.label_4.setText(
+                "ALI Models Folder (MGL)" if is_mgl else "Registration Model Folder"
+            )
+
+    def ShowRegistrationReference(self, visible):
+        """Hide the whole choice outside IOS, where only one reference exists."""
+        for widget in (self.label_reg_reference, self.CbRegReference):
+            widget.setVisible(visible)
+        if visible:
+            self.SwitchRegReference(self.CbRegReference.currentIndex)
+        else:
+            for widget in (self.label_mgl_radius, self.SpinMGLRadius, self.label_mgl_lm,
+                           self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
+                widget.setVisible(False)
+
     def SwitchModeIOS(self, index):
+        self.ShowRegistrationReference(True)
         self.ui.CbCBCTInputType.setVisible(False)
         self.ui.label_CBCTInputType.setVisible(False)
         self.ui.advancedCollapsibleButton.collapsed = True
@@ -667,6 +762,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     def SwitchModeIOSCBCT(self, index):
+        self.ShowRegistrationReference(False)
         self.ui.CbCBCTInputType.setVisible(False)
         self.ui.label_CBCTInputType.setVisible(False)
         self.ui.advancedCollapsibleButton.collapsed = True
@@ -1319,6 +1415,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.SegmentationLabels[self.ui.LabelSelectcomboBox.currentIndex]
                 ),
                 ApproxStep=self.ui.ApproxcheckBox.isChecked(),
+                reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
+                patch_radius=str(self.SpinMGLRadius.value),
+                mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
             )
 
             # Guard: if Process() returned an empty list, log and return to avoid IndexError

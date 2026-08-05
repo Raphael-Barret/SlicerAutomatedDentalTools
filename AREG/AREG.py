@@ -1218,7 +1218,15 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             model_folder = os.path.join(self.SlicerDownloadPath, "Models", name)
 
         if not model_folder == "":
-            error = self.ActualMeth.TestModel(model_folder, lineEdit.name)
+            if self.isMGLRegistration() and lineEdit.name == "lineEditModel3":
+                # That field holds the ALI models in MGL, so the palatal
+                # checkpoint check does not apply to it
+                error = self.ActualMeth.TestMGLModel(
+                    model_folder_3=model_folder,
+                    mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
+                ) or None
+            else:
+                error = self.ActualMeth.TestModel(model_folder, lineEdit.name)
 
             if isinstance(error, str):
                 qt.QMessageBox.warning(self.parent, "Warning", error)
@@ -1411,6 +1419,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             dic_checkbox=self.dicchckbox,
             isDCMInput=self.isDCMInput,
             OrientReference=self.CBCTOrientRef,
+            reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
+            mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
         )
 
         if isinstance(error, str):

@@ -315,11 +315,13 @@ class Semi_IOSCBCT(IOSCBCT):
         ios_landmarks_folder_path = os.path.join(kwargs["folder_output"],"IOS Landmarks")
         os.makedirs(ios_landmarks_folder_path, exist_ok=True)
 
+        # Key order matters: the values are passed positionally to the ALI_IOS CLI
         parameter_ali_ios = {
             "input": seg_ios_folder_path,
             "dir_models": kwargs["model_folder_3"],
             "lm_type": "'O'",
             "teeth": "LL1 LL3 LL6 LR1 LR3 LR6 UL1 UL3 UL6 UR1 UR3 UR6'",
+            "teeth_mg": "None",
             "output_dir": ios_landmarks_folder_path,
             "image_size": "224",
             "blur_radius": "0",
@@ -775,11 +777,13 @@ class Auto_IOSCBCT(IOSCBCT):
         ios_landmarks_folder_path = os.path.join(kwargs["folder_output"],"IOS Landmarks")
         os.makedirs(ios_landmarks_folder_path, exist_ok=True)
 
+        # Key order matters: the values are passed positionally to the ALI_IOS CLI
         parameter_ali_ios = {
             "input": pre_aso_ios_folder_path,
             "dir_models": kwargs["model_folder_3"],
             "lm_type": "'O'",
             "teeth": "LL1 LL3 LL6 LR1 LR3 LR6 UL1 UL3 UL6 UR1 UR3 UR6'",
+            "teeth_mg": "None",
             "output_dir": ios_landmarks_folder_path,
             "image_size": "224",
             "blur_radius": "0",

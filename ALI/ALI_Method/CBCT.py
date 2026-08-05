@@ -42,6 +42,8 @@ class Auto_CBCT(Method):
             return 5
 
     def NumberScan(self, scan_folder: str):
+        if not scan_folder:
+            return 0
         scan_extensions = [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]
         files = []
         for ext in scan_extensions:

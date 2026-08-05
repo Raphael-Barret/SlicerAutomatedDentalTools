@@ -927,6 +927,11 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark')
         return
       self.selected_lm = " ".join(selected_lm_lst)
+    if self.folder_as_input and not self.input_path:
+      # The path may have been typed directly instead of picked with the
+      # Search button, which is the only place that sets input_path
+      self.input_path = self.ui.lineEditScanPath.text.strip() or None
+
     error = self.ActualMeth.TestProcess(
       input_folder=self.input_path,
       dir_models=self.model_folder,
@@ -934,6 +939,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     )
     if isinstance(error, str):
       qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
+      return
     self.list_Processes_Parameters = self.ActualMeth.Process(
       input_folder=self.input_path,
       dir_models=self.model_folder,

@@ -33,6 +33,8 @@ class Auto_IOS(Method):
         super().__init__(widget)
 
     def NumberScan(self, scan_folder: str):
+        if not scan_folder:
+            return 0
         if os.path.isfile(scan_folder):
             if scan_folder.endswith(".vtk") or scan_folder.endswith(".stl"):
                 return 1
@@ -53,9 +55,9 @@ class Auto_IOS(Method):
 
     def TestScan(self, scan_folder: str):
         out = ""
-        if scan_folder == "":
-            out = out + "Please select folder with vtk file \n"
-            
+        if not scan_folder:
+            return "Please select a folder with vtk or stl files"
+
         if os.path.isfile(scan_folder):
             if not scan_folder.endswith(".vtk") or not scan_folder.endswith(".stl"):
                 out = out + "Please select a vtk file \n"

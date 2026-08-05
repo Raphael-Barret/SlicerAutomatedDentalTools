@@ -1492,6 +1492,27 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 del self.list_Processes_Parameters[0]
 
             elif self.type == "IOS":
+                if self.isMGLRegistration():
+                    # Every step of the MGL pipeline is a conda tool, unlike the
+                    # palatal flow where the orientation is a Slicer CLI, so they
+                    # are simply run one after the other.
+                    while self.list_Processes_Parameters:
+                        module = self.list_Processes_Parameters[0]["Module"]
+                        self.displayModule = self.list_Processes_Parameters[0]["Display"]
+                        if module.startswith("CrownSegmentationcli"):
+                            self.run_conda_tool("seg")    # counts its own runs
+                        elif module.startswith("ALI_IOS"):
+                            self.nb_extension_did += 1
+                            self.run_conda_tool("ali")
+                        else:
+                            self.nb_extension_did += 1
+                            self.run_conda_tool("areg")
+                    try:
+                        self.OnEndProcess()
+                    except Exception:
+                        logger.exception("OnEndProcess failed after the MGL pipeline")
+                    return
+
                 if self.module_name in ["CrownSegmentationcli T1", "AREG_IOS"]:
                     if "CrownSegmentationcli" in self.module_name:
                         self.run_conda_tool("seg")

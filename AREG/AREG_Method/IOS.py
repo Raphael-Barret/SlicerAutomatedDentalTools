@@ -40,6 +40,10 @@ def MGLProcess(method, numberscan, areg_mode, **kwargs):
     landmarks_folder = kwargs.get("mgl_landmarks", "").strip()
     predict = not landmarks_folder
 
+    # MGL works on the mandibles, so the progress must count those, not the
+    # maxillae numberscan reports.
+    numberscan = method.NumberScanLower(kwargs["input_t1_folder"], kwargs["input_t2_folder"])
+
     if predict:
         landmarks_folder = os.path.join(slicer.util.tempDirectory(), "MGL_landmarks")
         os.makedirs(landmarks_folder, exist_ok=True)
@@ -109,6 +113,16 @@ class Auto_IOS(Method):
                 count += 1
 
         return len(all_files) - count
+
+    def NumberScanLower(self, scan_folder_t1: str, scan_folder_t2: str):
+        """Count the lower scans, which are the ones MGL registers.
+
+        NumberScan counts the upper arches, since the palatal registration works
+        on the maxilla. A folder holding only mandibles would count zero there.
+        """
+        files = self.search(scan_folder_t1, ".vtk", ".stl")
+        all_files = files[".vtk"] + files[".stl"]
+        return sum(1 for f in all_files if self.IsLower([f]))
 
     def IsLower(self, folder_path_or_file_list):
         words_lower = ["lower", "_l", "l_", "mandibule", "md"]

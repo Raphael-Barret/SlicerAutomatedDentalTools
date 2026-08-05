@@ -1473,6 +1473,13 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
             else:
                 merge_seg = None
+
+            if self.isMGLRegistration():
+                # MGL registers the mandibles, which NumberScan does not count
+                self.nb_patient = self.ActualMeth.NumberScanLower(
+                    self.ui.lineEditScanT1LmPath.text, self.ui.lineEditScanT2LmPath.text
+                )
+
             self.list_Processes_Parameters = self.ActualMeth.Process(
                 input_t1_folder=self.ui.lineEditScanT1LmPath.text,
                 input_t2_folder=self.ui.lineEditScanT2LmPath.text,
@@ -1635,7 +1642,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.module_name_before = self.module_name
                 self.progress = 0
                 self.ui.LabelProgressPatient.setText(f"Patient : {self.progress}/{self.nb_patient}")
-                progress_bar_value = round((self.progress) / self.nb_patient * 100,2)
+                progress_bar_value = round(self.progress / self.nb_patient * 100, 2) if self.nb_patient else 0
                 
                 self.ui.progressBar.setValue(progress_bar_value)
                 self.ui.progressBar.setFormat(f"{progress_bar_value:.2f}%")
@@ -1724,7 +1731,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.nb_change_bystep = 0
         total_time = time.time() - self.startTime
-        average_time = total_time / self.nb_patient
+        average_time = total_time / self.nb_patient if self.nb_patient else total_time
         logger.info("PROCESS DONE.")
         logger.info(
             "Done in {} min and {} sec".format(

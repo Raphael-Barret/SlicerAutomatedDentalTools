@@ -5,8 +5,8 @@
 # mandible has no such stable plateau, but it has the mucogingival line: the
 # 13 MG landmarks run along the arch and can be joined into a smooth curve. The
 # band of surface around that curve plays the same role as the palatal patch,
-# and is written into the very same "Butterfly" point array so the registration
-# code downstream does not change.
+# and is written as a 0/1 point array of the same shape, under its own name so
+# a mandible is never labelled after the palate.
 #
 # Two properties matter for the result to be usable:
 #   - every sample of the curve is snapped onto the mesh, because a curve
@@ -41,6 +41,11 @@ MGL_ORDER = ['LL6MG', 'LL5MG', 'LL4MG', 'LL3MG', 'LL2MG', 'LL1MG', 'L0MG',
 
 # Names written by predictions made before the MG suffix was added.
 MGL_ORDER_LEGACY = [name[:-2] for name in MGL_ORDER]
+
+# Name of the point array the patch is written to. The palatal patch is called
+# "Butterfly" after its shape; the band along the mucogingival line is neither
+# butterfly-shaped nor on the same arch, so it carries its own name.
+MGL_ARRAY_NAME = "Bottom_MGL"
 
 DEFAULT_RADIUS = 5.0        # mm, half-height of the band around the curve
 DEFAULT_SAMPLES = 300       # samples along the spline
@@ -180,11 +185,11 @@ def _tooth_mask(surf):
 
 
 def MGLPatch(surf, landmarks, radius=DEFAULT_RADIUS, n_samples=DEFAULT_SAMPLES,
-             array_name="Butterfly", exclude_teeth=True):
+             array_name=MGL_ARRAY_NAME, exclude_teeth=True):
     """Paint the band around the mucogingival line into `array_name`.
 
-    Writes the same 0/1 point array the palatal patch uses, so the registration
-    reads it without knowing which arch produced it. Returns the surface.
+    Writes a 0/1 point array shaped like the palatal one, so the registration
+    reads it the same way, under a name that says what it is. Returns the surface.
     """
     points = OrderedMGLandmarks(landmarks)
     logger.info(f"Building the MGL patch from {len(points)} landmark(s), radius {radius} mm")

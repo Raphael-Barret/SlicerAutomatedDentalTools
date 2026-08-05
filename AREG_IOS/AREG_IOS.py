@@ -62,7 +62,7 @@ if check_platform()=="WSL":
     from AREG_IOS_utils.utils import WriteSurf, ReadSurf, LoadJsonLandmarks
     from AREG_IOS_utils.transformation import TransformSurf
     from AREG_IOS.AREG_IOS_utils.transformation import saveMatrixAsTfm
-    from AREG_IOS_utils.mgl_patch import MGLPatch, DEFAULT_RADIUS
+    from AREG_IOS_utils.mgl_patch import MGLPatch, DEFAULT_RADIUS, MGL_ARRAY_NAME
 
 else :
     from AREG_IOS_utils import (
@@ -79,6 +79,7 @@ else :
         saveMatrixAsTfm,
         MGLPatch,
         DEFAULT_RADIUS,
+        MGL_ARRAY_NAME,
     )
 
 
@@ -183,9 +184,12 @@ def main(args):
         # ===== MGL MODE =====
         # The lower patch comes from the landmarks, so neither the palatal model
         # nor the upper arches are involved, and the dataset of upper pairs is
-        # not built at all: the input may hold lower scans only.
+        # not built at all: the input may hold lower scans only. Its patch lives
+        # in its own array, so the ICP is pointed at that one.
         if args.reg_type == "MGL":
-            RunMGL(args, icp)
+            mgl_icp = ICP([vtkICP()],
+                          option=vtkMeshTeeth(list_teeth=[1], property=MGL_ARRAY_NAME))
+            RunMGL(args, mgl_icp)
             return
 
         # ===== DATASET INITIALIZATION =====

@@ -13,6 +13,15 @@ import logging
 import os
 from .IconPath import icon, iconPath
 from .PythonDependencyChecker import PythonDependencyChecker, hasInternetConnection
+from .Queue import (
+    SegmentationQueue,
+    listVolumes,
+    volumeStem,
+    STATUS_DONE,
+    STATUS_FAILED,
+    STATUS_PENDING,
+    STATUS_RUNNING,
+)
 from .Utils import (
     createButton,
     addInCollapsibleLayout,
@@ -20,6 +29,7 @@ from .Utils import (
     setConventionalWideScreenView,
     setBoxAndTextVisibilityOnThreeDViews,
 )
+from collections import deque
 import sys
 
 # ===== Logging Configuration =====
@@ -124,10 +134,26 @@ class SegmentationWidget(qt.QWidget):
         self._prevSegmentationNode    = None
         self._minimumIslandSize_mm3   = 60
         self.folderPath               = ""
+        self.outputFolderPath         = ""
         self.folderFiles              = []
         self.currentFileIndex         = 0
         self.currentVolumeNode        = None
-        self.fullInfoLogs             = []          # journal des messages
+        self.fullInfoLogs             = deque(maxlen=200_000)   # journal des messages (borné)
+
+        # ------------------------------------------------------------ queue state
+        self.queue                    = SegmentationQueue()
+        self._queueRunning            = False
+        self._itemFinalized           = True        # garde anti double-avancement
+        self._itemStartTime           = None
+        self._setupDone               = False       # pip / poids : une fois par session
+        self._deviceFallbackAccepted  = None        # réponse CPU mémorisée pour la file
+
+        # --------------------------------------------------- buffered log output
+        self._logBuffer               = []
+        self._logFlushTimer           = qt.QTimer(self)
+        self._logFlushTimer.setSingleShot(True)
+        self._logFlushTimer.setInterval(200)
+        self._logFlushTimer.timeout.connect(self._flushLogBuffer)
 
         # ========================================================================
         # 1)  INPUT / OUTPUT FOLDERS
@@ -240,6 +266,11 @@ class SegmentationWidget(qt.QWidget):
 
         self._addModelScopeDescription()
 
+        # ========================================================================
+        # 5b)  PROCESSING QUEUE
+        # ========================================================================
+        self._buildQueueUi(layout)
+
         # Apply / Stop widgets
         self.applyButton = createButton(
             "Apply", callback=self.onApplyClicked,
@@ -247,6 +278,10 @@ class SegmentationWidget(qt.QWidget):
 
         self.currentInfoTextEdit = qt.QTextEdit(); self.currentInfoTextEdit.setReadOnly(True)
         self.currentInfoTextEdit.setLineWrapMode(qt.QTextEdit.NoWrap)
+        # Rolling window: a multi-hour run would otherwise grow the Qt document
+        # without bound and slow every insertion down. Full history stays in
+        # fullInfoLogs, reachable through the « info » button.
+        self.currentInfoTextEdit.document().setMaximumBlockCount(5000)
 
         self.stopButton = createButton("Stop", callback=self.onStopClicked, toolTip="Stop the segmentation.")
         self.loading    = qt.QMovie(iconPath("loading.gif")); self.loading.setScaledSize(qt.QSize(24,24))
@@ -304,13 +339,20 @@ class SegmentationWidget(qt.QWidget):
         # connect logic NNUNet
         self._connectSegmentationLogic()
         self._last_save_state = {}
-        self._timeout_timer = qt.QTimer()  # Timeout
-        self._timeout_timer.timeout.connect(self._emergency_stop)
-        self._timeout_timer.setInterval(300_000)  # 5 min timeout
+
+        # Per-scan watchdog: covers the inference itself, so a hung scan can never
+        # freeze the queue. Started right before startSegmentation, stopped by the
+        # single exit point _finishCurrentItem.
+        self._itemWatchdog = qt.QTimer(self)
+        self._itemWatchdog.setSingleShot(True)
+        self._itemWatchdog.timeout.connect(self._onItemTimeout)
+
         self._inferenceFinalized = False
         self._doneVolumeSeen = False
         self._fallbackCheckAttempts = 0
         self._fallbackLastOutputSize = None
+
+        self._rebuildQueueTable()
 
     def _checkpoint(self, name):
         """Print progress for debug"""
@@ -318,27 +360,375 @@ class SegmentationWidget(qt.QWidget):
         logger.debug(f"[DEBUG] Checkpoint: {name}")
         slicer.app.processEvents()
 
-    def _emergency_stop(self):
-        """Emergency stop"""
-        logger.error("EMERGENCY STOP TRIGGERED (Timeout)")
-        self._save_state_before_crash()
-        self.onStopClicked()
-        raise RuntimeError("Processing timeout after 5 minutes")
-
     def _save_state_before_crash(self):
         """Save status before crash"""
+        item = self.queue.current()
         self._last_save_state = {
-            "current_file": self.folderFiles[self.currentFileIndex] if self.folderFiles else None,
-            "processed_files": self.folderFiles[:self.currentFileIndex],
+            "current_file": item.inputPath if item else None,
+            "queue_index": self.queue.index,
+            "queue_summary": self.queue.summary(),
             "memory_usage": self._get_memory_usage(),
-            "scene_nodes": list(slicer.util.getNodes().keys())
         }
         logger.critical(f"CRASH STATE DUMP: {self._last_save_state}")
 
     def _get_memory_usage(self):
         """Return current memory usage"""
-        import psutil
-        return f"{psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        try:
+            import psutil
+            return f"{psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        except Exception:
+            return "n/a"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  PROCESSING QUEUE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _buildQueueUi(self, layout):
+        self.queueTable = qt.QTableWidget(0, 4, self)
+        self.queueTable.setHorizontalHeaderLabels(["Scan", "Model", "Status", "Detail"])
+        self.queueTable.horizontalHeader().setStretchLastSection(True)
+        self.queueTable.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+        self.queueTable.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
+        self.queueTable.verticalHeader().setVisible(False)
+        self.queueTable.setMinimumHeight(170)
+
+        self.queueSummaryLabel = qt.QLabel("Queue empty", self)
+        self.queueSummaryLabel.setStyleSheet("color:#666; font-style:italic;")
+
+        self.chunkSizeSpinBox = qt.QSpinBox(self)
+        self.chunkSizeSpinBox.setRange(1, 1000)
+        self.chunkSizeSpinBox.setValue(5)
+        self.chunkSizeSpinBox.setToolTip(
+            "Deep cleanup (orphan nodes, GPU cache, GC) every N scans.")
+
+        self.itemTimeoutSpinBox = qt.QSpinBox(self)
+        self.itemTimeoutSpinBox.setRange(1, 600)
+        self.itemTimeoutSpinBox.setValue(60)
+        self.itemTimeoutSpinBox.setSuffix(" min")
+        self.itemTimeoutSpinBox.setToolTip(
+            "A scan exceeding this delay is marked failed and the queue moves on.")
+
+        self.skipExistingCheckBox = qt.QCheckBox("Skip scans already segmented", self)
+        self.skipExistingCheckBox.setChecked(True)
+        self.skipExistingCheckBox.setToolTip(
+            "An input scan whose *_Segmentation.nii.gz already exists in the output "
+            "folder is not queued again.")
+
+        self.unattendedCheckBox = qt.QCheckBox("Unattended (no pop-up)", self)
+        self.unattendedCheckBox.setChecked(True)
+        self.unattendedCheckBox.setToolTip(
+            "Errors and export confirmations go to the log instead of a modal dialog, "
+            "so the queue never waits for a click.")
+
+        buttonsWidget = qt.QWidget(self)
+        buttonsLayout = qt.QHBoxLayout(buttonsWidget)
+        buttonsLayout.setContentsMargins(0, 0, 0, 0)
+        buttonsLayout.addWidget(createButton(
+            "Add input folder", callback=self.onAddFolderToQueue,
+            toolTip="Queue every scan of the selected input folder with the current "
+                    "model / device / output folder.", parent=self))
+        buttonsLayout.addWidget(createButton(
+            "Remove selected", callback=self.onRemoveSelectedFromQueue,
+            toolTip="Remove the selected pending scans.", parent=self))
+        buttonsLayout.addWidget(createButton(
+            "Retry failed", callback=self.onRetryFailed,
+            toolTip="Append every failed scan back at the end of the queue.", parent=self))
+        buttonsLayout.addWidget(createButton(
+            "Clear", callback=self.onClearQueue,
+            toolTip="Empty the queue.", parent=self))
+
+        queueWidget = qt.QWidget(self)
+        queueLayout = qt.QFormLayout(queueWidget)
+        queueLayout.setContentsMargins(0, 0, 0, 0)
+        queueLayout.addRow(buttonsWidget)
+        queueLayout.addRow(self.queueTable)
+        queueLayout.addRow(self.queueSummaryLabel)
+        queueLayout.addRow("Deep cleanup every:", self.chunkSizeSpinBox)
+        queueLayout.addRow("Timeout per scan:", self.itemTimeoutSpinBox)
+        queueLayout.addRow(self.skipExistingCheckBox)
+        queueLayout.addRow(self.unattendedCheckBox)
+
+        addInCollapsibleLayout(queueWidget, layout, "Processing queue", isCollapsed=False)
+
+    # ─── Queue edition ─────────────────────────────────────────────────────────
+
+    def onAddFolderToQueue(self):
+        if not self.folderPath:
+            slicer.util.errorDisplay("Please select an input folder first.")
+            return
+        if not self.outputFolderPath:
+            slicer.util.errorDisplay("Please select an output folder first.")
+            return
+
+        self.queue.setStatePath(self.outputFolderPath)
+        added, skipped = self.queue.addFolder(
+            self.folderPath,
+            self.outputFolderPath,
+            self.modelComboBox.currentText,
+            self.deviceComboBox.currentText,
+            skipExisting=self.skipExistingCheckBox.isChecked(),
+        )
+        self._rebuildQueueTable()
+        self.onProgressInfo(f"Queue: {added} scan(s) added, {skipped} skipped.")
+
+    def onRemoveSelectedFromQueue(self):
+        rows = {index.row() for index in self.queueTable.selectionModel().selectedRows()}
+        removed = self.queue.removeAt(rows)
+        self._rebuildQueueTable()
+        self.onProgressInfo(f"Queue: {removed} pending scan(s) removed.")
+
+    def onRetryFailed(self):
+        requeued = self.queue.retryFailed()
+        self._rebuildQueueTable()
+        self.onProgressInfo(f"Queue: {requeued} failed scan(s) re-queued.")
+
+    def onClearQueue(self):
+        self.queue.clear()
+        self._rebuildQueueTable()
+
+    def _restoreQueueFromDisk(self):
+        """Offer to resume the run recorded in the output folder, if any."""
+        if not self.outputFolderPath:
+            return
+        candidate = SegmentationQueue()
+        candidate.setStatePath(self.outputFolderPath)
+        if not candidate.load() or candidate.isEmpty() or candidate.isFinished():
+            self.queue.setStatePath(self.outputFolderPath)
+            return
+
+        remaining = len(candidate.items) - candidate.index
+        answer = qt.QMessageBox.question(
+            self, "Resume previous run",
+            f"An interrupted run was found in this output folder "
+            f"({candidate.summary()}).\n\nResume it? ({remaining} scan(s) left)"
+        )
+        if answer == qt.QMessageBox.Yes:
+            self.queue = candidate
+            self.chunkSizeSpinBox.setValue(self.queue.chunkSize)
+            self.onProgressInfo(f"Queue restored: {self.queue.summary()}")
+        else:
+            self.queue.setStatePath(self.outputFolderPath)
+        self._rebuildQueueTable()
+
+    # ─── Queue display ─────────────────────────────────────────────────────────
+
+    _STATUS_COLORS = {
+        STATUS_PENDING: "#666666",
+        STATUS_RUNNING: "#0a6ebd",
+        STATUS_DONE: "#1a7f37",
+        STATUS_FAILED: "#b42318",
+    }
+
+    def _rebuildQueueTable(self):
+        """Full rebuild — only on structural changes, never per processed scan."""
+        self.queueTable.setRowCount(len(self.queue.items))
+        for row in range(len(self.queue.items)):
+            self._updateQueueRow(row, rebuild=True)
+        self.queueTable.resizeColumnsToContents()
+        self._updateQueueSummary()
+
+    def _updateQueueRow(self, row, rebuild=False):
+        if not 0 <= row < len(self.queue.items):
+            return
+        item = self.queue.items[row]
+        detail = item.error if item.error else (
+            f"{item.durationSec:.0f}s" if item.durationSec else "")
+        values = [item.name, item.model, item.status, detail]
+        for column, value in enumerate(values):
+            cell = None if rebuild else self.queueTable.item(row, column)
+            if cell is None:
+                cell = qt.QTableWidgetItem()
+                self.queueTable.setItem(row, column, cell)
+            cell.setText(value)
+            cell.setToolTip(item.inputPath if column == 0 else value)
+        statusCell = self.queueTable.item(row, 2)
+        statusCell.setForeground(qt.QBrush(qt.QColor(self._STATUS_COLORS.get(item.status, "#666666"))))
+
+    def _updateQueueSummary(self):
+        if self.queue.isEmpty():
+            self.queueSummaryLabel.setText("Queue empty — Apply will queue the input folder.")
+        else:
+            self.queueSummaryLabel.setText(self.queue.summary())
+
+    # ─── Queue execution ───────────────────────────────────────────────────────
+
+    def _isUnattended(self):
+        return self.unattendedCheckBox.isChecked()
+
+    def _notify(self, message, isError=False):
+        """Log; only interrupt the user when not running unattended."""
+        self.onProgressInfo(message)
+        if self._isUnattended():
+            return
+        if isError:
+            slicer.util.errorDisplay(message)
+        else:
+            slicer.util.infoDisplay(message)
+
+    def _startQueue(self):
+        if self.queue.isEmpty():
+            slicer.util.errorDisplay("The queue is empty. Add an input folder first.")
+            self._setApplyVisible(True)
+            return
+        if self.queue.isFinished():
+            slicer.util.errorDisplay(
+                "Every scan of the queue has already been processed.\n"
+                "Use « Retry failed » or « Clear » to start over.")
+            self._setApplyVisible(True)
+            return
+
+        self.queue.chunkSize = self.chunkSizeSpinBox.value
+        self._queueRunning = True
+        self._deviceFallbackAccepted = None
+        self.onProgressInfo(f"=== Starting queue: {self.queue.summary()} ===")
+        self._startNextItem()
+
+    def _startNextItem(self):
+        if not self._queueRunning or self.isStopping:
+            return
+
+        item = self.queue.current()
+        if item is None:
+            self._onQueueFinished()
+            return
+
+        if self.queue.isChunkBoundary():
+            self._coolDown()
+
+        try:
+            item.status = STATUS_RUNNING
+            self._updateQueueRow(self.queue.index)
+            self._updateQueueSummary()
+            self._itemFinalized = False
+            self._itemStartTime = qt.QDateTime.currentDateTime()
+            self.outputFolderPath = item.outputDir
+            Path(item.outputDir).mkdir(parents=True, exist_ok=True)
+            self._selectComboItem(self.modelComboBox, item.model)
+            self._selectComboItem(self.deviceComboBox, item.device)
+
+            self.currentFileIndex = self.queue.index
+            self._updateBatchCounter(show_file_name=True)
+            self.onProgressInfo(
+                f"--- Scan {self.queue.index + 1}/{len(self.queue.items)}: {item.name} "
+                f"[{item.model} / {item.device}] ---")
+
+            self._itemWatchdog.start(self.itemTimeoutSpinBox.value * 60_000)
+
+            loadedVolume = slicer.util.loadVolume(item.inputPath)
+            self.currentVolumeNode = loadedVolume
+            self.onInputChangedForLoadedVolume(loadedVolume)
+            self.onApplyClickedForVolume(loadedVolume)
+
+        except Exception as e:
+            logger.error(f"Failed to start {item.inputPath}: {e}", exc_info=True)
+            self._save_state_before_crash()
+            self._finishCurrentItem(STATUS_FAILED, f"start failed: {e}")
+
+    @staticmethod
+    def _selectComboItem(comboBox, text):
+        index = comboBox.findText(text)
+        if index >= 0 and index != comboBox.currentIndex:
+            comboBox.setCurrentIndex(index)
+
+    def _finishCurrentItem(self, status, error=""):
+        """Single exit point for a scan: records the result and schedules the next."""
+        if self._itemFinalized:
+            return
+        self._itemFinalized = True
+        self._itemWatchdog.stop()
+
+        duration = 0.0
+        if self._itemStartTime is not None:
+            duration = self._itemStartTime.msecsTo(qt.QDateTime.currentDateTime()) / 1000.0
+        item = self.queue.advance(status, error, duration)
+        if item is not None:
+            self._updateQueueRow(self.queue.index - 1)
+        self._updateQueueSummary()
+
+        if not self._queueRunning or self.isStopping:
+            self._setApplyVisible(True)
+            return
+        qt.QTimer.singleShot(150, self._startNextItem)
+
+    def _onItemTimeout(self):
+        item = self.queue.current()
+        name = item.name if item else "unknown"
+        self.onProgressInfo(
+            f"[TIMEOUT] {name} exceeded {self.itemTimeoutSpinBox.value} min — skipping.")
+        logger.error(f"Timeout on {name}")
+
+        # Killing the process may make the logic emit inferenceFinished: neutralize
+        # that path so the results of a timed-out scan are not processed anyway.
+        self._inferenceFinalized = True
+        try:
+            self.logic.stopSegmentation()
+            self.logic.waitForSegmentationFinished()
+        except Exception:
+            pass
+        try:
+            self._cleanupAfterCase(self.currentVolumeNode, self.getCurrentSegmentationNode())
+        except Exception as e:
+            # Never let a cleanup failure keep the queue from moving on.
+            logger.error(f"Cleanup after timeout failed: {e}", exc_info=True)
+        self._finishCurrentItem(STATUS_FAILED, f"timeout after {self.itemTimeoutSpinBox.value} min")
+
+    def _onQueueFinished(self):
+        self._queueRunning = False
+        self._setApplyVisible(True)
+        self._updateBatchCounter(show_file_name=False)
+        summary = self.queue.summary()
+        self.onProgressInfo(f"=== Queue finished: {summary} ===")
+
+        failed = [i for i in self.queue.items if i.status == STATUS_FAILED]
+        if failed:
+            details = "\n".join(f"  • {i.name}: {i.error}" for i in failed[:20])
+            if len(failed) > 20:
+                details += f"\n  … and {len(failed) - 20} more"
+            self.onProgressInfo(f"Failed scans:\n{details}")
+        self._notify(f"Queue finished — {summary}")
+
+    def _coolDown(self):
+        """Deep cleanup at a chunk boundary, to keep a long run from drifting."""
+        self.onProgressInfo("--- Chunk boundary: deep cleanup ---")
+        removed = self._removeOrphanNodes()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
+        import gc
+        gc.collect()
+        self.onProgressInfo(
+            f"Deep cleanup done ({removed} orphan node(s) removed). "
+            f"Memory: {self._get_memory_usage()}")
+        slicer.app.processEvents()
+
+    def _removeOrphanNodes(self):
+        """Drop volume / segmentation nodes left behind by an interrupted scan."""
+        keep = {
+            id(node) for node in (
+                self.currentVolumeNode,
+                self.getCurrentSegmentationNode(),
+                self._prevSegmentationNode,
+            ) if node is not None
+        }
+        removed = 0
+        for className in ("vtkMRMLSegmentationNode",
+                          "vtkMRMLLabelMapVolumeNode",
+                          "vtkMRMLScalarVolumeNode"):
+            for node in slicer.util.getNodesByClass(className):
+                if id(node) in keep:
+                    continue
+                try:
+                    slicer.mrmlScene.RemoveNode(node)
+                    removed += 1
+                except Exception:
+                    pass
+        self.processedVolumes = {}
+        return removed
+
     # ─── Resolve Mirroring Button Visibility ────────────────────────────────────
 
     def _updateResolveButtonVisibility(self, model_name):
@@ -368,7 +758,6 @@ class SegmentationWidget(qt.QWidget):
             return
 
         logic = slicer.modules.segmentations.logic()
-        seg   = segmentationNode.GetSegmentation()
 
         # ─── Official label map dictionary (values ↔ names) ───────────────
 
@@ -398,45 +787,17 @@ class SegmentationWidget(qt.QWidget):
         }
         reverse_full_map = {v: k for k, v in full_label_map.items()}
 
-        # ─── 1. Create an empty label map (correct geometry) ────────────────
-        geomLM = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        logic.ExportAllSegmentsToLabelmapNode(
-            segmentationNode, geomLM, slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY,True)
+        # ─── 1-2. Rebuild the label map with the official values ────────────
+        # Single export + LUT remap (see _buildLabelArray), instead of one
+        # full-extent export per segment. The array is rasterized on the volume
+        # grid, so the geometry is taken from the volume itself.
+        labelArray = self._buildLabelArray(segmentationNode, volumeNode, full_label_map)
 
-        ijkToRAS = vtk.vtkMatrix4x4(); geomLM.GetIJKToRASMatrix(ijkToRAS)
-        spacing, origin = geomLM.GetSpacing(), geomLM.GetOrigin()
-        array_shape     = slicer.util.arrayFromVolume(geomLM).shape
-        labelArray      = np.zeros(array_shape, dtype=np.uint16)
-        slicer.mrmlScene.RemoveNode(geomLM)  # Remove temporary node
-
-        # ─── 2. Rebuild label map with correct values ───────────────────────
-        for segId in seg.GetSegmentIDs():
-            segment = seg.GetSegment(segId)
-
-            # a. Get official scalar label value
-            tag_val = vtk.mutable("")
-            if segment.GetTag("LabelValue", tag_val) and tag_val.get():
-                val = int(tag_val.get())
-            else:
-                val = full_label_map.get(segment.GetName())
-                if val is None:
-                    self.onProgressInfo(f"[WARN] Unknown LabelValue for «{segment.GetName()}» — ignored.")
-                    continue
-
-            # b. Export THIS segment to a temporary label map
-            tmpLM = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-            ids   = vtk.vtkStringArray(); ids.InsertNextValue(segId)
-            logic.ExportSegmentsToLabelmapNode(
-                segmentationNode, ids, tmpLM, volumeNode,
-                slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY)
-
-            arr = slicer.util.arrayFromVolume(tmpLM)
-            labelArray[arr > 0] = val
-            slicer.mrmlScene.RemoveNode(tmpLM)
+        ijkToRAS = vtk.vtkMatrix4x4(); volumeNode.GetIJKToRASMatrix(ijkToRAS)
+        spacing, origin = volumeNode.GetSpacing(), volumeNode.GetOrigin()
 
         # ─── 3. Protected mask & mirror table ───────────────────────────────
         protected_vals = {53, 54, 55}
-        protected_mask = np.isin(labelArray, list(protected_vals))
 
         mirror_label_map = {}
         for name, val in full_label_map.items():
@@ -453,30 +814,46 @@ class SegmentationWidget(qt.QWidget):
                 mirror_label_map[val] = mirror_val
 
         # ─── 4. Mirror plane based on incisors ──────────────────────────────
-        def centroid(val):
-            pts = np.argwhere(labelArray == val)
-            if pts.size == 0:
-                return None
-            ras_sum = np.zeros(3)
-            for z, y, x in pts:
-                ras = [0]*4; ijkToRAS.MultiplyPoint([x, y, z, 1.0], ras)
-                ras_sum += ras[:3]
-            return ras_sum / len(pts)
+        # Everything below works on the foreground voxels only, and computes the
+        # RAS "R" coordinate with numpy. The previous version called
+        # vtkMatrix4x4.MultiplyPoint once per voxel from Python, for every label:
+        # tens of millions of VTK calls on a full-mouth CBCT.
+        fgMask   = labelArray > 0
+        fgCoords = np.argwhere(fgMask)            # (M, 3) as (z, y, x)
+        fgValues = labelArray[fgMask]             # (M,)
+
+        if fgCoords.size == 0:
+            slicer.util.warningDisplay("Segmentation is empty.")
+            self.mirroringProgressBar.setVisible(False)
+            return
+
+        # RAS_R = m00*x + m01*y + m02*z + m03
+        m00 = ijkToRAS.GetElement(0, 0)
+        m01 = ijkToRAS.GetElement(0, 1)
+        m02 = ijkToRAS.GetElement(0, 2)
+        m03 = ijkToRAS.GetElement(0, 3)
+        fgRasX = (m00 * fgCoords[:, 2] + m01 * fgCoords[:, 1] + m02 * fgCoords[:, 0] + m03)
 
         incisive_vals = (8, 9, 24, 25)
-        inc_centroids = [centroid(v) for v in incisive_vals]
-        if any(c is None for c in inc_centroids):
-            slicer.util.warningDisplay("Missing central incisors, unable to calculate mirror plane.")
-            return
-        mirror_x_ras = np.mean([c[0] for c in inc_centroids])
+        inc_centroids = []
+        for val in incisive_vals:
+            selected = fgRasX[fgValues == val]
+            if selected.size == 0:
+                slicer.util.warningDisplay("Missing central incisors, unable to calculate mirror plane.")
+                self.mirroringProgressBar.setVisible(False)
+                return
+            inc_centroids.append(selected.mean())
+        mirror_x_ras = float(np.mean(inc_centroids))
 
         # ─── 5. Perform mirror correction ────────────────────────────────────
         changed = []
-        unique_vals = np.unique(labelArray)
+        fgProtected = np.isin(fgValues, list(protected_vals))
+        unique_vals = np.unique(fgValues)
         for i, val in enumerate(unique_vals):
             self.mirroringProgressBar.setValue(int(100 * (i + 1) / len(unique_vals)))
             slicer.app.processEvents()
 
+            val = int(val)
             if val == 0 or val in protected_vals or val not in mirror_label_map:
                 continue
 
@@ -484,16 +861,23 @@ class SegmentationWidget(qt.QWidget):
             mirror_val  = mirror_label_map[val]
             is_left     = "left" in name.lower()
 
-            coords = np.argwhere(labelArray == val)
-            fixed  = 0
-            for z, y, x in coords:
-                if protected_mask[z, y, x]:
-                    continue
-                ras = [0]*4; ijkToRAS.MultiplyPoint([x, y, z, 1.0], ras)
-                if (is_left and ras[0] > mirror_x_ras) or (not is_left and ras[0] < mirror_x_ras):
-                    labelArray[z, y, x] = mirror_val; fixed += 1
-            if fixed:
-                changed.append(f"{name} → {reverse_full_map.get(mirror_val, mirror_val)} ({fixed} vox)")
+            indices = np.flatnonzero((fgValues == val) & ~fgProtected)
+            if indices.size == 0:
+                continue
+
+            rasX    = fgRasX[indices]
+            wrongSide = rasX > mirror_x_ras if is_left else rasX < mirror_x_ras
+            indices = indices[wrongSide]
+            if indices.size == 0:
+                continue
+
+            coords = fgCoords[indices]
+            labelArray[coords[:, 0], coords[:, 1], coords[:, 2]] = mirror_val
+            # Keep the working copy in sync, so a later label sees the same state
+            # the original per-voxel loop would have seen.
+            fgValues[indices] = mirror_val
+            changed.append(
+                f"{name} → {reverse_full_map.get(mirror_val, mirror_val)} ({indices.size} vox)")
 
         self.mirroringProgressBar.setValue(100)
 
@@ -520,20 +904,18 @@ class SegmentationWidget(qt.QWidget):
         self.segmentationNodeSelector.setCurrentNode(correctedSeg)
 
         # ─── 7. Rename + tag segments (by creation order) ──────────────────
-        unique_vals      = sorted(np.unique(labelArray[labelArray > 0]))      # [1,2,…,55]
+        finalValues      = [int(v) for v in np.unique(fgValues)]              # [1,2,…,55]
         segIds_sorted    = list(correctedSeg.GetSegmentation().GetSegmentIDs())
 
-        if len(unique_vals) != len(segIds_sorted):
+        if len(finalValues) != len(segIds_sorted):
             self.onProgressInfo("[WARN] Number of values ​​≠ number of segments — check import.")
 
-        for val, segId in zip(unique_vals, segIds_sorted):
+        for val, segId in zip(finalValues, segIds_sorted):
             segment = correctedSeg.GetSegmentation().GetSegment(segId)
             segment.SetName(reverse_full_map.get(val, f"label_{val}"))
             segment.SetTag("LabelValue", str(val))
 
-        # DEBUG: Show unique labels after correction
-        corr_arr = slicer.util.arrayFromVolume(correctedLM)
-        self.onProgressInfo("Unique labels AFTER correction:", sorted(np.unique(corr_arr[corr_arr > 0])))
+        self.onProgressInfo(f"Unique labels AFTER correction: {finalValues}")
 
         # Cleanup
         slicer.mrmlScene.RemoveNode(correctedLM)
@@ -562,6 +944,7 @@ class SegmentationWidget(qt.QWidget):
         if folderPath:
             self.outputFolderPath = folderPath
             self.outputFolderLineEdit.setText(folderPath)
+            self._restoreQueueFromDisk()
 
     # ──────────────────────────────────────────────────────────────────────────────
     # 3)  _saveSegmentationAsNifti
@@ -603,10 +986,7 @@ class SegmentationWidget(qt.QWidget):
         if folderPath:
             self.folderPath = folderPath
             self.folderPathLineEdit.text = folderPath
-            folder = Path(folderPath)
-            # Filter here according to your formats, e.g., all NIfTI files
-            self.folderFiles = list(folder.glob("*.nii*")) + list(folder.glob("*.gipl")) + list(folder.glob("*.gipl.gz"))
-
+            self.folderFiles = listVolumes(folderPath)
             self.currentFileIndex = 0
             self.onProgressInfo(f"Found {len(self.folderFiles)} file(s) in the folder.")
 
@@ -643,33 +1023,68 @@ class SegmentationWidget(qt.QWidget):
 
     def onStopClicked(self):
         self.isStopping = True
-        self.logic.stopSegmentation()
-        self.logic.waitForSegmentationFinished()
+        self._queueRunning = False
+        watchdog = getattr(self, "_itemWatchdog", None)
+        if watchdog is not None:
+            watchdog.stop()
+        if self.logic is not None:
+            self.logic.stopSegmentation()
+            self.logic.waitForSegmentationFinished()
         slicer.app.processEvents()
         self.isStopping = False
         self._setApplyVisible(True)
+
+        if not self.queue.isEmpty() and not self.queue.isFinished():
+            # The current scan stays "running" in the state file, so a resume
+            # restarts it rather than silently skipping it.
+            self.onProgressInfo(
+                f"Queue paused at scan {self.queue.index + 1}/{len(self.queue.items)}. "
+                "Press Apply to resume.")
 
     # ─── Apply segmentation ─────────────────────────────────────────────────────
     
     def onApplyClicked(self, *_):
         # --- quick validation ---
-        if not self.folderPath:
-            slicer.util.errorDisplay("Please select a folder containing volumes.")
+        if not self.outputFolderPath:
+            slicer.util.errorDisplay("Please select an output folder.")
             return
-        if not self.folderFiles:
-            slicer.util.errorDisplay("No valid volume file found in the folder.")
-            return
+
+        if self.queue.isEmpty() or self.queue.isFinished():
+            # No explicit queue: Apply keeps its original meaning and enqueues
+            # the whole input folder with the current model / device.
+            if not self.folderPath:
+                slicer.util.errorDisplay("Please select a folder containing volumes.")
+                return
+            if not self.folderFiles:
+                slicer.util.errorDisplay("No valid volume file found in the folder.")
+                return
+            self.onAddFolderToQueue()
+            if self.queue.isFinished():
+                slicer.util.errorDisplay(
+                    "Every scan of the input folder is already segmented in the output folder.\n"
+                    "Uncheck « Skip scans already segmented » to process them again."
+                )
+                return
 
         self.currentInfoTextEdit.clear()
+        self._logBuffer = []
         self._setApplyVisible(False)
 
+        # Environment setup is done once per session, not once per scan.
+        if self._setupDone:
+            self._startQueue()
+        else:
+            self._runSetupThenStartQueue()
+
+    def _runSetupThenStartQueue(self):
+        """Install the Python / nnUNet dependencies, then start the queue."""
         slicer.util.pip_install("light-the-torch")
         subprocess.check_call([sys.executable, "-m", "light_the_torch", "install", "torch", "torchvision"])
         slicer.util.pip_install("numexpr>=2.10.2")
         packages = ["numpy<2.0", "numexpr>=2.10.2","psutil"]
 
         def _onLine(line: str):
-            self.currentInfoTextEdit.append(line)    # QTextEdit
+            self.onProgressInfo(line)
 
         def _onFinished(ok: bool):
             if not ok:
@@ -698,58 +1113,31 @@ class SegmentationWidget(qt.QWidget):
                 self._setApplyVisible(True)
                 return
 
-            # ---------- Step 3 : Process scans ----------
-            self.processNextFile()
+            # ---------- Step 3 : Process the queue ----------
+            self._setupDone = True
+            self._startQueue()
 
         self._pipRunner = PipRunner(packages, _onLine, _onFinished, parent=self)
 
     def _updateBatchCounter(self, show_file_name: bool = False):
-            """
-            Update label 'Scan i/N'.
-            show_file_name : True to show name of current path.
-            """
-            total = len(self.folderFiles)
-            if total == 0:
-                self.batchCounterLabel.clear()
-                return
+        """
+        Update label 'Scan i/N'.
+        show_file_name : True to show name of the scan being processed.
+        """
+        total = len(self.queue.items)
+        if total == 0:
+            self.batchCounterLabel.clear()
+            return
 
-            idx = min(self.currentFileIndex + 1, total)
+        index = min(self.queue.index, total - 1)
+        counts = self.queue.counts()
+        text = f"Scan {min(self.queue.index + 1, total)}/{total}"
+        if show_file_name:
+            text += f"  –  {self.queue.items[index].name}"
+        if counts[STATUS_FAILED]:
+            text += f"   ({counts[STATUS_FAILED]} failed)"
 
-            if show_file_name and 0 <= self.currentFileIndex < total:
-                name = Path(self.folderFiles[self.currentFileIndex]).name
-                text = f"Scan {idx}/{total}  –  {name}"
-            else:
-                text = f"Scan {idx}/{total}"
-
-            self.batchCounterLabel.setText(text)
-
-    def processNextFile(self):
-        try:
-            self.onProgressInfo("Starting processNextFile")
-            self._timeout_timer.start()  # Start timeout
-
-            if self.currentFileIndex >= len(self.folderFiles):
-                self.onProgressInfo("All files processed")
-                self._updateBatchCounter(show_file_name=False)
-                return
-            self._updateBatchCounter(show_file_name=True)
-            filePath = self.folderFiles[self.currentFileIndex]
-            logger.info(f"Processing file {self.currentFileIndex + 1}/{len(self.folderFiles)}: {filePath}")
-
-            loadedVolume = slicer.util.loadVolume(str(filePath))
-            self.onProgressInfo(f"Loaded volume: {loadedVolume.GetName()}")
-
-            self.currentVolumeNode = loadedVolume
-            self.onInputChangedForLoadedVolume(loadedVolume)
-            self.onApplyClickedForVolume(loadedVolume)
-
-        except Exception as e:
-            logger.error(f"CRASH during processNextFile: {str(e)}", exc_info=True)
-            self._save_state_before_crash()
-            slicer.util.errorDisplay(f"Crash detected: {str(e)}\nSee logs in {Path.home()}/slicer_segmentation.log")
-            raise
-        finally:
-            self._timeout_timer.stop()
+        self.batchCounterLabel.setText(text)
 
 # ─── Volume input change handling ──────────────────────────────────────────
 
@@ -859,14 +1247,24 @@ class SegmentationWidget(qt.QWidget):
                 
         if not parameter.isSelectedDeviceAvailable():
             deviceName = parameter.device.upper()
-            ret = qt.QMessageBox.question(
-                self,
-                f"{deviceName} device not available",
-                f"Selected device ({deviceName}) is not available and will default to CPU.\n"
-                "Running the segmentation may take up to 1 hour.\n"
-                "Would you like to proceed?"
-            )
-            if ret == qt.QMessageBox.No:
+            # Asked once for the whole queue — never once per scan.
+            if self._deviceFallbackAccepted is None:
+                if self._isUnattended():
+                    self._deviceFallbackAccepted = True
+                    self.onProgressInfo(
+                        f"[WARN] {deviceName} not available — falling back to CPU for the whole queue.")
+                else:
+                    ret = qt.QMessageBox.question(
+                        self,
+                        f"{deviceName} device not available",
+                        f"Selected device ({deviceName}) is not available and will default to CPU.\n"
+                        "Running the segmentation may take up to 1 hour per scan.\n"
+                        "Would you like to proceed with the whole queue?"
+                    )
+                    self._deviceFallbackAccepted = (ret == qt.QMessageBox.Yes)
+            if not self._deviceFallbackAccepted:
+                self._queueRunning = False
+                self._finishCurrentItem(STATUS_FAILED, f"{deviceName} unavailable, aborted by user")
                 self._setApplyVisible(True)
                 return
         slicer.app.processEvents()
@@ -927,6 +1325,72 @@ class SegmentationWidget(qt.QWidget):
         }
 
 
+    @staticmethod
+    def _segmentLabelValue(segment, full_label_map):
+        """Official scalar value of a segment: 'LabelValue' tag first, then the active map."""
+        import vtk
+        tag_val = vtk.mutable("")
+        if segment.GetTag("LabelValue", tag_val) and tag_val.get():
+            try:
+                return int(tag_val.get())
+            except ValueError:
+                pass
+        return full_label_map.get(segment.GetName())
+
+    def _buildLabelArray(self, segNode, volNode, full_label_map):
+        """
+        Rebuild the multi-label array carrying the official label values.
+
+        One ExportSegmentsToLabelmapNode call for all segments at once, followed by
+        a lookup-table remap. The previous implementation rasterized the full volume
+        extent once per segment, so the cost scaled with the number of segments
+        (55 for UniversalLab) — here it no longer does.
+        """
+        import numpy as np
+        import vtk
+
+        segmentation = segNode.GetSegmentation()
+        segIds = list(segmentation.GetSegmentIDs())
+        if not segIds:
+            raise RuntimeError("Segmentation has no segment")
+
+        # Passing the IDs explicitly pins the mapping: exported value i+1 <-> segIds[i].
+        ids = vtk.vtkStringArray()
+        for segId in segIds:
+            ids.InsertNextValue(segId)
+
+        tmpLM = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+        try:
+            success = slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(
+                segNode, ids, tmpLM, volNode, slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY
+            )
+            if not success:
+                raise RuntimeError("ExportSegmentsToLabelmapNode failed")
+            exported = slicer.util.arrayFromVolume(tmpLM)
+        finally:
+            slicer.mrmlScene.RemoveNode(tmpLM)
+
+        maxExported = int(exported.max()) if exported.size else 0
+        lut = np.zeros(max(len(segIds), maxExported) + 1, dtype=np.uint16)
+        for exportedValue, segId in enumerate(segIds, start=1):
+            segment = segmentation.GetSegment(segId)
+            value = self._segmentLabelValue(segment, full_label_map)
+            if value is None:
+                self.onProgressInfo(f"[WARN] Unknown label for segment «{segment.GetName()}» — skipped")
+                continue
+            lut[exportedValue] = value
+
+        return lut[exported]
+
+    def _currentCaseName(self):
+        """Deterministic case name, so output files match what the queue expects."""
+        item = self.queue.current()
+        if item is not None:
+            return volumeStem(item.inputPath)
+        if self.currentVolumeNode is not None:
+            return self.currentVolumeNode.GetName()
+        return "Segmentation"
+
     def onInferenceFinished(self, *_):
         """End inference handling"""
         if self._inferenceFinalized:
@@ -941,10 +1405,9 @@ class SegmentationWidget(qt.QWidget):
             return
 
         segNode = volNode = None
+        status, errorDetail = STATUS_DONE, ""
         try:
             # === Step 1: Initialization ===
-            self._timeout_timer.start()
-            self.onProgressInfo("Start of processing of results")
             self.onProgressInfo("Processing results in progress...")
 
             # === Step 2: Load results ===
@@ -954,119 +1417,55 @@ class SegmentationWidget(qt.QWidget):
                 volNode = self.getCurrentVolumeNode()
                 if not segNode:
                     raise RuntimeError("No segmentation node found")
+                if not volNode:
+                    raise RuntimeError("No volume node found")
 
                 segmentation = segNode.GetSegmentation()
-
                 full_label_map = self._get_active_label_map()
 
+                # Normalize the LabelValue tags once (cheap: one pass over segments).
                 raw_values = []
-                import vtk
                 for segId in segmentation.GetSegmentIDs():
                     segment = segmentation.GetSegment(segId)
-                    name = segment.GetName()
-
-                    # Check first the tag 'LabelValue'
-                    tag_val = vtk.mutable("")
-                    has_tag = segment.GetTag("LabelValue", tag_val) and tag_val.get()
-                    value = None
-                    if has_tag:
-                        try:
-                            value = int(tag_val.get())
-                        except ValueError:
-                            value = None
-
-                    # if not we go back to the current mapping
+                    value = self._segmentLabelValue(segment, full_label_map)
                     if value is None:
-                        value = full_label_map.get(name)
-
-                    if value is None:
-                        self.onProgressInfo(f"[WARN] unexpected segment «{name}» — ignored")
+                        self.onProgressInfo(f"[WARN] unexpected segment «{segment.GetName()}» — ignored")
                         continue
-
-                    # Rewrite the tag to have a relevant tag
                     segment.SetTag("LabelValue", str(value))
                     raw_values.append(value)
 
-                raw_values = sorted(set(raw_values))
-                self.onProgressInfo(f"Predicted label values (raw): {raw_values}")
-
-                # 2) Check tags
-                for segId in segmentation.GetSegmentIDs():
-                    segment = segmentation.GetSegment(segId)
-                    tag_val = vtk.mutable("")
-                    segment.GetTag("LabelValue", tag_val)
-                    self.onProgressInfo(
-                        f"[DEBUG] After SetTag, segment «{segment.GetName()}» a LabelValue = {tag_val.get()!r}"
-                    )
+                self.onProgressInfo(f"Predicted label values (raw): {sorted(set(raw_values))}")
 
             except Exception as e:
                 raise RuntimeError(f"Failed to load results: {str(e)}")
 
-            # === PHASE 3: Export NIfTI manuel, segment par segment ===
-            import numpy as np, vtk as _vtk, os
+            # === PHASE 3: NIfTI export ===
+            import vtk as _vtk
 
-            # 3.1) Tableau numpy vide de la taille du volume
-            ref_arr = slicer.util.arrayFromVolume(volNode)  # shape (Z,Y,X)
-            label_arr = np.zeros(ref_arr.shape, dtype=np.uint16)
+            label_arr = self._buildLabelArray(segNode, volNode, full_label_map)
 
-            # 3.2) Pour chaque segment, on exporte uniquement ce segment
-            logic = slicer.modules.segmentations.logic()
-            for segId in segmentation.GetSegmentIDs():
-                segment = segmentation.GetSegment(segId)
-                name = segment.GetName()
-
-                # Valeur finale = tag prioritaire, sinon dict actif
-                tag_val = _vtk.mutable("")
-                has_tag = segment.GetTag("LabelValue", tag_val) and tag_val.get()
-                value = None
-                if has_tag:
-                    try:
-                        value = int(tag_val.get())
-                    except ValueError:
-                        value = None
-                if value is None:
-                    value = full_label_map.get(name)
-
-                if value is None:
-                    # Si on ne trouve pas de valeur, on ignore proprement
-                    self.onProgressInfo(f"[WARN] Unknown label for segment «{name}» — skipped")
-                    continue
-
-                # Labelmap temporaire
-                tmpLM = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-                ids = _vtk.vtkStringArray()
-                ids.InsertNextValue(segId)
-                success = logic.ExportSegmentsToLabelmapNode(
-                    segNode, ids, tmpLM, volNode,
-                    slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY
-                )
-                if not success:
-                    self.onProgressInfo(f"[ERROR] could not export segment «{name}»")
-                    slicer.mrmlScene.RemoveNode(tmpLM)
-                    continue
-
-                single_arr = slicer.util.arrayFromVolume(tmpLM)  # 0/1 mask of current segment
-                label_arr[single_arr > 0] = value
-                slicer.mrmlScene.RemoveNode(tmpLM)
-
-            # 3.3) Rebuild the labelmap volume
             tmpOut = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-            slicer.util.updateVolumeFromArray(tmpOut, label_arr)
-            tmpOut.SetSpacing(volNode.GetSpacing())
-            tmpOut.SetOrigin(volNode.GetOrigin())
-            ijk2ras = _vtk.vtkMatrix4x4()
-            volNode.GetIJKToRASMatrix(ijk2ras)
-            tmpOut.SetIJKToRASMatrix(ijk2ras)
+            try:
+                slicer.util.updateVolumeFromArray(tmpOut, label_arr)
+                tmpOut.SetSpacing(volNode.GetSpacing())
+                tmpOut.SetOrigin(volNode.GetOrigin())
+                ijk2ras = _vtk.vtkMatrix4x4()
+                volNode.GetIJKToRASMatrix(ijk2ras)
+                tmpOut.SetIJKToRASMatrix(ijk2ras)
 
-            output_path = os.path.join(self.outputFolderPath, segNode.GetName() + ".nii.gz")
-            saved = slicer.util.saveNode(tmpOut, output_path)
-            self.onExportClicked()
+                output_path = str(Path(self.outputFolderPath).joinpath(
+                    f"{self._currentCaseName()}_Segmentation.nii.gz"))
+                saved = slicer.util.saveNode(tmpOut, output_path)
+            finally:
+                slicer.mrmlScene.RemoveNode(tmpOut)
 
             if saved:
-                self.onProgressInfo(f"Segmentation saved manually in {output_path}")
+                self.onProgressInfo(f"Segmentation saved in {output_path}")
             else:
-                self.onProgressInfo(f"Fail of saveNode in {output_path}")
-            slicer.mrmlScene.RemoveNode(tmpOut)
+                raise RuntimeError(f"saveNode failed for {output_path}")
+
+            # Other formats (STL / OBJ / VTK / glTF), without any modal dialog.
+            errorDetail = self._exportSegmentation(segNode, silent=True)
 
             # === Step 4: Success ===
             self.onProgressInfo("Processing completed successfully")
@@ -1074,56 +1473,23 @@ class SegmentationWidget(qt.QWidget):
 
         except Exception as e:
             # === Error handling ===
+            status, errorDetail = STATUS_FAILED, str(e)
             error_msg = f"ERROR: {str(e)}"
             logger.critical(error_msg, exc_info=True)
-            slicer.util.errorDisplay(f"Critical error:\n{error_msg}")
             self.onProgressInfo(f"PROCESSING FAILURE:\n{error_msg}")
             self._save_state_before_crash()
+            if not self._isUnattended():
+                slicer.util.errorDisplay(f"Critical error:\n{error_msg}")
 
         finally:
-            # === PHASE 5: Nettoyage & batch ===
+            # === PHASE 5: cleanup, then hand over to the queue ===
             try:
-                self.onProgressInfo("Start cleaning procedure")
-                if hasattr(self, '_cleanupAfterCase'):
-                    self._cleanupAfterCase(volNode, segNode)
-                else:
-                    logger.error("Missing _cleanupAfterCase method!")
-
-                # Vidage cache GPU
-                try:
-                    import torch
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                        self.onProgressInfo("CUDA cache cleared")
-                except ImportError:
-                    pass
-
-                # GC
-                import gc; gc.collect()
-                self.onProgressInfo(f"Memory used: {self._get_memory_usage()}")
-
-                # Passage au fichier suivant si batch
-                if hasattr(self, 'folderFiles') and self.folderFiles:
-                    self.currentFileIndex += 1
-                    self._updateBatchCounter(show_file_name=True)
-                    if self.currentFileIndex < len(self.folderFiles):
-                        self.onProgressInfo(
-                            f"Switch to file {self.currentFileIndex+1}/{len(self.folderFiles)}"
-                        )
-                        qt.QTimer.singleShot(150, self.processNextFile)
-                    else:
-                        self._setApplyVisible(True)
-                        self.onProgressInfo("All files have been processed")
-                        self.onProgressInfo("Complete treatment completed")
-                else:
-                    self._setApplyVisible(True)
-
+                self._cleanupAfterCase(volNode, segNode)
             except Exception as cleanup_error:
                 logger.critical(f"Final cleaning failure: {cleanup_error}", exc_info=True)
                 self.onProgressInfo(f"CLEANING ERROR: {cleanup_error}")
-            finally:
-                self._timeout_timer.stop()
-                self.onProgressInfo("Procedure completely completed")
+
+            self._finishCurrentItem(status, errorDetail)
 
 
 
@@ -1154,16 +1520,24 @@ class SegmentationWidget(qt.QWidget):
                 if segDisp and is_node_in_scene(segDisp):
                     slicer.mrmlScene.RemoveNode(segDisp)
 
-            try:
-                shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
-                if shNode and shNode.GetScene():  # shNode est valide
-                    itemID = shNode.GetItemByDataNode(segmentationNode)
-                    if itemID and itemID != shNode.GetInvalidItemID():
-                        shNode.RemoveItem(itemID)
-            except Exception:
-                pass
+            # 3) Retirer l'entrée de la subject hierarchy PUIS le nœud lui-même.
+            #    Le RemoveNode était auparavant indenté dans le bloc « except », donc
+            #    jamais exécuté : chaque scan laissait sa segmentation dans la scène.
+            if segmentationNode:
+                try:
+                    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+                    if shNode and shNode.GetScene():
+                        itemID = shNode.GetItemByDataNode(segmentationNode)
+                        if itemID and itemID != shNode.GetInvalidItemID():
+                            shNode.RemoveItem(itemID)
+                except Exception:
+                    pass
 
-                slicer.mrmlScene.RemoveNode(segmentationNode)
+                if is_node_in_scene(segmentationNode):
+                    slicer.mrmlScene.RemoveNode(segmentationNode)
+
+            if self._prevSegmentationNode is segmentationNode:
+                self._prevSegmentationNode = None
 
             try:
                 self.segmentEditorWidget.blockSignals(False)
@@ -1175,6 +1549,13 @@ class SegmentationWidget(qt.QWidget):
                 if volDisp and is_node_in_scene(volDisp):
                     slicer.mrmlScene.RemoveNode(volDisp)
                 slicer.mrmlScene.RemoveNode(volumeNode)
+
+            if self.currentVolumeNode is volumeNode:
+                self.currentVolumeNode = None
+
+            # 6) Ne pas garder de référence Python sur des nœuds supprimés, sinon
+            #    le gc.collect() ci-dessous ne peut rien libérer.
+            self.processedVolumes = {}
 
             # 7) CUDA cache
             try:
@@ -1199,7 +1580,7 @@ class SegmentationWidget(qt.QWidget):
     def _loadSegmentationResults(self):
         currentSegmentation = self.getCurrentSegmentationNode()
         segmentationNode = self.logic.loadSegmentation()
-        segmentationNode.SetName(self.currentVolumeNode.GetName() + "_Segmentation")
+        segmentationNode.SetName(self._currentCaseName() + "_Segmentation")
         if currentSegmentation is not None:
             self._copySegmentationResultsToExistingNode(currentSegmentation, segmentationNode)
         else:
@@ -1504,28 +1885,55 @@ class SegmentationWidget(qt.QWidget):
         return segmentationNode.GetSegmentation().GetSegment(segmentId)
 
     def onInferenceError(self, errorMsg):
-        logger.debug(f"[DEBUG][SegWidget] onInferenceError called: {errorMsg}")
-        self.onProgressInfo(f"[DEBUG][SegWidget] onInferenceError received: {errorMsg}")
+        logger.error(f"[SegWidget] onInferenceError: {errorMsg}")
+        self.onProgressInfo(f"[ERROR] Inference failed: {errorMsg}")
         if self.isStopping:
             return
-        self._setApplyVisible(True)
-        slicer.util.errorDisplay("Encountered error during inference :\n" + str(errorMsg))
 
+        if not self._queueRunning:
+            self._setApplyVisible(True)
+            slicer.util.errorDisplay("Encountered error during inference :\n" + str(errorMsg))
+            return
+
+        # During a queue run a bad scan must never stop the batch: clean up and move on.
+        # inferenceFinished may still be emitted afterwards — neutralize it.
+        self._inferenceFinalized = True
+        try:
+            self._cleanupAfterCase(self.getCurrentVolumeNode(), self.getCurrentSegmentationNode())
+        except Exception as e:
+            logger.error(f"Cleanup after inference error failed: {e}", exc_info=True)
+        self._finishCurrentItem(STATUS_FAILED, f"inference error: {errorMsg}")
 
     def onProgressInfo(self, infoMsg):
         infoMsg = self.removeImageIOError(infoMsg)
-        self.currentInfoTextEdit.insertPlainText(infoMsg + "\n")
-        self.moveTextEditToEnd(self.currentInfoTextEdit)
-        self.insertDatedInfoLogs(infoMsg)
+        if not infoMsg:
+            return
+        self._appendLog(infoMsg)
         if "done with volume" in infoMsg.lower():
             self._doneVolumeSeen = True
             self._fallbackCheckAttempts = 0
             self._fallbackLastOutputSize = None
-            debugMsg = "[DEBUG][SegWidget] 'done with volume' detected, starting fallback completion check"
-            self.currentInfoTextEdit.insertPlainText(debugMsg + "\n")
-            self.moveTextEditToEnd(self.currentInfoTextEdit)
-            self.insertDatedInfoLogs(debugMsg)
+            self._appendLog(
+                "[DEBUG][SegWidget] 'done with volume' detected, starting fallback completion check")
             qt.QTimer.singleShot(1500, self._checkInferenceCompletionFallback)
+
+    def _appendLog(self, message):
+        """
+        Queue a log line. The text widget is refreshed at most every 200 ms instead
+        of once per line: nnUNet emits thousands of lines per run, and an
+        insertPlainText + processEvents on each of them dominated the UI thread.
+        """
+        self._logBuffer.append(message)
+        self.insertDatedInfoLogs(message)
+        if not self._logFlushTimer.isActive():
+            self._logFlushTimer.start()
+
+    def _flushLogBuffer(self):
+        if not self._logBuffer:
+            return
+        pending, self._logBuffer = self._logBuffer, []
+        self.currentInfoTextEdit.insertPlainText("\n".join(pending) + "\n")
+        self.moveTextEditToEnd(self.currentInfoTextEdit)
         slicer.app.processEvents()
 
     def _checkInferenceCompletionFallback(self):
@@ -1657,19 +2065,49 @@ class SegmentationWidget(qt.QWidget):
         return selectedFormats
 
     def onExportClicked(self):
-        segmentationNode = self.getCurrentSegmentationNode()
+        self._exportSegmentation(silent=False)
+
+    def _exportSegmentation(self, segmentationNode=None, silent=False):
+        """
+        Export the extra formats (STL / OBJ / VTK / glTF).
+
+        In silent mode no modal dialog is ever raised — a confirmation pop-up per
+        scan would block the queue until someone clicks. Returns a warning string
+        when the export failed, "" otherwise.
+        """
+        segmentationNode = segmentationNode or self.getCurrentSegmentationNode()
         if not segmentationNode:
-            slicer.util.warningDisplay("Please select a valid segmentation before exporting.")
-            return
+            message = "Please select a valid segmentation before exporting."
+            if silent:
+                self.onProgressInfo(f"[WARN] {message}")
+                return f"export warning: {message}"
+            slicer.util.warningDisplay(message)
+            return ""
 
         selectedFormats = self.getSelectedExportFormats()
         if selectedFormats == ExportFormat(0):
+            if silent:
+                self.onProgressInfo("No additional export format selected — NIfTI only.")
+                return ""
             slicer.util.warningDisplay("Please select at least one export format before exporting.")
-            return
+            return ""
+
+        if silent:
+            try:
+                self.exportSegmentation(segmentationNode, self.outputFolderPath, selectedFormats)
+                self.onProgressInfo(f"Export successful to {self.outputFolderPath}.")
+                return ""
+            except Exception as e:
+                # The NIfTI is already written: a mesh export failure downgrades the
+                # scan to a warning, it does not invalidate the segmentation.
+                logger.error(f"Additional format export failed: {e}", exc_info=True)
+                self.onProgressInfo(f"[WARN] Additional format export failed: {e}")
+                return f"export warning: {e}"
 
         with slicer.util.tryWithErrorDisplay(f"Export to {self.outputFolderPath} failed.", waitCursor=True):
             self.exportSegmentation(segmentationNode, self.outputFolderPath, selectedFormats)
             slicer.util.infoDisplay(f"Export successful to {self.outputFolderPath}.")
+        return ""
 
     def exportSegmentation(self, segNode, folderPath, selectedFormats):
 
@@ -1710,10 +2148,16 @@ class SegmentationWidget(qt.QWidget):
         img = labelmap.GetImageData()
 
         # Marching Cubes
+        # SetValue takes a contour *index*, not the label value. Passing the label
+        # as index left index 0 unset (contour value 0.0), so the background was
+        # contoured too and its surface went through cleaning, smoothing and
+        # normals before being thrown away by the per-label thresholding below.
         self.onProgressInfo("MergedVTK: MarchingCubes")
         mc = vtk.vtkDiscreteMarchingCubes(); mc.SetInputData(img)
-        for l in np.unique(vtk_to_numpy(img.GetPointData().GetScalars())):
-            if l: mc.SetValue(int(l), int(l))
+        foregroundLabels = [int(l) for l in np.unique(vtk_to_numpy(img.GetPointData().GetScalars())) if l]
+        mc.SetNumberOfContours(len(foregroundLabels))
+        for contourIndex, labelValue in enumerate(foregroundLabels):
+            mc.SetValue(contourIndex, labelValue)
         mc.Update()
 
         # Clean + smooth
@@ -1760,12 +2204,10 @@ class SegmentationWidget(qt.QWidget):
             dec.Update()
 
             out = dec.GetOutput()
-            constLabel = vtk.vtkIntArray()
+            from vtk.util.numpy_support import numpy_to_vtk
+            constLabel = numpy_to_vtk(
+                np.full(out.GetNumberOfCells(), int(labelValue), dtype=np.int32), deep=True)
             constLabel.SetName("Label")
-            constLabel.SetNumberOfComponents(1)
-            constLabel.SetNumberOfTuples(out.GetNumberOfCells())
-            for c in range(out.GetNumberOfCells()):
-                constLabel.SetValue(c, int(labelValue))
             out.GetCellData().AddArray(constLabel)
             out.GetCellData().SetScalars(constLabel)
 

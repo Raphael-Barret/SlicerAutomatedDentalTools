@@ -7,7 +7,6 @@ from qt import (
     QTabWidget,
     QGridLayout,
     QComboBox,
-    QDoubleSpinBox,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -27,6 +26,13 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+
+# Height of the MGL patch on each side of the mucogingival line, in mm. Below
+# 1 mm the band holds too few vertices for the ICP, above 20 mm it runs past the
+# scanned mucosa.
+MGL_DEFAULT_RADIUS = 5.0
+MGL_MIN_RADIUS = 1.0
+MGL_MAX_RADIUS = 20.0
 
 from AREG_Method.IOS import Auto_IOS, Semi_IOS
 from AREG_Method.CBCT import Semi_CBCT, Auto_CBCT, Or_Auto_CBCT
@@ -644,21 +650,18 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         grid.addWidget(self.label_reg_reference, row, 0)
         grid.addWidget(self.CbRegReference, row, 1)
 
+        # A plain line edit rather than a spin box: the module stylesheet pads
+        # every QLineEdit by 6px, and a spin box wears that padding on its inner
+        # editor, which clips the digits out of view.
         self.label_mgl_radius = QLabel("MGL Patch Height (mm)")
-        self.SpinMGLRadius = QDoubleSpinBox()
-        self.SpinMGLRadius.setRange(1.0, 20.0)
-        self.SpinMGLRadius.setSingleStep(0.5)
-        self.SpinMGLRadius.setDecimals(1)
-        self.SpinMGLRadius.setSuffix(" mm")
-        self.SpinMGLRadius.setMinimumWidth(90)
-        self.SpinMGLRadius.setValue(5.0)
-        self.SpinMGLRadius.setToolTip(
-            "How far the patch spreads on each side of the mucogingival line, "
-            "along the surface. Vertices belonging to the crowns are always left "
-            "out, whatever the value."
+        self.lineEditMGLRadius = QLineEdit(str(MGL_DEFAULT_RADIUS))
+        self.lineEditMGLRadius.setToolTip(
+            f"How far the patch spreads on each side of the mucogingival line, "
+            f"along the surface, in mm (between {MGL_MIN_RADIUS} and {MGL_MAX_RADIUS}). "
+            "Vertices belonging to the crowns are always left out, whatever the value."
         )
         grid.addWidget(self.label_mgl_radius, row + 1, 0)
-        grid.addWidget(self.SpinMGLRadius, row + 1, 1)
+        grid.addWidget(self.lineEditMGLRadius, row + 1, 1)
 
         self.label_mgl_lm = QLabel("MGL Landmarks Folder")
         self.lineEditMGLLandmarks = QLineEdit()
@@ -677,6 +680,20 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CbRegReference.currentIndexChanged.connect(self.SwitchRegReference)
         self.SwitchRegReference(0)
 
+    def MGLRadius(self):
+        """Patch height as typed, kept inside the range the patch is usable in."""
+        try:
+            radius = float(self.lineEditMGLRadius.text.replace(",", ".").strip())
+        except ValueError:
+            logger.warning(f"Unreadable MGL patch height, falling back to {MGL_DEFAULT_RADIUS} mm")
+            return str(MGL_DEFAULT_RADIUS)
+
+        clamped = min(max(radius, MGL_MIN_RADIUS), MGL_MAX_RADIUS)
+        if clamped != radius:
+            logger.warning(f"MGL patch height {radius} mm is out of range, using {clamped} mm")
+            self.lineEditMGLRadius.setText(str(clamped))
+        return str(clamped)
+
     def SearchMGLLandmarks(self):
         folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select the MGL landmarks folder")
         if folder:
@@ -691,7 +708,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def SwitchRegReference(self, index):
         """Show the fields that belong to the selected reference."""
         is_mgl = index == 1
-        for widget in (self.label_mgl_radius, self.SpinMGLRadius, self.label_mgl_lm,
+        for widget in (self.label_mgl_radius, self.lineEditMGLRadius, self.label_mgl_lm,
                        self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
             widget.setVisible(is_mgl)
 
@@ -717,7 +734,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if visible:
             self.SwitchRegReference(self.CbRegReference.currentIndex)
         else:
-            for widget in (self.label_mgl_radius, self.SpinMGLRadius, self.label_mgl_lm,
+            for widget in (self.label_mgl_radius, self.lineEditMGLRadius, self.label_mgl_lm,
                            self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
                 widget.setVisible(False)
 
@@ -1429,7 +1446,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 ),
                 ApproxStep=self.ui.ApproxcheckBox.isChecked(),
                 reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
-                patch_radius=str(self.SpinMGLRadius.value),
+                patch_radius=self.MGLRadius(),
                 mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
             )
 

@@ -131,21 +131,29 @@ def main(args):
             raise FileNotFoundError(f"Directory does not exist: {args.dir_models}")
         
         normpath = os.path.normpath("/".join([args.dir_models, '**', '']))
-        for img_fn in glob.iglob(normpath, recursive=True):
+        # sorted() so that two checkpoints competing for the same slot resolve the
+        # same way every run: an older model left in the folder must not silently
+        # win a coin toss, since weights only work with the geometry they were
+        # trained on
+        for img_fn in sorted(glob.iglob(normpath, recursive=True)):
             basename = os.path.basename(img_fn)
             if basename.endswith(".pth"):
                 try:
                     model_id = basename.split("_")[1]
                     if model_id not in available_models.keys():
                         available_models[model_id] = {}
-                    if 'Lower' in basename:
-                        available_models[model_id]['Lower'] = (img_fn)
-                    else:
-                        available_models[model_id]['Upper'] = (img_fn)
+                    jaw = 'Lower' if 'Lower' in basename else 'Upper'
+                    if jaw in available_models[model_id]:
+                        logger.warning(
+                            f"Several {jaw} '{model_id}' models found, using {basename} and "
+                            f"ignoring {os.path.basename(available_models[model_id][jaw])}. "
+                            "Keep only one to be sure which is used."
+                        )
+                    available_models[model_id][jaw] = (img_fn)
                 except Exception as e:
                     logger.warning(f"Error processing model file {basename}: {e}")
                     continue
-        
+
         logger.info(f'Available models: {available_models}')
 
         for model_id in MODELS_DICT.keys():

@@ -1,0 +1,212 @@
+# Build the registration patch of the lower arch from the mucogingival (MGL)
+# landmarks predicted by ALI_IOS.
+#
+# The upper arch uses a patch painted by a neural network on the palate. The
+# mandible has no such stable plateau, but it has the mucogingival line: the
+# 13 MG landmarks run along the arch and can be joined into a smooth curve. The
+# band of surface around that curve plays the same role as the palatal patch,
+# and is written into the very same "Butterfly" point array so the registration
+# code downstream does not change.
+#
+# Two properties matter for the result to be usable:
+#   - every sample of the curve is snapped onto the mesh, because a curve
+#     interpolated between landmarks floats off the surface in the concavities
+#     between teeth;
+#   - the band grows along the surface (geodesic), never through it, so a
+#     buccal patch cannot leak onto the lingual side where the ridge is thin.
+import heapq
+import logging
+import sys
+
+import numpy as np
+import vtk
+from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
+
+# --- LOGGING CONFIGURATION ---
+logger = logging.getLogger("AREG_IOS_MGL")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+if logger.handlers:
+    logger.handlers.clear()
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Landmark names of the MG model, in arch order. L0MG is the midline (tooth 25),
+# so the right side is shifted by one against the tooth numbers.
+MGL_ORDER = ['LL6MG', 'LL5MG', 'LL4MG', 'LL3MG', 'LL2MG', 'LL1MG', 'L0MG',
+             'LR1MG', 'LR2MG', 'LR3MG', 'LR4MG', 'LR5MG', 'LR6MG']
+
+# Names written by predictions made before the MG suffix was added.
+MGL_ORDER_LEGACY = [name[:-2] for name in MGL_ORDER]
+
+DEFAULT_RADIUS = 5.0        # mm, half-height of the band around the curve
+DEFAULT_SAMPLES = 300       # samples along the spline
+
+# Universal_ID labels of the lower teeth. The gingiva carries its own label, so
+# the patch can be kept off the crowns, which are the structures that move
+# between the two timepoints and must not drive the registration.
+LOWER_TOOTH_LABELS = range(18, 32)
+
+
+def OrderedMGLandmarks(landmarks):
+    """Return the MG landmark positions in arch order, as an (N, 3) array.
+
+    Accepts both the current names (LL6MG...) and the older suffix-less ones,
+    and tolerates missing teeth: a scan where ALI could not place every point
+    still yields a usable curve, as long as three points remain.
+    """
+    for order in (MGL_ORDER, MGL_ORDER_LEGACY):
+        points = [np.asarray(landmarks[name], dtype=float)
+                  for name in order if name in landmarks]
+        if len(points) >= 3:
+            missing = [name for name in order if name not in landmarks]
+            if missing:
+                logger.warning(f"MG landmarks missing from the prediction: {missing}")
+            return np.array(points)
+
+    raise ValueError(
+        "Fewer than 3 MG landmarks found. Expected names such as "
+        f"{MGL_ORDER[:3]}, got {sorted(landmarks)}"
+    )
+
+
+def SplineThroughLandmarks(points, n_samples=DEFAULT_SAMPLES):
+    """Sample a B-spline passing through `points`, as an (n_samples, 3) array.
+
+    The landmarks are sparse (one per tooth), so the curve between them is an
+    interpolation, not a measurement: it is only used to place the band.
+    """
+    vtk_points = vtk.vtkPoints()
+    for point in points:
+        vtk_points.InsertNextPoint(*point)
+
+    spline = vtk.vtkParametricSpline()
+    spline.SetPoints(vtk_points)
+    spline.ClosedOff()
+
+    source = vtk.vtkParametricFunctionSource()
+    source.SetParametricFunction(spline)
+    source.SetUResolution(n_samples)
+    source.Update()
+
+    return vtk_to_numpy(source.GetOutput().GetPoints().GetData())
+
+
+def SnapToSurface(surf, samples):
+    """Return, for each sample, the id of the closest vertex of `surf`.
+
+    A spline drawn through landmarks that sit on the surface still leaves it
+    between them, so the samples are snapped back before growing the band.
+    Duplicate ids are removed: consecutive samples often land on one vertex.
+    """
+    locator = vtk.vtkPointLocator()
+    locator.SetDataSet(surf)
+    locator.BuildLocator()
+
+    seeds = []
+    for sample in samples:
+        seeds.append(locator.FindClosestPoint(sample))
+    return sorted(set(seeds))
+
+
+def _adjacency(surf):
+    """Neighbour ids of every vertex, from the mesh edges."""
+    surf.BuildLinks()
+    n_points = surf.GetNumberOfPoints()
+    neighbours = [set() for _ in range(n_points)]
+
+    cell_points = vtk.vtkIdList()
+    for cell_id in range(surf.GetNumberOfCells()):
+        surf.GetCellPoints(cell_id, cell_points)
+        ids = [cell_points.GetId(i) for i in range(cell_points.GetNumberOfIds())]
+        for a in ids:
+            for b in ids:
+                if a != b:
+                    neighbours[a].add(b)
+    return neighbours
+
+
+def GrowBand(surf, seeds, radius):
+    """Vertices within `radius` mm of a seed, measured along the surface.
+
+    Growing along the mesh rather than through space is what keeps the band on
+    the buccal side: a straight-line radius of a few millimetres would reach the
+    lingual surface wherever the ridge is thinner than that.
+    """
+    points = vtk_to_numpy(surf.GetPoints().GetData())
+    neighbours = _adjacency(surf)
+
+    distance = np.full(surf.GetNumberOfPoints(), np.inf)
+    queue = []
+    for seed in seeds:
+        distance[seed] = 0.0
+        heapq.heappush(queue, (0.0, seed))
+
+    while queue:
+        dist, point_id = heapq.heappop(queue)
+        if dist > distance[point_id]:
+            continue
+        for neighbour in neighbours[point_id]:
+            step = float(np.linalg.norm(points[neighbour] - points[point_id]))
+            new_dist = dist + step
+            if new_dist < distance[neighbour] and new_dist <= radius:
+                distance[neighbour] = new_dist
+                heapq.heappush(queue, (new_dist, neighbour))
+
+    return distance <= radius
+
+
+def _tooth_mask(surf):
+    """True where a vertex belongs to a tooth crown, False on the gingiva.
+
+    All-False when the mesh carries no segmentation, so the caller keeps the
+    whole band rather than losing the patch.
+    """
+    scalars = None
+    for name in ("Universal_ID", "PredictedID", "UniversalID"):
+        scalars = surf.GetPointData().GetScalars(name) or surf.GetPointData().GetArray(name)
+        if scalars is not None:
+            break
+
+    if scalars is None:
+        logger.warning("No teeth segmentation on the mesh, the patch is not kept off the crowns")
+        return np.zeros(surf.GetNumberOfPoints(), dtype=bool)
+
+    labels = vtk_to_numpy(scalars)
+    return np.isin(labels, list(LOWER_TOOTH_LABELS))
+
+
+def MGLPatch(surf, landmarks, radius=DEFAULT_RADIUS, n_samples=DEFAULT_SAMPLES,
+             array_name="Butterfly", exclude_teeth=True):
+    """Paint the band around the mucogingival line into `array_name`.
+
+    Writes the same 0/1 point array the palatal patch uses, so the registration
+    reads it without knowing which arch produced it. Returns the surface.
+    """
+    points = OrderedMGLandmarks(landmarks)
+    logger.info(f"Building the MGL patch from {len(points)} landmark(s), radius {radius} mm")
+
+    samples = SplineThroughLandmarks(points, n_samples)
+    seeds = SnapToSurface(surf, samples)
+    logger.debug(f"{len(samples)} spline sample(s) snapped onto {len(seeds)} vertex(es)")
+
+    inside = GrowBand(surf, seeds, radius)
+
+    if exclude_teeth:
+        on_teeth = _tooth_mask(surf) & inside
+        if on_teeth.any():
+            logger.info(f"Dropping {int(on_teeth.sum())} vertex(es) of the band that reached the crowns")
+            inside = inside & ~on_teeth
+
+    n_inside = int(inside.sum())
+    if n_inside == 0:
+        raise ValueError("The MGL patch is empty, the landmarks may not belong to this scan")
+    logger.info(f"MGL patch: {n_inside} vertex(es) out of {surf.GetNumberOfPoints()}")
+
+    array = numpy_to_vtk(inside.astype(np.int64))
+    array.SetName(array_name)
+    surf.GetPointData().AddArray(array)
+    return surf

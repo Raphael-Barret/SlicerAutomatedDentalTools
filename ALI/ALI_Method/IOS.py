@@ -161,7 +161,9 @@ class Auto_IOS(Method):
     def getModelUrl(self):
         return {
             "Segmentation": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/segmentation_model.zip",
-            "Prediction": "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3/Models.zip",
+            # Occlusal, Cervical and Mucogingival models. Same content as the
+            # historical ALIDDM v1.0.3 archive plus Lower_MG_v6.pth
+            "Prediction": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/ALI_IOS_models/Models.zip",
         }
 
     def getReferenceList(self):

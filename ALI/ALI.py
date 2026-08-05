@@ -938,13 +938,17 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # so a node that only lives in the scene has nothing to give us
       self.onNodeChanged()
       if self.MRMLNode_scan is None:
-        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select a model in the node list')
+        qt.QMessageBox.warning(
+          self.parent, 'Warning',
+          'No scan selected.\nPick the scan to process in the "Select node" list at the '
+          'top of the module, or switch the input to a file or a folder.'
+        )
         return
       if not self.input_path:
         qt.QMessageBox.warning(
           self.parent, 'Warning',
-          f'"{self.MRMLNode_scan.GetName()}" is not saved on disk, so it cannot be processed.\n'
-          'Save it as a .vtk file first (File > Save), then select it again.'
+          f'The scan "{self.MRMLNode_scan.GetName()}" is not saved on disk, so it cannot '
+          'be processed.\nSave it as a .vtk file first (File > Save), then select it again.'
         )
         return
 

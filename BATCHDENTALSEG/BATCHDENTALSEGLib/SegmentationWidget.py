@@ -281,7 +281,8 @@ class SegmentationWidget(qt.QWidget):
         # Rolling window: a multi-hour run would otherwise grow the Qt document
         # without bound and slow every insertion down. Full history stays in
         # fullInfoLogs, reachable through the « info » button.
-        self.currentInfoTextEdit.document().setMaximumBlockCount(5000)
+        # PythonQt exposes Qt getters as properties: document, not document().
+        self.currentInfoTextEdit.document.setMaximumBlockCount(5000)
 
         self.stopButton = createButton("Stop", callback=self.onStopClicked, toolTip="Stop the segmentation.")
         self.loading    = qt.QMovie(iconPath("loading.gif")); self.loading.setScaledSize(qt.QSize(24,24))

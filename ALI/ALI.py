@@ -940,16 +940,20 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(error, str):
       qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
       return
-    self.list_Processes_Parameters = self.ActualMeth.Process(
-      input_folder=self.input_path,
-      dir_models=self.model_folder,
-      lm_type=self.selected_lm,
-      teeth=self.selected_tooth,
-      teeth_mg=self.selected_mg_tooth,
-      output_dir=self.ui.SaveFolderLineEdit.text,
-      logPath=self.log_path,
-      DCMInput=self.isDCMInput,
-    )
+    try:
+      self.list_Processes_Parameters = self.ActualMeth.Process(
+        input_folder=self.input_path,
+        dir_models=self.model_folder,
+        lm_type=self.selected_lm,
+        teeth=self.selected_tooth,
+        teeth_mg=self.selected_mg_tooth,
+        output_dir=self.ui.SaveFolderLineEdit.text,
+        logPath=self.log_path,
+        DCMInput=self.isDCMInput,
+      )
+    except RuntimeError as e:
+      qt.QMessageBox.warning(self.parent, "Warning", str(e))
+      return
     self.nb_extension_launch = len(self.list_Processes_Parameters)
     if self.type == "IOS":
       self.nb_lm = self.ActualMeth.NumberLandmark(self.selected_tooth) + self.ActualMeth.NumberLandmark(self.selected_mg_tooth)

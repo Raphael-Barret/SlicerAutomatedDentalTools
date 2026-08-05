@@ -57,6 +57,7 @@ class QueueItem:
     status: str = STATUS_PENDING
     error: str = ""
     durationSec: float = 0.0
+    autoCrop: bool = False      # crop to the patient before inference (RAM retry)
 
     @property
     def name(self):
@@ -102,11 +103,18 @@ class SegmentationQueue:
         self.save()
         return len(removable)
 
-    def retryFailed(self):
-        """Re-queue every failed entry at the end of the list."""
+    def retryFailed(self, shouldAutoCrop=None):
+        """
+        Re-queue every failed entry at the end of the list.
+
+        ``shouldAutoCrop`` is an optional predicate taking the failed entry and
+        returning True when its retry must run on a cropped scan.
+        """
         failed = [item for item in self.items if item.status == STATUS_FAILED]
         for item in failed:
-            self.items.append(QueueItem(item.inputPath, item.outputDir, item.model, item.device))
+            self.items.append(QueueItem(
+                item.inputPath, item.outputDir, item.model, item.device,
+                autoCrop=bool(shouldAutoCrop(item)) if shouldAutoCrop else False))
         self.save()
         return len(failed)
 

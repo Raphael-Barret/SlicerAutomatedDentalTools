@@ -348,6 +348,19 @@ class SegmentationWidget(qt.QWidget):
         self._itemWatchdog.setSingleShot(True)
         self._itemWatchdog.timeout.connect(self._onItemTimeout)
 
+        # RAM guard: nnUNet keeps a (numClasses, Z, Y, X) float32 array in memory,
+        # so a single wide field of view can ask for tens of GB and take the whole
+        # machine down. Sampled while a scan runs; see _onMemCheck.
+        self._memWatchdog = qt.QTimer(self)
+        self._memWatchdog.timeout.connect(self._onMemCheck)
+        self._ramHits = 0
+        self._ramWarned = False
+        self._ramPeakPercent = 0.0
+
+        # Automatic crop state, set only for a scan re-queued with autoCrop.
+        self._uncroppedVolumeNode = None
+        self._cropOffsetIJK = None
+
         self._inferenceFinalized = False
         self._doneVolumeSeen = False
         self._fallbackCheckAttempts = 0
@@ -409,6 +422,22 @@ class SegmentationWidget(qt.QWidget):
         self.itemTimeoutSpinBox.setToolTip(
             "A scan exceeding this delay is marked failed and the queue moves on.")
 
+        self.ramLimitSpinBox = qt.QSpinBox(self)
+        self.ramLimitSpinBox.setRange(30, 99)
+        self.ramLimitSpinBox.setValue(85)
+        self.ramLimitSpinBox.setSuffix(" % of system RAM")
+        self.ramLimitSpinBox.setToolTip(
+            "RAM guard. A scan whose estimated peak does not fit in this budget is "
+            "skipped before nnUNet starts, and a running scan crossing the limit is "
+            "killed instead of letting the system swap or the OOM killer strike.")
+
+        self.ramPreflightCheckBox = qt.QCheckBox("Skip scans too large for the free RAM", self)
+        self.ramPreflightCheckBox.setChecked(True)
+        self.ramPreflightCheckBox.setToolTip(
+            "Estimate the peak memory of a scan from its field of view, the model "
+            "target spacing and its number of labels, and skip it when it cannot fit. "
+            "Uncheck to only rely on the runtime guard.")
+
         self.skipExistingCheckBox = qt.QCheckBox("Skip scans already segmented", self)
         self.skipExistingCheckBox.setChecked(True)
         self.skipExistingCheckBox.setToolTip(
@@ -437,6 +466,11 @@ class SegmentationWidget(qt.QWidget):
         buttonsLayout.addWidget(createButton(
             "Clear", callback=self.onClearQueue,
             toolTip="Empty the queue.", parent=self))
+        buttonsLayout.addWidget(createButton(
+            "Free memory", callback=self.onFreeMemoryClicked,
+            toolTip="Kill nnUNet processes left behind by a crashed scan and run a "
+                    "deep cleanup. Use it when the RAM stays full after a failure.",
+            parent=self))
 
         queueWidget = qt.QWidget(self)
         queueLayout = qt.QFormLayout(queueWidget)
@@ -446,6 +480,8 @@ class SegmentationWidget(qt.QWidget):
         queueLayout.addRow(self.queueSummaryLabel)
         queueLayout.addRow("Deep cleanup every:", self.chunkSizeSpinBox)
         queueLayout.addRow("Timeout per scan:", self.itemTimeoutSpinBox)
+        queueLayout.addRow("RAM limit:", self.ramLimitSpinBox)
+        queueLayout.addRow(self.ramPreflightCheckBox)
         queueLayout.addRow(self.skipExistingCheckBox)
         queueLayout.addRow(self.unattendedCheckBox)
 
@@ -478,10 +514,57 @@ class SegmentationWidget(qt.QWidget):
         self._rebuildQueueTable()
         self.onProgressInfo(f"Queue: {removed} pending scan(s) removed.")
 
+    @staticmethod
+    def _isRamFailure(error):
+        """True for the two reasons the RAM guard writes in the Detail column."""
+        text = (error or "").lower()
+        return "ram" in text or "out of memory" in text
+
+    def _askAutoCropConfirmation(self, ramFailures):
+        """
+        Offer the automatic crop for the scans the RAM guard refused.
+
+        Deliberately modal: this one is a decision on the clinical data, taken
+        by someone sitting in front of the module, not during an unattended run.
+        """
+        names = "\n".join(f"  • {item.name}" for item in ramFailures[:10])
+        if len(ramFailures) > 10:
+            names += f"\n  … and {len(ramFailures) - 10} more"
+
+        answer = qt.QMessageBox.question(
+            self,
+            "Crop before retrying?",
+            f"{len(ramFailures)} scan(s) failed because their field of view does not "
+            f"fit in the RAM budget:\n\n{names}\n\n"
+            "Retry them with an automatic crop?\n\n"
+            "The scan is cropped to the bounding box of the patient — only "
+            "surrounding air is removed. It is a plain voxel selection: no "
+            "resampling, no interpolation, and the intensities nnUNet sees are "
+            "unchanged (CT normalization uses fixed dataset statistics). The "
+            "segmentation is written back on the original grid, so the output "
+            "still matches the scan as acquired.\n\n"
+            "A field of view that is genuinely too wide (a full head CT) will "
+            "still not fit and will fail again: those need a manual crop on the "
+            "dento-maxillo-facial region.\n\n"
+            "Yes: crop and retry.        No: retry unchanged.",
+            qt.QMessageBox.Yes | qt.QMessageBox.No,
+            qt.QMessageBox.Yes)
+        return answer == qt.QMessageBox.Yes
+
     def onRetryFailed(self):
-        requeued = self.queue.retryFailed()
+        ramFailures = [item for item in self.queue.items
+                       if item.status == STATUS_FAILED and self._isRamFailure(item.error)]
+        autoCrop = bool(ramFailures) and self._askAutoCropConfirmation(ramFailures)
+
+        requeued = self.queue.retryFailed(
+            shouldAutoCrop=(lambda item: self._isRamFailure(item.error)) if autoCrop else None)
         self._rebuildQueueTable()
-        self.onProgressInfo(f"Queue: {requeued} failed scan(s) re-queued.")
+        if autoCrop:
+            self.onProgressInfo(
+                f"Queue: {requeued} failed scan(s) re-queued, "
+                f"{len(ramFailures)} of them with automatic crop.")
+        else:
+            self.onProgressInfo(f"Queue: {requeued} failed scan(s) re-queued.")
 
     def onClearQueue(self):
         self.queue.clear()
@@ -616,8 +699,16 @@ class SegmentationWidget(qt.QWidget):
             self._itemWatchdog.start(self.itemTimeoutSpinBox.value * 60_000)
 
             loadedVolume = slicer.util.loadVolume(item.inputPath)
+            self._releaseCropNodes()
+            if getattr(item, "autoCrop", False):
+                loadedVolume = self._applyAutoCrop(loadedVolume)
             self.currentVolumeNode = loadedVolume
             self.onInputChangedForLoadedVolume(loadedVolume)
+
+            if not self._ramPreflightOk(loadedVolume, item):
+                return
+            self._memWatchdogStart()
+
             self.onApplyClickedForVolume(loadedVolume)
 
         except Exception as e:
@@ -637,6 +728,14 @@ class SegmentationWidget(qt.QWidget):
             return
         self._itemFinalized = True
         self._itemWatchdog.stop()
+        self._memWatchdogStop()
+
+        # nnUNet workers can outlive their parent — a scan that died silently
+        # would otherwise keep its memory for the rest of the run.
+        self._reclaimStrayProcesses()
+        self._releaseCropNodes()
+        if self._ramPeakPercent:
+            self.onProgressInfo(f"[RAM] Peak during this scan: {self._ramPeakPercent:.0f}%")
 
         duration = 0.0
         if self._itemStartTime is not None:
@@ -658,20 +757,9 @@ class SegmentationWidget(qt.QWidget):
             f"[TIMEOUT] {name} exceeded {self.itemTimeoutSpinBox.value} min — skipping.")
         logger.error(f"Timeout on {name}")
 
-        # Killing the process may make the logic emit inferenceFinished: neutralize
-        # that path so the results of a timed-out scan are not processed anyway.
-        self._inferenceFinalized = True
-        try:
-            self.logic.stopSegmentation()
-            self.logic.waitForSegmentationFinished()
-        except Exception:
-            pass
-        try:
-            self._cleanupAfterCase(self.currentVolumeNode, self.getCurrentSegmentationNode())
-        except Exception as e:
-            # Never let a cleanup failure keep the queue from moving on.
-            logger.error(f"Cleanup after timeout failed: {e}", exc_info=True)
-        self._finishCurrentItem(STATUS_FAILED, f"timeout after {self.itemTimeoutSpinBox.value} min")
+        # Same exit as the RAM guard: kill the whole process tree, clean up,
+        # and move on. A hung scan usually holds memory too.
+        self._abortCurrentItem(f"timeout after {self.itemTimeoutSpinBox.value} min")
 
     def _onQueueFinished(self):
         self._queueRunning = False
@@ -687,6 +775,486 @@ class SegmentationWidget(qt.QWidget):
                 details += f"\n  … and {len(failed) - 20} more"
             self.onProgressInfo(f"Failed scans:\n{details}")
         self._notify(f"Queue finished — {summary}")
+
+    # ─── RAM guard ─────────────────────────────────────────────────────────────
+    #
+    # nnUNet resamples the scan to the model target spacing, then holds a
+    # (numClasses, Z, Y, X) float32 logits array. A wide field of view on a
+    # many-label model therefore needs tens of GB: one such scan filled 114 GB
+    # of a 125 GB machine, was killed by the OOM killer, and left its
+    # multiprocessing workers behind still holding that memory.
+    #
+    # Three lines of defence:
+    #   1. _ramPreflightOk   — estimate before starting, skip what cannot fit
+    #   2. _onMemCheck       — sample while running, abort before the system dies
+    #   3. _killInferenceTree / _reclaimStrayProcesses — always release the RAM
+
+    _RAM_SAMPLE_MS = 3000
+    _RAM_CONSECUTIVE_HITS = 2       # a transient spike must not kill a good scan
+    _RAM_FIXED_OVERHEAD_GB = 4.0    # torch + weights + workers, constant per scan
+    _NNUNET_PROCESS_MARKERS = ("nnunetv2_predict", "nnunetv2/inference", "nnunet")
+
+    @staticmethod
+    def _psutil():
+        try:
+            import psutil
+            return psutil
+        except ImportError:
+            return None
+
+    def _virtualMemory(self):
+        psutil = self._psutil()
+        if psutil is None:
+            return None
+        try:
+            return psutil.virtual_memory()
+        except Exception:
+            return None
+
+    def _memWatchdogStart(self):
+        self._ramHits = 0
+        self._ramWarned = False
+        self._ramPeakPercent = 0.0
+        if self._virtualMemory() is not None:
+            self._memWatchdog.start(self._RAM_SAMPLE_MS)
+
+    def _memWatchdogStop(self):
+        self._memWatchdog.stop()
+
+    def _onMemCheck(self):
+        vm = self._virtualMemory()
+        if vm is None or self._itemFinalized:
+            return
+
+        percent = vm.percent
+        limit = self.ramLimitSpinBox.value
+        self._ramPeakPercent = max(self._ramPeakPercent, percent)
+
+        if percent >= limit - 10 and not self._ramWarned:
+            self._ramWarned = True
+            self.onProgressInfo(
+                f"[RAM] {percent:.0f}% used, {vm.available / 2 ** 30:.1f} GB free — "
+                f"approaching the {limit}% limit.")
+
+        if percent < limit:
+            self._ramHits = 0
+            return
+
+        # Require several samples in a row: a short peak at the end of a scan is
+        # normal, a runaway allocation is not.
+        self._ramHits += 1
+        self.onProgressInfo(
+            f"[RAM] {percent:.0f}% used — over the {limit}% limit "
+            f"({self._ramHits}/{self._RAM_CONSECUTIVE_HITS} samples)")
+        if self._ramHits < self._RAM_CONSECUTIVE_HITS:
+            return
+
+        item = self.queue.current()
+        name = item.name if item else "unknown"
+        logger.error(f"RAM guard triggered on {name}: {percent:.1f}% used")
+        self.onProgressInfo(
+            f"[RAM] Aborting {name}: {percent:.0f}% of system RAM used "
+            f"({vm.available / 2 ** 30:.1f} GB free).")
+        self._abortCurrentItem(f"out of memory ({percent:.0f}% RAM used)")
+
+    def _abortCurrentItem(self, reason):
+        """Kill the inference, release its memory, and let the queue move on."""
+        self._memWatchdogStop()
+        self._itemWatchdog.stop()
+        # A killed process still emits inferenceFinished / errorOccurred:
+        # neutralize that path so a dead scan is not processed anyway.
+        self._inferenceFinalized = True
+
+        killed = self._killInferenceTree()
+        if killed:
+            self.onProgressInfo(f"Inference process tree killed ({killed} process(es)).")
+        try:
+            self._cleanupAfterCase(self.currentVolumeNode, self.getCurrentSegmentationNode())
+        except Exception as e:
+            # Never let a cleanup failure keep the queue from moving on.
+            logger.error(f"Cleanup after abort failed: {e}", exc_info=True)
+        self._coolDown()
+        self._finishCurrentItem(STATUS_FAILED, reason)
+
+    def _inferenceProcessId(self):
+        try:
+            return int(self.logic.inferenceProcess.process.processId())
+        except Exception:
+            return 0
+
+    def _isInferenceProcessRunning(self):
+        try:
+            return self.logic.inferenceProcess.process.state() != qt.QProcess.NotRunning
+        except Exception:
+            return False
+
+    def _killInferenceTree(self, timeoutSec=10):
+        """
+        Kill nnUNet *and every descendant*.
+
+        QProcess.kill() only reaches the direct child. nnUNet spawns
+        multiprocessing workers for preprocessing and export: those survive,
+        keep their share of the RAM, and are why a run stays wedged even after
+        the offending scan is removed from the queue.
+        """
+        killed = 0
+        psutil = self._psutil()
+        pid = self._inferenceProcessId()
+
+        if psutil is not None and pid:
+            try:
+                parent = psutil.Process(pid)
+                victims = parent.children(recursive=True) + [parent]
+                for proc in victims:
+                    try:
+                        proc.kill()
+                        killed += 1
+                    except psutil.NoSuchProcess:
+                        pass
+                    except Exception as e:
+                        logger.error(f"Could not kill pid {proc.pid}: {e}")
+                psutil.wait_procs(victims, timeout=timeoutSec)
+            except psutil.NoSuchProcess:
+                pass
+            except Exception as e:
+                logger.error(f"Killing the inference tree failed: {e}", exc_info=True)
+
+        try:
+            self.logic.stopSegmentation()
+            self.logic.waitForSegmentationFinished()
+        except Exception:
+            pass
+
+        return killed + self._reclaimStrayProcesses()
+
+    def _reclaimStrayProcesses(self):
+        """
+        Kill nnUNet processes nobody owns any more.
+
+        Only touches our own descendants and orphans re-parented to init, so a
+        second Slicer instance segmenting on the same machine is left alone.
+        Never runs while our own inference is alive.
+        """
+        psutil = self._psutil()
+        if psutil is None or self._isInferenceProcessRunning():
+            return 0
+
+        try:
+            me = psutil.Process()
+            ownPids = {me.pid} | {child.pid for child in me.children(recursive=True)}
+        except Exception:
+            return 0
+
+        killed = 0
+        for proc in psutil.process_iter(["pid", "ppid", "cmdline", "username"]):
+            try:
+                if proc.pid == me.pid:
+                    continue
+                info = proc.info
+                cmdline = " ".join(info.get("cmdline") or []).lower()
+                if not any(marker in cmdline for marker in self._NNUNET_PROCESS_MARKERS):
+                    continue
+                isOurs = proc.pid in ownPids
+                isOrphan = info.get("ppid") == 1 and info.get("username") == me.username()
+                if not (isOurs or isOrphan):
+                    continue
+                proc.kill()
+                killed += 1
+                logger.info(f"Killed stray nnUNet process {proc.pid}")
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            except Exception as e:
+                logger.error(f"Stray process sweep failed on a process: {e}")
+        if killed:
+            self.onProgressInfo(f"[RAM] {killed} stray nnUNet process(es) killed.")
+        return killed
+
+    def onFreeMemoryClicked(self):
+        """Manual recovery: release whatever a crashed scan left behind."""
+        if self._queueRunning:
+            slicer.util.warningDisplay(
+                "Stop the queue before freeing memory: this kills the running inference.")
+            return
+        before = self._virtualMemory()
+        killed = self._killInferenceTree()
+        self._removeOrphanNodes()
+        self._coolDown()
+        after = self._virtualMemory()
+        if before is not None and after is not None:
+            freed = (after.available - before.available) / 2 ** 30
+            self.onProgressInfo(
+                f"[RAM] {killed} process(es) killed, {freed:+.1f} GB reclaimed "
+                f"({after.available / 2 ** 30:.1f} GB free now).")
+        else:
+            self.onProgressInfo(f"[RAM] {killed} process(es) killed.")
+
+    # ─── Automatic crop (RAM retry) ────────────────────────────────────────────
+    #
+    # Opt-in, per scan, set by « Retry failed » after an explicit confirmation.
+    # The crop is an axis-aligned voxel subset: same spacing, same axes, only the
+    # origin moves. Nothing is interpolated, so the label map is pasted back on
+    # the original grid with a plain index offset and the exported NIfTI still
+    # matches the scan as acquired.
+
+    _CROP_MARGIN_MM = 15.0
+    _CROP_MIN_GAIN = 0.85       # below 15% removed, cropping is not worth it
+
+    @staticmethod
+    def _airThreshold(array):
+        """
+        Air / tissue split, tolerant to the intensity scale.
+
+        A calibrated CT has air near -1000 HU. A CBCT can be shifted or rescaled,
+        so fall back to a low fraction of the intensity range — the 15 mm margin
+        covers what such a rough threshold may clip.
+        """
+        minimum = float(array.min())
+        if minimum < -800:                       # Hounsfield units
+            return -500.0
+        maximum = float(np.percentile(array, 99.5))
+        return minimum + 0.15 * (maximum - minimum)
+
+    def _applyAutoCrop(self, volumeNode):
+        """
+        Return the node to segment: cropped to the patient, or the original one
+        when cropping would not help. Sets the state needed to paste the result
+        back on the original grid.
+        """
+        try:
+            array = slicer.util.arrayFromVolume(volumeNode)          # (K, J, I)
+            mask = array > self._airThreshold(array)
+            if not mask.any():
+                self.onProgressInfo("[CROP] Nothing above the air threshold — crop skipped.")
+                return volumeNode
+
+            spacing = volumeNode.GetSpacing()                          # (I, J, K)
+            marginVox = [max(int(round(self._CROP_MARGIN_MM / s)), 1) for s in spacing]
+
+            bounds = []
+            for axis, axisMargin in enumerate((marginVox[2], marginVox[1], marginVox[0])):
+                projected = mask.any(axis=tuple(a for a in (0, 1, 2) if a != axis))
+                indices = np.where(projected)[0]
+                low = max(int(indices[0]) - axisMargin, 0)
+                high = min(int(indices[-1]) + 1 + axisMargin, mask.shape[axis])
+                bounds.append((low, high))
+
+            kept = 1.0
+            for (low, high), size in zip(bounds, mask.shape):
+                kept *= (high - low) / float(size)
+            if kept > self._CROP_MIN_GAIN:
+                self.onProgressInfo(
+                    f"[CROP] Field of view already tight ({kept * 100:.0f}% kept) — "
+                    "crop skipped, this scan needs a manual crop.")
+                return volumeNode
+
+            (k0, k1), (j0, j1), (i0, i1) = bounds
+            croppedArray = array[k0:k1, j0:j1, i0:i1]
+
+            cropped = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLScalarVolumeNode", f"{volumeNode.GetName()}_cropped")
+            slicer.util.updateVolumeFromArray(cropped, croppedArray)
+
+            # Keep spacing and axes, move the origin to the new first voxel.
+            ijkToRas = vtk.vtkMatrix4x4()
+            volumeNode.GetIJKToRASMatrix(ijkToRas)
+            newOrigin = [0.0, 0.0, 0.0, 1.0]
+            ijkToRas.MultiplyPoint([i0, j0, k0, 1.0], newOrigin)
+            croppedIjkToRas = vtk.vtkMatrix4x4()
+            croppedIjkToRas.DeepCopy(ijkToRas)
+            for row in range(3):
+                croppedIjkToRas.SetElement(row, 3, newOrigin[row])
+            cropped.SetIJKToRASMatrix(croppedIjkToRas)
+
+            self._uncroppedVolumeNode = volumeNode
+            self._cropOffsetIJK = (i0, j0, k0)
+            self.onProgressInfo(
+                f"[CROP] {array.shape[2]}x{array.shape[1]}x{array.shape[0]} -> "
+                f"{croppedArray.shape[2]}x{croppedArray.shape[1]}x{croppedArray.shape[0]} "
+                f"({kept * 100:.0f}% of the voxels kept, {self._CROP_MARGIN_MM:.0f} mm margin)")
+            return cropped
+
+        except Exception as e:
+            logger.error(f"Automatic crop failed: {e}", exc_info=True)
+            self.onProgressInfo(f"[CROP] Failed ({e}) — segmenting the scan unchanged.")
+            self._uncroppedVolumeNode = None
+            self._cropOffsetIJK = None
+            return volumeNode
+
+    def _restoreCropToOriginalGrid(self, labelArray, croppedNode):
+        """
+        Paste a label array computed on the cropped grid back into the original.
+
+        Returns (array, node whose geometry the output must use).
+        """
+        original = self._uncroppedVolumeNode
+        offset = self._cropOffsetIJK
+        if original is None or offset is None:
+            return labelArray, croppedNode
+
+        try:
+            dims = original.GetImageData().GetDimensions()             # (I, J, K)
+            full = np.zeros((dims[2], dims[1], dims[0]), dtype=labelArray.dtype)
+            i0, j0, k0 = offset
+            full[k0:k0 + labelArray.shape[0],
+                 j0:j0 + labelArray.shape[1],
+                 i0:i0 + labelArray.shape[2]] = labelArray
+            self.onProgressInfo("[CROP] Result pasted back on the original grid.")
+            return full, original
+        except Exception as e:
+            # Better a segmentation on the cropped grid than none at all.
+            logger.error(f"Could not restore the crop: {e}", exc_info=True)
+            self.onProgressInfo(f"[CROP][WARN] Output kept on the cropped grid: {e}")
+            return labelArray, croppedNode
+
+    def _releaseCropNodes(self):
+        node = self._uncroppedVolumeNode
+        self._uncroppedVolumeNode = None
+        self._cropOffsetIJK = None
+        if node is None:
+            return
+        try:
+            if slicer.mrmlScene.GetNodeByID(node.GetID()):
+                slicer.mrmlScene.RemoveNode(node)
+        except Exception:
+            pass
+
+    # ─── RAM pre-flight estimate ───────────────────────────────────────────────
+
+    def _modelBasePath(self, modelName):
+        """Folder holding dataset.json / plans.json for the given model."""
+        resources = Path(__file__).parent.joinpath("..", "Resources", "ML").resolve()
+        datasets = {
+            "PediatricDentalsegmentator": "Dataset001_380CT",
+            "NasoMaxillaDentSeg": "Dataset001_max4",
+            "UniversalLabDentalsegmentator": "Dataset002_380CT",
+        }
+        if modelName in datasets:
+            return resources.joinpath(
+                datasets[modelName], "nnUNetTrainer__nnUNetPlans__3d_fullres")
+        # DentalSegmentator ships its own dataset folder under Resources/ML.
+        return resources
+
+    @staticmethod
+    def _configurationFolder(basePath, maxDepth=3):
+        """
+        Folder holding dataset.json, searched the way nnUNet itself does it:
+        shallowest match wins (see Parameter._getFirstFolderWithDatasetFile).
+        """
+        pattern = "dataset.json"
+        for _ in range(maxDepth):
+            match = next(Path(basePath).glob(pattern), None)
+            if match is not None:
+                return match.parent
+            pattern = f"*/{pattern}"
+        return None
+
+    @staticmethod
+    def _readJson(path):
+        import json
+        try:
+            with open(path, "r") as handle:
+                return json.load(handle)
+        except Exception as e:
+            logger.debug(f"Could not read {path}: {e}")
+            return None
+
+    def _estimatePeakRamGb(self, volumeNode, modelName):
+        """
+        Rough peak RAM for one nnUNet inference, in GB, or None if unknown.
+
+        Dominant term: the logits array, (numClasses, Z, Y, X) float32 on the
+        grid resampled to the model target spacing. The physical volume of the
+        field of view is spacing-independent, so the resampled voxel count is
+        simply fovVolume / targetVoxelVolume.
+        """
+        try:
+            imageData = volumeNode.GetImageData()
+            if imageData is None:
+                return None
+            dims = imageData.GetDimensions()
+            spacing = volumeNode.GetSpacing()
+            fovMm3 = (dims[0] * spacing[0]) * (dims[1] * spacing[1]) * (dims[2] * spacing[2])
+
+            # Both files must come from the same configuration folder, otherwise
+            # a spacing and a label count from two different models get mixed.
+            configFolder = self._configurationFolder(self._modelBasePath(modelName))
+            if configFolder is None:
+                return None
+            plans = self._readJson(configFolder.joinpath("plans.json"))
+            dataset = self._readJson(configFolder.joinpath("dataset.json"))
+            if not plans or not dataset:
+                return None
+
+            targetSpacing = plans.get("configurations", {}).get("3d_fullres", {}).get("spacing")
+            labels = dataset.get("labels") or {}
+            if not targetSpacing or not labels:
+                return None
+
+            targetVoxelMm3 = float(targetSpacing[0]) * float(targetSpacing[1]) * float(targetSpacing[2])
+            if targetVoxelMm3 <= 0:
+                return None
+
+            originalVoxels = float(dims[0]) * dims[1] * dims[2]
+            resampledVoxels = fovMm3 / targetVoxelMm3
+            numClasses = len(labels)
+
+            # Peak is reached in resample_data_or_seg, called on the way out
+            # through convert_predicted_logits_to_segmentation_with_correct_shape.
+            # Live at that moment, per class:
+            #   - the sliding-window accumulator, torch.half on the resampled
+            #     grid, still referenced by the caller          -> 2 bytes
+            #   - its float64 copy: `data = data.astype(float)` casts the whole
+            #     4D array at once, before the per-class loop   -> 8 bytes
+            #   - reshaped_final, torch.half on the original grid -> 2 bytes
+            logitsGb = (10.0 * numClasses * resampledVoxels
+                        + 2.0 * numClasses * originalVoxels) / 2 ** 30
+            # Per-class transients of skimage resize (spline coefficients and
+            # output buffer, float64).
+            imagesGb = 8.0 * (originalVoxels + resampledVoxels) / 2 ** 30
+            # torch, the weights and the worker processes cost the same on every
+            # scan; the arrays are what makes one scan explode.
+            return logitsGb + imagesGb + self._RAM_FIXED_OVERHEAD_GB
+        except Exception as e:
+            logger.debug(f"RAM estimate unavailable: {e}")
+            return None
+
+    def _ramPreflightOk(self, volumeNode, item):
+        """
+        False when the scan is skipped: it cannot fit in the RAM budget.
+
+        Skipping costs seconds; letting it run costs the machine.
+        """
+        estimate = self._estimatePeakRamGb(volumeNode, item.model)
+        vm = self._virtualMemory()
+        if estimate is None or vm is None:
+            return True
+
+        availableGb = vm.available / 2 ** 30
+        budgetGb = availableGb * (self.ramLimitSpinBox.value / 100.0)
+        self.onProgressInfo(
+            f"[RAM] Estimated peak: {estimate:.1f} GB — free: {availableGb:.1f} GB, "
+            f"budget: {budgetGb:.1f} GB")
+        if estimate <= budgetGb or not self.ramPreflightCheckBox.isChecked():
+            if estimate > budgetGb:
+                self.onProgressInfo(
+                    "[RAM] Over budget, but the pre-flight skip is disabled — "
+                    "the runtime guard stays armed.")
+            return True
+
+        self.onProgressInfo(
+            f"[RAM] Skipping {item.name}: needs ~{estimate:.0f} GB, "
+            f"only {budgetGb:.0f} GB usable. Crop the field of view or free memory "
+            f"and use « Retry failed ».")
+        self._memWatchdogStop()
+        self._inferenceFinalized = True
+        try:
+            self._cleanupAfterCase(volumeNode, None)
+        except Exception as e:
+            logger.error(f"Cleanup after pre-flight skip failed: {e}", exc_info=True)
+        self._finishCurrentItem(
+            STATUS_FAILED,
+            f"skipped: needs ~{estimate:.0f} GB RAM, {availableGb:.0f} GB free")
+        return False
 
     def _coolDown(self):
         """Deep cleanup at a chunk boundary, to keep a long run from drifting."""
@@ -1028,9 +1596,12 @@ class SegmentationWidget(qt.QWidget):
         watchdog = getattr(self, "_itemWatchdog", None)
         if watchdog is not None:
             watchdog.stop()
+        if getattr(self, "_memWatchdog", None) is not None:
+            self._memWatchdogStop()
         if self.logic is not None:
-            self.logic.stopSegmentation()
-            self.logic.waitForSegmentationFinished()
+            # Kill the descendants too, otherwise stopping the queue leaves the
+            # nnUNet workers running and the RAM taken.
+            self._killInferenceTree()
         slicer.app.processEvents()
         self.isStopping = False
         self._setApplyVisible(True)
@@ -1444,14 +2015,17 @@ class SegmentationWidget(qt.QWidget):
             import vtk as _vtk
 
             label_arr = self._buildLabelArray(segNode, volNode, full_label_map)
+            # After an automatic crop the result goes back on the grid of the
+            # scan as acquired, so the output matches what the clinician sent.
+            label_arr, geometryNode = self._restoreCropToOriginalGrid(label_arr, volNode)
 
             tmpOut = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
             try:
                 slicer.util.updateVolumeFromArray(tmpOut, label_arr)
-                tmpOut.SetSpacing(volNode.GetSpacing())
-                tmpOut.SetOrigin(volNode.GetOrigin())
+                tmpOut.SetSpacing(geometryNode.GetSpacing())
+                tmpOut.SetOrigin(geometryNode.GetOrigin())
                 ijk2ras = _vtk.vtkMatrix4x4()
-                volNode.GetIJKToRASMatrix(ijk2ras)
+                geometryNode.GetIJKToRASMatrix(ijk2ras)
                 tmpOut.SetIJKToRASMatrix(ijk2ras)
 
                 output_path = str(Path(self.outputFolderPath).joinpath(

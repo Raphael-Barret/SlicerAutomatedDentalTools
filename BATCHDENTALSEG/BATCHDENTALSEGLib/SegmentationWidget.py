@@ -357,6 +357,10 @@ class SegmentationWidget(qt.QWidget):
         self._ramWarned = False
         self._ramPeakPercent = 0.0
 
+        # Automatic crop state, set only for a scan re-queued with autoCrop.
+        self._uncroppedVolumeNode = None
+        self._cropOffsetIJK = None
+
         self._inferenceFinalized = False
         self._doneVolumeSeen = False
         self._fallbackCheckAttempts = 0
@@ -510,10 +514,57 @@ class SegmentationWidget(qt.QWidget):
         self._rebuildQueueTable()
         self.onProgressInfo(f"Queue: {removed} pending scan(s) removed.")
 
+    @staticmethod
+    def _isRamFailure(error):
+        """True for the two reasons the RAM guard writes in the Detail column."""
+        text = (error or "").lower()
+        return "ram" in text or "out of memory" in text
+
+    def _askAutoCropConfirmation(self, ramFailures):
+        """
+        Offer the automatic crop for the scans the RAM guard refused.
+
+        Deliberately modal: this one is a decision on the clinical data, taken
+        by someone sitting in front of the module, not during an unattended run.
+        """
+        names = "\n".join(f"  • {item.name}" for item in ramFailures[:10])
+        if len(ramFailures) > 10:
+            names += f"\n  … and {len(ramFailures) - 10} more"
+
+        answer = qt.QMessageBox.question(
+            self,
+            "Crop before retrying?",
+            f"{len(ramFailures)} scan(s) failed because their field of view does not "
+            f"fit in the RAM budget:\n\n{names}\n\n"
+            "Retry them with an automatic crop?\n\n"
+            "The scan is cropped to the bounding box of the patient — only "
+            "surrounding air is removed. It is a plain voxel selection: no "
+            "resampling, no interpolation, and the intensities nnUNet sees are "
+            "unchanged (CT normalization uses fixed dataset statistics). The "
+            "segmentation is written back on the original grid, so the output "
+            "still matches the scan as acquired.\n\n"
+            "A field of view that is genuinely too wide (a full head CT) will "
+            "still not fit and will fail again: those need a manual crop on the "
+            "dento-maxillo-facial region.\n\n"
+            "Yes: crop and retry.        No: retry unchanged.",
+            qt.QMessageBox.Yes | qt.QMessageBox.No,
+            qt.QMessageBox.Yes)
+        return answer == qt.QMessageBox.Yes
+
     def onRetryFailed(self):
-        requeued = self.queue.retryFailed()
+        ramFailures = [item for item in self.queue.items
+                       if item.status == STATUS_FAILED and self._isRamFailure(item.error)]
+        autoCrop = bool(ramFailures) and self._askAutoCropConfirmation(ramFailures)
+
+        requeued = self.queue.retryFailed(
+            shouldAutoCrop=(lambda item: self._isRamFailure(item.error)) if autoCrop else None)
         self._rebuildQueueTable()
-        self.onProgressInfo(f"Queue: {requeued} failed scan(s) re-queued.")
+        if autoCrop:
+            self.onProgressInfo(
+                f"Queue: {requeued} failed scan(s) re-queued, "
+                f"{len(ramFailures)} of them with automatic crop.")
+        else:
+            self.onProgressInfo(f"Queue: {requeued} failed scan(s) re-queued.")
 
     def onClearQueue(self):
         self.queue.clear()
@@ -648,6 +699,9 @@ class SegmentationWidget(qt.QWidget):
             self._itemWatchdog.start(self.itemTimeoutSpinBox.value * 60_000)
 
             loadedVolume = slicer.util.loadVolume(item.inputPath)
+            self._releaseCropNodes()
+            if getattr(item, "autoCrop", False):
+                loadedVolume = self._applyAutoCrop(loadedVolume)
             self.currentVolumeNode = loadedVolume
             self.onInputChangedForLoadedVolume(loadedVolume)
 
@@ -679,6 +733,7 @@ class SegmentationWidget(qt.QWidget):
         # nnUNet workers can outlive their parent — a scan that died silently
         # would otherwise keep its memory for the rest of the run.
         self._reclaimStrayProcesses()
+        self._releaseCropNodes()
         if self._ramPeakPercent:
             self.onProgressInfo(f"[RAM] Peak during this scan: {self._ramPeakPercent:.0f}%")
 
@@ -932,6 +987,136 @@ class SegmentationWidget(qt.QWidget):
                 f"({after.available / 2 ** 30:.1f} GB free now).")
         else:
             self.onProgressInfo(f"[RAM] {killed} process(es) killed.")
+
+    # ─── Automatic crop (RAM retry) ────────────────────────────────────────────
+    #
+    # Opt-in, per scan, set by « Retry failed » after an explicit confirmation.
+    # The crop is an axis-aligned voxel subset: same spacing, same axes, only the
+    # origin moves. Nothing is interpolated, so the label map is pasted back on
+    # the original grid with a plain index offset and the exported NIfTI still
+    # matches the scan as acquired.
+
+    _CROP_MARGIN_MM = 15.0
+    _CROP_MIN_GAIN = 0.85       # below 15% removed, cropping is not worth it
+
+    @staticmethod
+    def _airThreshold(array):
+        """
+        Air / tissue split, tolerant to the intensity scale.
+
+        A calibrated CT has air near -1000 HU. A CBCT can be shifted or rescaled,
+        so fall back to a low fraction of the intensity range — the 15 mm margin
+        covers what such a rough threshold may clip.
+        """
+        minimum = float(array.min())
+        if minimum < -800:                       # Hounsfield units
+            return -500.0
+        maximum = float(np.percentile(array, 99.5))
+        return minimum + 0.15 * (maximum - minimum)
+
+    def _applyAutoCrop(self, volumeNode):
+        """
+        Return the node to segment: cropped to the patient, or the original one
+        when cropping would not help. Sets the state needed to paste the result
+        back on the original grid.
+        """
+        try:
+            array = slicer.util.arrayFromVolume(volumeNode)          # (K, J, I)
+            mask = array > self._airThreshold(array)
+            if not mask.any():
+                self.onProgressInfo("[CROP] Nothing above the air threshold — crop skipped.")
+                return volumeNode
+
+            spacing = volumeNode.GetSpacing()                          # (I, J, K)
+            marginVox = [max(int(round(self._CROP_MARGIN_MM / s)), 1) for s in spacing]
+
+            bounds = []
+            for axis, axisMargin in enumerate((marginVox[2], marginVox[1], marginVox[0])):
+                projected = mask.any(axis=tuple(a for a in (0, 1, 2) if a != axis))
+                indices = np.where(projected)[0]
+                low = max(int(indices[0]) - axisMargin, 0)
+                high = min(int(indices[-1]) + 1 + axisMargin, mask.shape[axis])
+                bounds.append((low, high))
+
+            kept = 1.0
+            for (low, high), size in zip(bounds, mask.shape):
+                kept *= (high - low) / float(size)
+            if kept > self._CROP_MIN_GAIN:
+                self.onProgressInfo(
+                    f"[CROP] Field of view already tight ({kept * 100:.0f}% kept) — "
+                    "crop skipped, this scan needs a manual crop.")
+                return volumeNode
+
+            (k0, k1), (j0, j1), (i0, i1) = bounds
+            croppedArray = array[k0:k1, j0:j1, i0:i1]
+
+            cropped = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLScalarVolumeNode", f"{volumeNode.GetName()}_cropped")
+            slicer.util.updateVolumeFromArray(cropped, croppedArray)
+
+            # Keep spacing and axes, move the origin to the new first voxel.
+            ijkToRas = vtk.vtkMatrix4x4()
+            volumeNode.GetIJKToRASMatrix(ijkToRas)
+            newOrigin = [0.0, 0.0, 0.0, 1.0]
+            ijkToRas.MultiplyPoint([i0, j0, k0, 1.0], newOrigin)
+            croppedIjkToRas = vtk.vtkMatrix4x4()
+            croppedIjkToRas.DeepCopy(ijkToRas)
+            for row in range(3):
+                croppedIjkToRas.SetElement(row, 3, newOrigin[row])
+            cropped.SetIJKToRASMatrix(croppedIjkToRas)
+
+            self._uncroppedVolumeNode = volumeNode
+            self._cropOffsetIJK = (i0, j0, k0)
+            self.onProgressInfo(
+                f"[CROP] {array.shape[2]}x{array.shape[1]}x{array.shape[0]} -> "
+                f"{croppedArray.shape[2]}x{croppedArray.shape[1]}x{croppedArray.shape[0]} "
+                f"({kept * 100:.0f}% of the voxels kept, {self._CROP_MARGIN_MM:.0f} mm margin)")
+            return cropped
+
+        except Exception as e:
+            logger.error(f"Automatic crop failed: {e}", exc_info=True)
+            self.onProgressInfo(f"[CROP] Failed ({e}) — segmenting the scan unchanged.")
+            self._uncroppedVolumeNode = None
+            self._cropOffsetIJK = None
+            return volumeNode
+
+    def _restoreCropToOriginalGrid(self, labelArray, croppedNode):
+        """
+        Paste a label array computed on the cropped grid back into the original.
+
+        Returns (array, node whose geometry the output must use).
+        """
+        original = self._uncroppedVolumeNode
+        offset = self._cropOffsetIJK
+        if original is None or offset is None:
+            return labelArray, croppedNode
+
+        try:
+            dims = original.GetImageData().GetDimensions()             # (I, J, K)
+            full = np.zeros((dims[2], dims[1], dims[0]), dtype=labelArray.dtype)
+            i0, j0, k0 = offset
+            full[k0:k0 + labelArray.shape[0],
+                 j0:j0 + labelArray.shape[1],
+                 i0:i0 + labelArray.shape[2]] = labelArray
+            self.onProgressInfo("[CROP] Result pasted back on the original grid.")
+            return full, original
+        except Exception as e:
+            # Better a segmentation on the cropped grid than none at all.
+            logger.error(f"Could not restore the crop: {e}", exc_info=True)
+            self.onProgressInfo(f"[CROP][WARN] Output kept on the cropped grid: {e}")
+            return labelArray, croppedNode
+
+    def _releaseCropNodes(self):
+        node = self._uncroppedVolumeNode
+        self._uncroppedVolumeNode = None
+        self._cropOffsetIJK = None
+        if node is None:
+            return
+        try:
+            if slicer.mrmlScene.GetNodeByID(node.GetID()):
+                slicer.mrmlScene.RemoveNode(node)
+        except Exception:
+            pass
 
     # ─── RAM pre-flight estimate ───────────────────────────────────────────────
 
@@ -1824,14 +2009,17 @@ class SegmentationWidget(qt.QWidget):
             import vtk as _vtk
 
             label_arr = self._buildLabelArray(segNode, volNode, full_label_map)
+            # After an automatic crop the result goes back on the grid of the
+            # scan as acquired, so the output matches what the clinician sent.
+            label_arr, geometryNode = self._restoreCropToOriginalGrid(label_arr, volNode)
 
             tmpOut = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
             try:
                 slicer.util.updateVolumeFromArray(tmpOut, label_arr)
-                tmpOut.SetSpacing(volNode.GetSpacing())
-                tmpOut.SetOrigin(volNode.GetOrigin())
+                tmpOut.SetSpacing(geometryNode.GetSpacing())
+                tmpOut.SetOrigin(geometryNode.GetOrigin())
                 ijk2ras = _vtk.vtkMatrix4x4()
-                volNode.GetIJKToRASMatrix(ijk2ras)
+                geometryNode.GetIJKToRASMatrix(ijk2ras)
                 tmpOut.SetIJKToRASMatrix(ijk2ras)
 
                 output_path = str(Path(self.outputFolderPath).joinpath(

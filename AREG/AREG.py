@@ -30,6 +30,10 @@ logger.addHandler(console_handler)
 # Height of the MGL patch on each side of the mucogingival line, in mm. Below
 # 1 mm the band holds too few vertices for the ICP, above 20 mm it runs past the
 # scanned mucosa.
+# Row of the models folder field inside gridLayout_2 of AREG.ui, where the
+# Browse button is added beside its Download button.
+MODEL3_GRID_ROW = 8
+
 MGL_DEFAULT_RADIUS = 5.0
 MGL_MIN_RADIUS = 1.0
 MGL_MAX_RADIUS = 20.0
@@ -677,8 +681,38 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         grid.addWidget(self.lineEditMGLLandmarks, row + 2, 1)
         grid.addWidget(self.ButtonSearchMGLLandmarks, row + 2, 2)
 
+        # The model field only ever had a Download button, so a folder already on
+        # the disk could not be selected.
+        self.ButtonBrowseModel3 = QPushButton("Browse")
+        self.ButtonBrowseModel3.setToolTip("Select a models folder already on this computer")
+        self.ButtonBrowseModel3.clicked.connect(self.BrowseModelFolder)
+        # Column 3 sits right of the Download button, on the row of the field it
+        # belongs to (the models row of the .ui grid).
+        grid.addWidget(self.ButtonBrowseModel3, MODEL3_GRID_ROW, 3)
+
         self.CbRegReference.currentIndexChanged.connect(self.SwitchRegReference)
         self.SwitchRegReference(0)
+
+    def BrowseModelFolder(self):
+        """Pick the models folder from the disk rather than downloading it."""
+        folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select the models folder")
+        if not folder:
+            return
+
+        if self.isMGLRegistration():
+            error = self.ActualMeth.TestMGLModel(
+                model_folder_3=folder,
+                mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
+            ) or None
+        else:
+            error = self.ActualMeth.TestModel(folder, self.ui.lineEditModel3.name)
+
+        if isinstance(error, str):
+            qt.QMessageBox.warning(self.parent, "Warning", error)
+            return
+
+        self.ui.lineEditModel3.setText(folder)
+        self.enableCheckbox()
 
     def MGLRadius(self):
         """Patch height as typed, kept inside the range the patch is usable in."""
@@ -718,6 +752,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 "ALI Models Folder (MGL)" if is_mgl else "Registration Model Folder"
             )
 
+
         # MGL takes its pose from the landmarks, so the ASO orientation reference
         # and its segmentation model play no part: hide them rather than leave
         # the user guessing what to fill in. Outside MGL they come back only in
@@ -731,6 +766,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Hide the whole choice outside IOS, where only one reference exists."""
         for widget in (self.label_reg_reference, self.CbRegReference):
             widget.setVisible(visible)
+        # Browsing for the models folder is offered wherever that folder is asked
+        # for, which in this module is the IOS modes.
+        self.ButtonBrowseModel3.setVisible(visible)
         if visible:
             self.SwitchRegReference(self.CbRegReference.currentIndex)
         else:

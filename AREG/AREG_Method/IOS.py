@@ -245,6 +245,8 @@ class Auto_IOS(Method):
             "Registration": "https://github.com/HUTIN1/AREG/releases/download/v1.0.0/AREG_model.zip",
             "Reference": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip",
             "Segmentation": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/segmentation_model.zip",
+            # MGL reads its landmarks from the ALI models, not from a palatal checkpoint
+            "ALI": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/ALI_IOS_models/Models.zip",
         }
 
     def getReferenceList(self):

@@ -59,8 +59,8 @@ class Auto_IOS(Method):
             return "Please select a folder with vtk or stl files"
 
         if os.path.isfile(scan_folder):
-            if not scan_folder.endswith(".vtk") or not scan_folder.endswith(".stl"):
-                out = out + "Please select a vtk file \n"
+            if os.path.splitext(scan_folder)[1].lower() not in (".vtk", ".stl"):
+                out = out + "Please select a vtk or stl file \n"
         elif os.path.isdir(scan_folder):
             files = self.search(scan_folder, ".vtk", ".stl")
             all_files = files[".vtk"] + files[".stl"]

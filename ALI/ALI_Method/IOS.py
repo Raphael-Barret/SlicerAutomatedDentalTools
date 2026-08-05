@@ -33,6 +33,8 @@ class Auto_IOS(Method):
         super().__init__(widget)
 
     def NumberScan(self, scan_folder: str):
+        if not scan_folder:
+            return 0
         if os.path.isfile(scan_folder):
             if scan_folder.endswith(".vtk") or scan_folder.endswith(".stl"):
                 return 1
@@ -44,19 +46,21 @@ class Auto_IOS(Method):
     
     def NumberLandmark(self, landmarks: str):
         import re
+        if not landmarks:
+            return 0
         cleaned = re.sub(r"[\[\]\"']", "", landmarks)
         teeth_list = re.split(r"[,\s]+", cleaned)
-        teeth_list = [t for t in teeth_list if t]
+        teeth_list = [t for t in teeth_list if t and t != "None"]
         return len(teeth_list)
 
     def TestScan(self, scan_folder: str):
         out = ""
-        if scan_folder == "":
-            out = out + "Please select folder with vtk file \n"
-            
+        if not scan_folder:
+            return "Please select a folder with vtk or stl files"
+
         if os.path.isfile(scan_folder):
-            if not scan_folder.endswith(".vtk") or not scan_folder.endswith(".stl"):
-                out = out + "Please select a vtk file \n"
+            if os.path.splitext(scan_folder)[1].lower() not in (".vtk", ".stl"):
+                out = out + "Please select a vtk or stl file \n"
         elif os.path.isdir(scan_folder):
             files = self.search(scan_folder, ".vtk", ".stl")
             all_files = files[".vtk"] + files[".stl"]
@@ -188,8 +192,11 @@ class Auto_IOS(Method):
         return out
 
     def __BypassCrownseg__(self, folder, folder_toseg, folder_bypass):
-        files = self.search(folder, ".vtk", ".stl")
-        all_files = files[".vtk"] + files[".stl"]
+        if os.path.isfile(folder):
+            all_files = [folder]
+        else:
+            files = self.search(folder, ".vtk", ".stl")
+            all_files = files[".vtk"] + files[".stl"]
         toseg = 0
         for file in all_files:
             base_name  = os.path.basename(file)
@@ -273,11 +280,13 @@ class Auto_IOS(Method):
             "dentalmodelseg_path": dentalmodelseg_path
         }
         
+        # Key order matters: values are passed positionally to the ALI_IOS CLI
         parameter_ali = {
             "input": path_seg,
             "dir_models": kwargs["dir_models"],
             "lm_type": kwargs["lm_type"],
             "teeth": kwargs["teeth"],
+            "teeth_mg": kwargs.get("teeth_mg", "None"),
             "output_dir": kwargs["output_dir"],
             "image_size": "224",
             "blur_radius": "0",
@@ -291,7 +300,6 @@ class Auto_IOS(Method):
         logger.debug(f"Landmark parameters: {parameter_ali}")
         logger.debug("=" * 70)
 
-        SegProcess = slicer.modules.crownsegmentationcli
         LandmarkProcess = slicer.modules.ali_ios
 
         numberscan = self.NumberScan(
@@ -299,28 +307,43 @@ class Auto_IOS(Method):
         )
         number_lm = self.NumberLandmark(
             kwargs["teeth"]
+        ) + self.NumberLandmark(
+            kwargs.get("teeth_mg", "None")
         )
-        
-        list_process = [
-            {
-                "Process": SegProcess,
+
+        list_process = []
+
+        # Every scan already carries its teeth segmentation, so there is nothing
+        # to segment: skip the step entirely rather than requiring
+        # SlicerDentalModelSeg to be installed just to have it do nothing.
+        if number_scan_toseg > 0:
+            if not hasattr(slicer.modules, "crownsegmentationcli"):
+                raise RuntimeError(
+                    f"{number_scan_toseg} scan(s) are not segmented and the teeth "
+                    "segmentation module is missing.\nPlease install the extension "
+                    "SlicerDentalModelSeg, or use scans that already carry a "
+                    "'Universal_ID' array."
+                )
+            list_process.append({
+                "Process": slicer.modules.crownsegmentationcli,
                 "Parameter": parameter_segteeth,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
                     number_scan_toseg, kwargs["logPath"]
                 ),
-            },
-            {
-                "Process": LandmarkProcess,
-                "Parameter": parameter_ali,
-                "Module": "ALI_IOS",
-                "Display": DisplayALIIOS(
-                    number_lm, numberscan
-                ),
-            },
-        ]
+            })
+        else:
+            logger.info("All scans are already segmented, skipping crown segmentation")
 
-        #
+        list_process.append({
+            "Process": LandmarkProcess,
+            "Parameter": parameter_ali,
+            "Module": "ALI_IOS",
+            "Display": DisplayALIIOS(
+                number_lm, numberscan
+            ),
+        })
+
         return list_process
 
     def DicLandmark(self):

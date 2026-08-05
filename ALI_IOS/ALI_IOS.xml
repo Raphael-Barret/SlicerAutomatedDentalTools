@@ -44,37 +44,44 @@
     </string>
 
     <string>
+      <name>teeth_mg</name>
+      <label>teeth_mg</label>
+      <index>4</index>
+      <description> list of lower teeth for mucogingival (MG) landmarks, 'None' to disable </description>
+    </string>
+
+    <string>
       <name>output_dir</name>
       <label>output_dir</label>
-      <index>4</index>
+      <index>5</index>
       <description>Path for the output dir.</description>
     </string>
 
     <string>
       <name>image_size</name>
       <label>image_size</label>
-      <index>5</index>
+      <index>6</index>
       <description> size of the 2D images </description>
     </string>
 
     <string>
       <name>blur_radius</name>
       <label>blur_radius</label>
-      <index>6</index>
+      <index>7</index>
       <description> Blur parameter </description>
     </string>
 
     <string>
       <name>faces_per_pixel</name>
       <label>faces_per_pixel</label>
-      <index>7</index>
+      <index>8</index>
       <description> number of faces per pixel </description>
     </string>
 
     <string>
       <name>log_path</name>
       <label>log_path</label>
-      <index>8</index>
+      <index>9</index>
       <description> Path for the log </description>
     </string>
 

@@ -114,6 +114,16 @@ TEETH = {
   'Lower teeth' : ['LL7','LL6','LL5','LL4','LL3','LL2','LL1','LR1','LR2','LR3','LR4','LR5','LR6','LR7'],
 }
 
+# Labels eligible for the mucogingival line (MG) model, lower jaw only.
+# MG naming is centered on the midline: L0MG is the midline label
+# (universal id 25) and LL/LR numbering runs distally from it, so LR1MG
+# sits on tooth 26. Must match MG_OUTPUT_NAME in ALI_IOS_utils/model.py,
+# or TradLabelMG will not recognise what this tab sends.
+MG_TEETH = {
+  'MGL Lower' : ['LL6MG','LL5MG','LL4MG','LL3MG','LL2MG','LL1MG','L0MG',
+                 'LR1MG','LR2MG','LR3MG','LR4MG','LR5MG','LR6MG'],
+}
+
 SURFACE_LANDMARKS = {
   'Cervical' : ['CL','CB','R','RIP','OIP'],
   'Occlusal' : ['O','DB','MB'],
@@ -368,6 +378,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.type = "CBCT"
     self.display = Display
     self.selected_tooth = None
+    self.selected_mg_tooth = "None"
     
     self.nb_patient = 0
     self.time_log = 0
@@ -406,6 +417,13 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.tooth_lm.Clear()
     self.tooth_lm.FillTab(TEETH,True)
     self.lm_selection_layout.addWidget(self.tooth_lm.widget)
+
+    # Separate tab for the mucogingival line (MG) of the lower jaw:
+    # selecting teeth here requests the MG landmark for those teeth
+    self.mg_tooth_lm = LMTab()
+    self.mg_tooth_lm.Clear()
+    self.mg_tooth_lm.FillTab(MG_TEETH,True)
+    self.lm_selection_layout.addWidget(self.mg_tooth_lm.widget)
 
     self.lm_tab = LMTab()
     # LM_tab_widget,LM_buttons_dic = GenLandmarkTab(Landmarks_group)
@@ -480,7 +498,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.model_folder = None
 
     self.tooth_lm.widget.setHidden(True if self.type == "CBCT" else False)
-    
+    self.mg_tooth_lm.widget.setHidden(True if self.type == "CBCT" else False)
+
     self.ActualMeth = self.MethodDic[self.type]
     self.SlicerDownloadPath = os.path.join(
       self.documents,
@@ -754,8 +773,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return True
     else:
       available_lm = self.GetAvailableSurfLm(model_folder)
+      has_mg_model = self.HasMGModel(model_folder)
 
-      if len(available_lm.keys()) == 0:
+      if len(available_lm.keys()) == 0 and not has_mg_model:
         qt.QMessageBox.warning(
           self.parent,
           'Warning',
@@ -833,6 +853,19 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
               networks.append(group)
     return networks
 
+  def HasMGModel(self,dir_path):
+    """True if the folder contains a lower mucogingival model (Lower_MG_*.pth)"""
+    if not dir_path:
+      return False
+    normpath = os.path.normpath("/".join([dir_path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+      basename = os.path.basename(img_fn)
+      if os.path.isfile(img_fn) and basename.endswith(".pth") and "Lower" in basename:
+        parts = basename.split("_")
+        if len(parts) > 1 and parts[1] == "MG":
+          return True
+    return False
+
   def onSearchSaveButton(self):
     save_folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a scan folder")
     if save_folder != '':
@@ -869,17 +902,56 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       
     if self.type == "IOS":
       selected_tooth_lst = self.tooth_lm.GetSelected()
-      if len(selected_tooth_lst) == 0:
-        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one tooth')
-        return
-      self.selected_tooth = " ".join(selected_tooth_lst)
+      selected_mg_lst = self.mg_tooth_lm.GetSelected()
+      selected_lm_lst = self.lm_tab.GetSelected()
 
-    selected_lm_lst = self.lm_tab.GetSelected()
-    self.landmark_cout = len(selected_lm_lst)
-    if len(selected_lm_lst) == 0:
-      qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark')
-      return
-    self.selected_lm = " ".join(selected_lm_lst)
+      if len(selected_tooth_lst) == 0 and len(selected_mg_lst) == 0:
+        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one tooth (Upper/Lower teeth or MGL Lower)')
+        return
+      if len(selected_tooth_lst) > 0 and len(selected_lm_lst) == 0:
+        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark type for the selected teeth')
+        return
+      if len(selected_mg_lst) > 0 and not self.HasMGModel(self.model_folder):
+        qt.QMessageBox.warning(self.parent, 'Warning', 'MGL Lower teeth are selected but no mucogingival model was found\nPlease add a "Lower_MG_*.pth" file to the model folder')
+        return
+
+      self.selected_tooth = " ".join(selected_tooth_lst) if selected_tooth_lst else "None"
+      self.selected_mg_tooth = " ".join(selected_mg_lst) if selected_mg_lst else "None"
+      self.selected_lm = " ".join(selected_lm_lst) if selected_lm_lst else "None"
+      self.landmark_cout = len(selected_lm_lst)
+
+    else:
+      selected_lm_lst = self.lm_tab.GetSelected()
+      self.landmark_cout = len(selected_lm_lst)
+      if len(selected_lm_lst) == 0:
+        qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark')
+        return
+      self.selected_lm = " ".join(selected_lm_lst)
+    if self.folder_as_input:
+      if not self.input_path:
+        # The path may have been typed directly instead of picked with the
+        # Search button, which is the only place that sets input_path
+        self.input_path = self.ui.lineEditScanPath.text.strip() or None
+
+    else:
+      # Node as input: the file the node was loaded from is what gets processed,
+      # so a node that only lives in the scene has nothing to give us
+      self.onNodeChanged()
+      if self.MRMLNode_scan is None:
+        qt.QMessageBox.warning(
+          self.parent, 'Warning',
+          'No scan selected.\nPick the scan to process in the "Select node" list at the '
+          'top of the module, or switch the input to a file or a folder.'
+        )
+        return
+      if not self.input_path:
+        qt.QMessageBox.warning(
+          self.parent, 'Warning',
+          f'The scan "{self.MRMLNode_scan.GetName()}" is not saved on disk, so it cannot '
+          'be processed.\nSave it as a .vtk file first (File > Save), then select it again.'
+        )
+        return
+
     error = self.ActualMeth.TestProcess(
       input_folder=self.input_path,
       dir_models=self.model_folder,
@@ -887,18 +959,24 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     )
     if isinstance(error, str):
       qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
-    self.list_Processes_Parameters = self.ActualMeth.Process(
-      input_folder=self.input_path,
-      dir_models=self.model_folder,
-      lm_type=self.selected_lm,
-      teeth=self.selected_tooth,
-      output_dir=self.ui.SaveFolderLineEdit.text,
-      logPath=self.log_path,
-      DCMInput=self.isDCMInput,
-    )
+      return
+    try:
+      self.list_Processes_Parameters = self.ActualMeth.Process(
+        input_folder=self.input_path,
+        dir_models=self.model_folder,
+        lm_type=self.selected_lm,
+        teeth=self.selected_tooth,
+        teeth_mg=self.selected_mg_tooth,
+        output_dir=self.ui.SaveFolderLineEdit.text,
+        logPath=self.log_path,
+        DCMInput=self.isDCMInput,
+      )
+    except RuntimeError as e:
+      qt.QMessageBox.warning(self.parent, "Warning", str(e))
+      return
     self.nb_extension_launch = len(self.list_Processes_Parameters)
     if self.type == "IOS":
-      self.nb_lm = self.ActualMeth.NumberLandmark(self.selected_tooth)
+      self.nb_lm = self.ActualMeth.NumberLandmark(self.selected_tooth) + self.ActualMeth.NumberLandmark(self.selected_mg_tooth)
     else:
       self.nb_lm = self.ActualMeth.NumberLandmark(self.selected_lm)
     self.onProcessStarted()

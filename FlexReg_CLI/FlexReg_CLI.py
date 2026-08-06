@@ -284,7 +284,9 @@ def main(args):
 
     
     writer = vtk.vtkPolyDataWriter()
-    if args.type!="icp":
+    # A registration writes its result to the output folder; the patch modes
+    # write back into the scan they were given.
+    if args.type not in ("icp", "icp_mgl"):
         writer.SetFileName(args.lineedit)
     else:
         outpath = args.lineedit.replace(os.path.dirname(args.lineedit),args.path_output)

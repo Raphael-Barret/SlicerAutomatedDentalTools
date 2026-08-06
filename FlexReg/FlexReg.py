@@ -1214,7 +1214,9 @@ class Reg:
         result then no longer leaves a .vtk and a .tfm behind every time.
         '''
         if self.T1.getSurf()!=None and  self.T2.getSurf()!=None :
-            if self.isButterflyPatchAvailable(self.T1.getSurf()) and self.isButterflyPatchAvailable(self.T2.getSurf()) :
+            array_name = self.patchArrayName()
+            if (self.isButterflyPatchAvailable(self.T1.getSurf(), array_name)
+                    and self.isButterflyPatchAvailable(self.T2.getSurf(), array_name)):
                 self.preview = preview
                 self.temp_folder = None
                 if preview:
@@ -1243,7 +1245,7 @@ class Reg:
                             float(0),
                             "None",
                             "None",
-                            "icp",
+                            "icp_mgl" if self.isLowerArch() else "icp",
                             self.T1.getPath(),
                             output_folder,
                             suffix,
@@ -1256,19 +1258,28 @@ class Reg:
                 self.timer.start(500)
 
             else:
-                slicer.util.infoDisplay("Create patch on T1 and T2 before registration")
+                slicer.util.infoDisplay(
+                    f"Create the {array_name} patch on T1 and T2 before registration")
         else :
             slicer.util.infoDisplay(f"Load a vtk file in window number : 1 and 2 \nTo do this, enter the path to a vtk file and click on view.")
 
-    def isButterflyPatchAvailable(self, model_node)->bool:
+    def isButterflyPatchAvailable(self, model_node, array_name="Butterfly")->bool:
         """
-        Check if the Butterfly patch is available for the provided model node.
+        Check if the patch of the current arch is available for the model node.
         """
         polyData = model_node.GetPolyData()
         if polyData:
-            scalars = polyData.GetPointData().GetScalars("Butterfly")
+            scalars = (polyData.GetPointData().GetScalars(array_name)
+                       or polyData.GetPointData().GetArray(array_name))
             return scalars is not None
         return False
+
+    def isLowerArch(self)->bool:
+        """True when both scans are set to the lower arch."""
+        return self.T1.isLowerArch() and self.T2.isLowerArch()
+
+    def patchArrayName(self)->str:
+        return MGL_ARRAY_NAME if self.isLowerArch() else "Butterfly"
 
 
     def onProcessUpdateICP(self)->None:
@@ -2280,6 +2291,8 @@ class WidgetParameter:
         the CLI: it needs no GPU, so what the user sees is exactly what is
         written.
         '''
+        if not self.checkArchMatchesScan():
+            return
         if not self.mgl_builder.ready:
             self.warning('Load or compute the MG landmarks first.')
             return
@@ -2308,6 +2321,17 @@ class WidgetParameter:
         writer.SetFileName(path)
         writer.SetInputData(polydata)
         writer.Write()
+
+        # The scene node carries it too: that is what the registration reads to
+        # know the patch exists, and what the user is left looking at.
+        displayed = self.surf.GetPolyData()
+        displayed.GetPointData().AddArray(self.mgl_builder.toArray(labels, MGL_ARRAY_NAME))
+        displayed.GetPointData().SetActiveScalars(MGL_ARRAY_NAME)
+        display = self.surf.GetDisplayNode()
+        if display is not None:
+            display.SetActiveScalarName(MGL_ARRAY_NAME)
+            display.SetScalarVisibility(True)
+        displayed.Modified()
 
         self.preview_dirty = False
         self.button_mgl_update.setText('Update')
@@ -2359,6 +2383,44 @@ class WidgetParameter:
     def isLowerArch(self):
         return self.combobox_arch.currentIndex == 1
 
+    def scanIsLower(self):
+        '''Which arch the loaded scan actually is, read from its segmentation.
+
+        The lower teeth carry Universal_ID 18 to 31 and the upper ones 2 to 15,
+        so the labels say it without trusting the file name.
+        '''
+        if self.surf is None:
+            return None
+        point_data = self.surf.GetPolyData().GetPointData()
+        for name in ("Universal_ID", "PredictedID", "UniversalID"):
+            scalars = point_data.GetScalars(name) or point_data.GetArray(name)
+            if scalars is not None:
+                labels = vtk_to_numpy(scalars)
+                lower = int(np.isin(labels, range(18, 32)).sum())
+                upper = int(np.isin(labels, range(2, 16)).sum())
+                if lower == upper:
+                    return None
+                return lower > upper
+        return None
+
+    def checkArchMatchesScan(self):
+        '''Warn when the scan is not the arch the panel is set to.
+
+        The two patches are not interchangeable: the palate does not exist on a
+        mandible, and the mucogingival model was only trained on one.
+        '''
+        is_lower = self.scanIsLower()
+        if is_lower is None:
+            return True
+        if is_lower == self.isLowerArch():
+            return True
+
+        scan_arch = "lower" if is_lower else "upper"
+        chosen = "lower" if self.isLowerArch() else "upper"
+        self.warning(f'This scan is a {scan_arch} arch but the panel is set to the '
+                     f'{chosen} arch.\nSwitch the arch selector before going on.')
+        return False
+
     def changeArch(self, index):
         '''
         Upper keeps the two ways of drawing the palatal patch; lower has a
@@ -2366,6 +2428,8 @@ class WidgetParameter:
         '''
         lower = index == 1
         self.combobox_choice_method.setVisible(not lower)
+        if self.surf is not None:
+            self.checkArchMatchesScan()
         self.stackedWidget.setCurrentIndex(2 if lower else self.combobox_choice_method.currentIndex)
         for widget in (self.label_patch, self.combobox_patch,
                        self.add_patch, self.label_addpatch, self.delete_patch):

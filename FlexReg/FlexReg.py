@@ -33,6 +33,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
 
+import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 
@@ -64,6 +65,10 @@ def _get_installed_version(lib_name):
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 from FlexReg_utils.orientation import orientation_f
 from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
+from FlexReg_utils.mgl_patch import (
+    MGLPatchBuilder, MGL_ARRAY_NAME, MGL_PREVIEW_ARRAY_NAME, MGL_ORDER,
+    DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT, ReadLandmarks,
+)
 
 # Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
 # larger value in the line edit still works, the knob just saturates.
@@ -72,6 +77,11 @@ ADJUST_RANGE = 5.0
 # Travel of the translation pad, in mm, on both axes. It moves the four
 # centroids together, so it is a rigid shift of the whole patch.
 SHIFT_RANGE = 15.0
+
+# Travel of the MGL joystick, in mm on both axes. It moves the checked
+# landmarks off the line ALI drew, sideways towards the cheek or the tongue and
+# up or down towards the crown or the vestibule.
+MGL_OFFSET_RANGE = 6.0
 
 # Side of the joystick pads, in pixels. The whole 0-1 ratio range is spread
 # across the pad, so this is what sets how much a single pixel of mouse travel
@@ -1021,6 +1031,25 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
             self.give_pythonpath_windows()
             results = self.check_pythonpath_windows("CrownSegmentationcli")
             
+    def runALI(self, arguments):
+        '''
+        Predict the MG landmarks of one scan, in the conda environment where
+        ALI_IOS has its dependencies. Blocks until the prediction is over.
+        '''
+        if not self.check_pythonpath_windows("ALI_IOS"):
+            self.give_pythonpath_windows()
+
+        conda_exe = self.conda.getCondaExecutable()
+        command = [conda_exe, "run", "-n", self.name_env, "python", "-m", "ALI_IOS"]
+        for argument in arguments:
+            value = argument
+            if isinstance(value, str) and ("\\" in value or (len(value) > 1 and value[1] == ":")):
+                value = self.windows_to_linux_path(value)
+            command.append(f'"{value}"')
+
+        logger.info(f"Running ALI_IOS: {' '.join(command)}")
+        self.condaRunCommand(command)
+
     def condaRunCommand(self, command: list[str]):
         '''
         Runs a command in a specified Conda environment, handling different operating systems.
@@ -1452,6 +1481,7 @@ class JoystickPad(QWidget):
         self.adjust = 0.0
         self.default_ratio = 0.0
         self.default_adjust = 0.0
+        self.onWheel = None
         self.onChanged = None
         self.enabled_preview = True
         self._dragging = False
@@ -1580,6 +1610,11 @@ class JoystickPad(QWidget):
         the other axis, where up means outwards.
         '''
         steps = _wheelSteps(event)
+        if self.onWheel is not None:
+            # Both axes drive the movement in MGL, so the wheel is free for
+            # whatever the caller wants to put on it.
+            self.onWheel(self, steps)
+            return
         if slicer.app.keyboardModifiers() & Qt.ShiftModifier:
             # scrolling up walks the point outwards, which is the ratio going up
             self.setValues(self.ratio + self.ratio_step * steps, self.adjust, notify=True)
@@ -1754,6 +1789,13 @@ class WidgetParameter:
         layout.addWidget(widgetView)
         
 
+        # Which arch is registered, and therefore which stable region is drawn:
+        # the palate above, the band along the mucogingival line below.
+        self.combobox_arch = QComboBox()
+        self.combobox_arch.addItems(['Upper arch (palate)', 'Lower arch (MGL)'])
+        self.combobox_arch.activated.connect(self.changeArch)
+        layout.addWidget(self.combobox_arch)
+
         self.combobox_choice_method = QComboBox()
         self.combobox_choice_method.addItems(['Parameter','Landmark'])
         self.combobox_choice_method.activated.connect(self.changeMode)
@@ -1854,6 +1896,11 @@ class WidgetParameter:
 
         
 
+        # page 2 : the mucogingival patch of the lower arch
+        widget_mgl = QWidget()
+        self.stackedWidget.insertWidget(2, widget_mgl)
+        self.setupMGL(QVBoxLayout(widget_mgl))
+
         self.layout_file2 = QHBoxLayout()
         layout.addLayout(self.layout_file2)
 
@@ -1904,15 +1951,386 @@ class WidgetParameter:
 
         
 
+    # ---------------- lower arch : the mucogingival patch ----------------
+
+    def setupMGL(self, layout):
+        '''
+        Build the lower-arch page : where the landmarks come from, which ones
+        the joystick acts on, and the joystick itself.
+        '''
+        self.mgl_builder = MGLPatchBuilder()
+        self.mgl_landmarks = None
+        self.mgl_names = []
+        self.mgl_buccal = np.zeros(len(MGL_ORDER))
+        self.mgl_apical = np.zeros(len(MGL_ORDER))
+        self.mgl_heights = np.full(len(MGL_ORDER), DEFAULT_HEIGHT)
+        self.mgl_checkboxes = {}
+        self.mgl_preview_node = None
+        self._mgl_pad_origin = (0.0, 0.0)
+
+        # --- landmarks ---
+        row_landmarks = QHBoxLayout()
+        row_landmarks.addWidget(QLabel('Landmarks :'))
+        self.lineedit_mgl_landmarks = QLineEdit()
+        self.lineedit_mgl_landmarks.setPlaceholderText('MG landmarks json, or press Compute')
+        row_landmarks.addWidget(self.lineedit_mgl_landmarks)
+        self.button_mgl_browse = QPushButton('Select')
+        self.button_mgl_browse.pressed.connect(self.selectMGLLandmarks)
+        row_landmarks.addWidget(self.button_mgl_browse)
+        self.button_mgl_compute = QPushButton('Compute')
+        self.button_mgl_compute.setToolTip('Predict the MG landmarks of this scan with ALI')
+        self.button_mgl_compute.pressed.connect(self.computeMGLLandmarks)
+        row_landmarks.addWidget(self.button_mgl_compute)
+        layout.addLayout(row_landmarks)
+
+        # --- which landmarks the pad moves ---
+        row_select = QHBoxLayout()
+        row_select.addWidget(QLabel('Selection :'))
+        for text, action in (('All', self.selectAllMGL), ('None', self.selectNoMGL),
+                             ('Left', self.selectLeftMGL), ('Right', self.selectRightMGL)):
+            button = QPushButton(text)
+            button.pressed.connect(action)
+            row_select.addWidget(button)
+        layout.addLayout(row_select)
+
+        grid_checkboxes = QGridLayout()
+        for index, name in enumerate(MGL_ORDER):
+            checkbox = QCheckBox(name.replace('MG', ''))
+            checkbox.setToolTip(f'{name} : include in what the joystick moves')
+            checkbox.stateChanged.connect(self.onMGLSelectionChanged)
+            self.mgl_checkboxes[name] = checkbox
+            grid_checkboxes.addWidget(checkbox, index // 5, index % 5)
+        layout.addLayout(grid_checkboxes)
+
+        # --- the joystick and the height it carries ---
+        row_pad = QHBoxLayout()
+        self.mgl_pad = JoystickPad(
+            outward_right=True,
+            adjust_range=MGL_OFFSET_RANGE,
+            ratio_range=(-MGL_OFFSET_RANGE, MGL_OFFSET_RANGE),
+            side_labels=('LING', 'BUCC'),
+        )
+        self.mgl_pad.setValues(0.0, 0.0)
+        self.mgl_pad.setDefaults(0.0, 0.0)
+        self.mgl_pad.onChanged = self.onMGLPadMoved
+        self.mgl_pad.onWheel = self.onMGLPadWheel
+        self.mgl_pad.setToolTip(
+            'Drag to move the checked landmarks : sideways towards the cheek or '
+            'the tongue, up and down towards the crown or the vestibule. '
+            'The wheel changes their height.'
+        )
+        row_pad.addWidget(self.mgl_pad)
+
+        column_values = QVBoxLayout()
+        column_values.addWidget(QLabel('Height (mm)'))
+        self.lineedit_mgl_height = QLineEdit(f'{DEFAULT_HEIGHT:.1f}')
+        self.lineedit_mgl_height.setMaximumWidth(80)
+        self.lineedit_mgl_height.textEdited.connect(self.onMGLHeightEdited)
+        column_values.addWidget(self.lineedit_mgl_height)
+        self.label_mgl_state = QLabel('')
+        column_values.addWidget(self.label_mgl_state)
+        column_values.addStretch()
+        row_pad.addLayout(column_values)
+        layout.addLayout(row_pad)
+
+        row_buttons = QHBoxLayout()
+        self.button_mgl_reset = QPushButton('Reset')
+        self.button_mgl_reset.setToolTip('Put the checked landmarks back where ALI placed them')
+        self.button_mgl_reset.pressed.connect(self.resetMGL)
+        row_buttons.addWidget(self.button_mgl_reset)
+        self.button_mgl_update = QPushButton('Update')
+        self.button_mgl_update.pressed.connect(self.applyMGLPatch)
+        row_buttons.addWidget(self.button_mgl_update)
+        layout.addLayout(row_buttons)
+
+        self.selectAllMGL()
+
+    # --- selection ---
+
+    def selectedMGL(self):
+        '''Indices, in MGL_ORDER, of the landmarks the pad acts on.'''
+        return [index for index, name in enumerate(MGL_ORDER)
+                if self.mgl_checkboxes[name].isChecked()]
+
+    def setMGLSelection(self, names):
+        self._syncing = True
+        try:
+            for name, checkbox in self.mgl_checkboxes.items():
+                checkbox.setChecked(name in names)
+        finally:
+            self._syncing = False
+        self.onMGLSelectionChanged()
+
+    def selectAllMGL(self):
+        self.setMGLSelection(set(MGL_ORDER))
+
+    def selectNoMGL(self):
+        self.setMGLSelection(set())
+
+    def selectLeftMGL(self):
+        self.setMGLSelection({name for name in MGL_ORDER if name.startswith('LL')})
+
+    def selectRightMGL(self):
+        self.setMGLSelection({name for name in MGL_ORDER if name.startswith('LR')})
+
+    def onMGLSelectionChanged(self, _state=None):
+        '''
+        The pad and the height field show the average of the selection, so the
+        knob always sits where the checked points sit.
+        '''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        self._syncing = True
+        try:
+            if selected:
+                buccal = float(np.mean(self.mgl_buccal[selected]))
+                apical = float(np.mean(self.mgl_apical[selected]))
+                self.mgl_pad.setValues(buccal, apical)
+                self._mgl_pad_origin = (buccal, apical)
+                self.lineedit_mgl_height.setText(f'{np.mean(self.mgl_heights[selected]):.1f}')
+            self.label_mgl_state.setText(f'{len(selected)} / {len(MGL_ORDER)} selected')
+        finally:
+            self._syncing = False
+
+    # --- edition ---
+
+    def onMGLPadMoved(self, pad):
+        '''
+        The joystick moved : every checked landmark takes the same step, so the
+        differences the user already dialled in are kept.
+        '''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        delta_buccal = pad.ratio - self._mgl_pad_origin[0]
+        delta_apical = pad.adjust - self._mgl_pad_origin[1]
+        self._mgl_pad_origin = (pad.ratio, pad.adjust)
+        self.mgl_buccal[selected] += delta_buccal
+        self.mgl_apical[selected] += delta_apical
+        self.markPreviewDirty()
+
+    def onMGLPadWheel(self, _pad, steps):
+        '''The wheel raises or lowers the height of the checked landmarks.'''
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        self.mgl_heights[selected] = np.clip(
+            self.mgl_heights[selected] + 0.5 * steps, MIN_HEIGHT, MAX_HEIGHT)
+        self._syncing = True
+        try:
+            self.lineedit_mgl_height.setText(f'{np.mean(self.mgl_heights[selected]):.1f}')
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onMGLHeightEdited(self, _text=None):
+        '''A height typed in applies to every checked landmark.'''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        height = self.readFloat(self.lineedit_mgl_height)
+        if height is None or not selected:
+            return  # half-typed number, wait for the rest
+        self.mgl_heights[selected] = min(max(height, MIN_HEIGHT), MAX_HEIGHT)
+        self.markPreviewDirty()
+
+    def resetMGL(self):
+        '''Undo every offset and height on the checked landmarks.'''
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        self.mgl_buccal[selected] = 0.0
+        self.mgl_apical[selected] = 0.0
+        self.mgl_heights[selected] = DEFAULT_HEIGHT
+        self.onMGLSelectionChanged()
+        self.markPreviewDirty()
+
+    # --- landmarks ---
+
+    def selectMGLLandmarks(self):
+        path = QFileDialog.getOpenFileName(None, 'Open the MG landmarks', '', 'Markups (*.json *.mrk.json)')
+        if path:
+            self.lineedit_mgl_landmarks.setText(path)
+            self.loadMGLLandmarks()
+
+    def loadMGLLandmarks(self):
+        '''Read the landmark file and hand it to the patch builder.'''
+        path = self.lineedit_mgl_landmarks.text.strip()
+        if not path or not os.path.isfile(path):
+            return False
+        if self.surf is None:
+            self.viewScan()
+        if self.surf is None:
+            return False
+
+        try:
+            self.mgl_landmarks = ReadLandmarks(path)
+        except Exception as error:
+            logger.error(f"Could not read the MG landmarks: {error}")
+            self.warning(f'This landmark file cannot be read.\n{error}')
+            return False
+
+        if not self.mgl_builder.prepare(self.surf.GetPolyData(), self.mgl_landmarks):
+            self.warning(self.mgl_builder.error or 'The MG landmarks do not fit this scan.')
+            return False
+
+        self.mgl_names = self.mgl_builder.names()
+        for name, checkbox in self.mgl_checkboxes.items():
+            checkbox.setEnabled(name in self.mgl_names)
+            if name not in self.mgl_names:
+                checkbox.setChecked(False)
+        self.markPreviewDirty()
+        return True
+
+    def computeMGLLandmarks(self):
+        '''Predict the MG landmarks of this scan with ALI, in the conda env.'''
+        path = str(self.lineedit.text)
+        if not os.path.isfile(path):
+            self.warning('Select the scan first.')
+            return
+
+        models = self.mglModelsFolder()
+        if models is None:
+            return
+
+        output = os.path.join(tempfile.mkdtemp(), 'MGL_landmarks')
+        os.makedirs(output, exist_ok=True)
+        arguments = [path, models, 'None', 'None', ' '.join(MGL_ORDER), output,
+                     '224', '0', '1', os.path.join(output, 'process.log')]
+
+        progress = QProgressDialog('Predicting the MG landmarks with ALI...', None, 0, 0, None)
+        progress.setWindowTitle('ALI_IOS')
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+        slicer.app.processEvents()
+        try:
+            self.logic.runALI(arguments)
+        finally:
+            progress.close()
+
+        produced = sorted(f for f in os.listdir(output) if f.endswith('.json'))
+        if not produced:
+            self.warning('ALI did not produce any landmark file, see the log for details.')
+            return
+
+        self.lineedit_mgl_landmarks.setText(os.path.join(output, produced[0]))
+        self.loadMGLLandmarks()
+
+    def mglModelsFolder(self):
+        '''Folder holding Lower_MG_*.pth, downloading it once if need be.'''
+        folder = os.path.join(self.SlicerDownloadPath, 'ALI', 'ALI_IOS', 'Models', 'Prediction')
+        if self.hasMGLModel(folder):
+            return folder
+
+        chosen = QFileDialog.getExistingDirectory(None, 'Select the ALI models folder')
+        if chosen and self.hasMGLModel(chosen):
+            return chosen
+        if chosen:
+            self.warning('No MGL model in that folder, a file named "Lower_MG_*.pth" is expected.')
+        return None
+
+    @staticmethod
+    def hasMGLModel(folder):
+        if not folder or not os.path.isdir(folder):
+            return False
+        for root, _dirs, files in os.walk(folder):
+            for name in files:
+                if name.endswith('.pth') and 'Lower' in name and name.split('_')[1:2] == ['MG']:
+                    return True
+        return False
+
+    # --- preview and patch ---
+
+    def refreshMGLPreview(self):
+        '''Repaint the band for the current offsets and heights.'''
+        if not self.mgl_builder.ready:
+            return
+        labels, _samples = self.mgl_builder.compute(
+            self.mgl_buccal[:len(self.mgl_names)],
+            self.mgl_apical[:len(self.mgl_names)],
+            self.mgl_heights[:len(self.mgl_names)],
+        )
+        self.showMGLPreview(labels)
+
+    def showMGLPreview(self, labels):
+        polydata = self.surf.GetPolyData()
+        array = self.mgl_builder.toArray(labels, MGL_PREVIEW_ARRAY_NAME)
+        polydata.GetPointData().AddArray(array)
+        polydata.GetPointData().SetActiveScalars(MGL_PREVIEW_ARRAY_NAME)
+        display = self.surf.GetDisplayNode()
+        if display is not None:
+            display.SetActiveScalarName(MGL_PREVIEW_ARRAY_NAME)
+            display.SetScalarVisibility(True)
+        polydata.Modified()
+
+    def clearMGLPreview(self):
+        if self.surf is None:
+            return
+        polydata = self.surf.GetPolyData()
+        if polydata.GetPointData().GetArray(MGL_PREVIEW_ARRAY_NAME):
+            polydata.GetPointData().RemoveArray(MGL_PREVIEW_ARRAY_NAME)
+            polydata.Modified()
+
+    def applyMGLPatch(self):
+        '''
+        Write the patch into the scan. The band is computed here rather than by
+        the CLI: it needs no GPU, so what the user sees is exactly what is
+        written.
+        '''
+        if not self.mgl_builder.ready:
+            self.warning('Load or compute the MG landmarks first.')
+            return
+
+        labels, _samples = self.mgl_builder.compute(
+            self.mgl_buccal[:len(self.mgl_names)],
+            self.mgl_apical[:len(self.mgl_names)],
+            self.mgl_heights[:len(self.mgl_names)],
+        )
+        if labels.sum() == 0:
+            self.warning('The patch is empty, raise the height.')
+            return
+
+        path = str(self.lineedit.text)
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(path)
+        reader.Update()
+        polydata = reader.GetOutput()
+
+        if polydata.GetNumberOfPoints() != len(labels):
+            self.warning('The scan on disk no longer matches the one displayed.')
+            return
+
+        polydata.GetPointData().AddArray(self.mgl_builder.toArray(labels, MGL_ARRAY_NAME))
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(path)
+        writer.SetInputData(polydata)
+        writer.Write()
+
+        self.preview_dirty = False
+        self.button_mgl_update.setText('Update')
+        logger.info(f"Wrote the {MGL_ARRAY_NAME} patch of {int(labels.sum())} points to {path}")
+
+    def warning(self, text):
+        qt.QMessageBox.warning(None, 'Warning', text)
+
     def handleStackedWidgetChange(self, index):
         # When stackedWidget change of page, this is called.
         # Check if the new page is page 0 (index 0) and called hideLandmark if its the case.
         if index == 0:
+            self.clearMGLPreview()
+            self.hideLandmark()
+            self.schedulePreview()
+        elif index == 2:
+            self.clearPreview()
             self.hideLandmark()
             self.schedulePreview()
         else :
             # The joystick preview has no meaning in the drawn-curve mode.
             self.clearPreview()
+            self.clearMGLPreview()
             self.viewLandmark()
 
     def onCheckboxStateChanged(self):
@@ -1937,6 +2355,21 @@ class WidgetParameter:
     
     def changeMode(self,index):
         self.stackedWidget.setCurrentIndex(index)
+
+    def isLowerArch(self):
+        return self.combobox_arch.currentIndex == 1
+
+    def changeArch(self, index):
+        '''
+        Upper keeps the two ways of drawing the palatal patch; lower has a
+        single one, built from the landmarks, so the method selector goes away.
+        '''
+        lower = index == 1
+        self.combobox_choice_method.setVisible(not lower)
+        self.stackedWidget.setCurrentIndex(2 if lower else self.combobox_choice_method.currentIndex)
+        for widget in (self.label_patch, self.combobox_patch,
+                       self.add_patch, self.label_addpatch, self.delete_patch):
+            widget.setVisible(False if lower else widget.isVisible())
 
     def getPath(self):
         return self.lineedit.text
@@ -2324,7 +2757,9 @@ class WidgetParameter:
 
     def markPreviewDirty(self):
         self.preview_dirty = True
-        self.button_update.setText('Update   (preview not applied)')
+        button = (self.button_mgl_update if self.stackedWidget.currentIndex == 2
+                  else self.button_update)
+        button.setText('Update   (preview not applied)')
         self.schedulePreview()
 
     def schedulePreview(self):
@@ -2336,7 +2771,17 @@ class WidgetParameter:
             self.preview_timer.start(15)
 
     def refreshPreview(self):
-        if self.surf is None or self.stackedWidget.currentIndex != 0:
+        if self.surf is None:
+            return
+        try:
+            page = self.stackedWidget.currentIndex
+        except ValueError:
+            # the panel was closed while a redraw was still pending
+            return
+        if page == 2:
+            self.refreshMGLPreview()
+            return
+        if page != 0:
             return
 
         teeth = self.teethMapping()

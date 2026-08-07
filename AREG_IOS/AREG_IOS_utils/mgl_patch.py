@@ -193,6 +193,9 @@ def MGLPatch(surf, landmarks, radius=DEFAULT_RADIUS, n_samples=DEFAULT_SAMPLES,
     """
     points = OrderedMGLandmarks(landmarks)
     logger.info(f"Building the MGL patch from {len(points)} landmark(s), radius {radius} mm")
+    if radius == 0:
+        logger.info("Radius 0: the patch is the snapped curve itself, the "
+                    "registration will run on the mucogingival line only")
 
     samples = SplineThroughLandmarks(points, n_samples)
     seeds = SnapToSurface(surf, samples)

@@ -6,6 +6,10 @@ from qt import (
     QScrollArea,
     QTabWidget,
     QGridLayout,
+    QComboBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
 )
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
@@ -22,6 +26,17 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+
+# Height of the MGL patch on each side of the mucogingival line, in mm. At 0
+# the band degenerates into the snapped curve itself and the registration runs
+# on the line only; above 20 mm it runs past the scanned mucosa.
+# Row of the models folder field inside gridLayout_2 of AREG.ui, where the
+# Browse button is added beside its Download button.
+MODEL3_GRID_ROW = 8
+
+MGL_DEFAULT_RADIUS = 5.0
+MGL_MIN_RADIUS = 0.0
+MGL_MAX_RADIUS = 20.0
 
 from AREG_Method.IOS import Auto_IOS, Semi_IOS
 from AREG_Method.CBCT import Semi_CBCT, Auto_CBCT, Or_Auto_CBCT
@@ -458,6 +473,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.tohideCBCT_3,
         )
 
+        self.initRegistrationReference()
         self.HideComputeItems()
         self.SwitchType()
         
@@ -545,6 +561,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.isDCMInput = True
 
     def SwitchModeCBCT(self, index):
+        self.ShowRegistrationReference(False)
         """Function to change the UI depending on the mode selected (Semi or Fully Automated)"""
         self.ui.CbCBCTInputType.setVisible(True)
         self.ui.label_CBCTInputType.setVisible(True)
@@ -615,6 +632,152 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.label_CBCTInputType.setVisible(False)
             self.isDCMInput = False
 
+    def initRegistrationReference(self):
+        """Build the IOS choice of registration reference, below the input fields.
+
+        Two stable regions are available and they do not describe the same arch:
+        the palate carries the upper registration, the band along the
+        mucogingival line carries the lower one.
+        """
+        grid = self.ui.gridLayout_2
+        row = grid.rowCount()
+
+        self.label_reg_reference = QLabel("Registration Reference")
+        self.CbRegReference = QComboBox()
+        self.CbRegReference.addItem("Palate (Butterfly) - upper arch")
+        self.CbRegReference.addItem("Mucogingival line (MGL) - lower arch")
+        self.CbRegReference.setToolTip(
+            "Surface the registration is computed on. The palate is painted by a "
+            "neural network on the upper arch; the mucogingival band is built from "
+            "the MGL landmarks on the lower arch."
+        )
+        grid.addWidget(self.label_reg_reference, row, 0)
+        grid.addWidget(self.CbRegReference, row, 1)
+
+        # A plain line edit rather than a spin box: the module stylesheet pads
+        # every QLineEdit by 6px, and a spin box wears that padding on its inner
+        # editor, which clips the digits out of view.
+        self.label_mgl_radius = QLabel("MGL Patch Height (mm)")
+        self.lineEditMGLRadius = QLineEdit(str(MGL_DEFAULT_RADIUS))
+        self.lineEditMGLRadius.setToolTip(
+            f"How far the patch spreads on each side of the mucogingival line, "
+            f"along the surface, in mm (between {MGL_MIN_RADIUS} and {MGL_MAX_RADIUS}). "
+            "At 0 the patch is the line itself : the registration runs on the "
+            "curve through the landmarks only. Vertices belonging to the crowns "
+            "are always left out, whatever the value."
+        )
+        grid.addWidget(self.label_mgl_radius, row + 1, 0)
+        grid.addWidget(self.lineEditMGLRadius, row + 1, 1)
+
+        self.label_mgl_lm = QLabel("MGL Landmarks Folder")
+        self.lineEditMGLLandmarks = QLineEdit()
+        self.lineEditMGLLandmarks.setPlaceholderText("optional, computed by ALI when left empty")
+        self.lineEditMGLLandmarks.setToolTip(
+            "Folder of MG landmark json files, T1 and T2 together: they are matched "
+            "to their scan by name. Leave it empty to have ALI predict them from the "
+            "models folder."
+        )
+        self.ButtonSearchMGLLandmarks = QPushButton("Browse")
+        self.ButtonSearchMGLLandmarks.clicked.connect(self.SearchMGLLandmarks)
+        grid.addWidget(self.label_mgl_lm, row + 2, 0)
+        grid.addWidget(self.lineEditMGLLandmarks, row + 2, 1)
+        grid.addWidget(self.ButtonSearchMGLLandmarks, row + 2, 2)
+
+        # The model field only ever had a Download button, so a folder already on
+        # the disk could not be selected.
+        self.ButtonBrowseModel3 = QPushButton("Browse")
+        self.ButtonBrowseModel3.setToolTip("Select a models folder already on this computer")
+        self.ButtonBrowseModel3.clicked.connect(self.BrowseModelFolder)
+        # Column 3 sits right of the Download button, on the row of the field it
+        # belongs to (the models row of the .ui grid).
+        grid.addWidget(self.ButtonBrowseModel3, MODEL3_GRID_ROW, 3)
+
+        self.CbRegReference.currentIndexChanged.connect(self.SwitchRegReference)
+        self.SwitchRegReference(0)
+
+    def BrowseModelFolder(self):
+        """Pick the models folder from the disk rather than downloading it."""
+        folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select the models folder")
+        if not folder:
+            return
+
+        if self.isMGLRegistration():
+            error = self.ActualMeth.TestMGLModel(
+                model_folder_3=folder,
+                mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
+            ) or None
+        else:
+            error = self.ActualMeth.TestModel(folder, self.ui.lineEditModel3.name)
+
+        if isinstance(error, str):
+            qt.QMessageBox.warning(self.parent, "Warning", error)
+            return
+
+        self.ui.lineEditModel3.setText(folder)
+        self.enableCheckbox()
+
+    def MGLRadius(self):
+        """Patch height as typed, kept inside the range the patch is usable in."""
+        try:
+            radius = float(self.lineEditMGLRadius.text.replace(",", ".").strip())
+        except ValueError:
+            logger.warning(f"Unreadable MGL patch height, falling back to {MGL_DEFAULT_RADIUS} mm")
+            return str(MGL_DEFAULT_RADIUS)
+
+        clamped = min(max(radius, MGL_MIN_RADIUS), MGL_MAX_RADIUS)
+        if clamped != radius:
+            logger.warning(f"MGL patch height {radius} mm is out of range, using {clamped} mm")
+            self.lineEditMGLRadius.setText(str(clamped))
+        return str(clamped)
+
+    def SearchMGLLandmarks(self):
+        folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select the MGL landmarks folder")
+        if folder:
+            self.lineEditMGLLandmarks.setText(folder)
+
+    def isMGLRegistration(self):
+        """True when the lower arch is registered on the mucogingival band."""
+        return (self.type == "IOS"
+                and getattr(self, "CbRegReference", None) is not None
+                and self.CbRegReference.currentIndex == 1)
+
+    def SwitchRegReference(self, index):
+        """Show the fields that belong to the selected reference."""
+        is_mgl = index == 1
+        for widget in (self.label_mgl_radius, self.lineEditMGLRadius, self.label_mgl_lm,
+                       self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
+            widget.setVisible(is_mgl)
+
+        # The palatal patch is the only one that needs its own trained model.
+        if hasattr(self.ui, "label_4"):
+            self.ui.label_4.setText(
+                "ALI Models Folder (MGL)" if is_mgl else "Registration Model Folder"
+            )
+
+
+        # MGL takes its pose from the landmarks, so the ASO orientation reference
+        # and its segmentation model play no part: hide them rather than leave
+        # the user guessing what to fill in. Outside MGL they come back only in
+        # the mode that orients, which is index 0.
+        orientation_used = not is_mgl and self.ui.CbModeType.currentIndex == 0
+        for widget in (self.ui.label_7, self.ui.lineEditModel1, self.ui.ButtonSearchModel1,
+                       self.ui.label_6, self.ui.lineEditModel2, self.ui.ButtonSearchModel2):
+            widget.setVisible(orientation_used)
+
+    def ShowRegistrationReference(self, visible):
+        """Hide the whole choice outside IOS, where only one reference exists."""
+        for widget in (self.label_reg_reference, self.CbRegReference):
+            widget.setVisible(visible)
+        # Browsing for the models folder is offered wherever that folder is asked
+        # for, which in this module is the IOS modes.
+        self.ButtonBrowseModel3.setVisible(visible)
+        if visible:
+            self.SwitchRegReference(self.CbRegReference.currentIndex)
+        else:
+            for widget in (self.label_mgl_radius, self.lineEditMGLRadius, self.label_mgl_lm,
+                           self.lineEditMGLLandmarks, self.ButtonSearchMGLLandmarks):
+                widget.setVisible(False)
+
     def SwitchModeIOS(self, index):
         self.ui.CbCBCTInputType.setVisible(False)
         self.ui.label_CBCTInputType.setVisible(False)
@@ -665,8 +828,11 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditModel3.setVisible(True)
             self.ui.ButtonSearchModel3.setVisible(True)
 
+        # Last, so the selected reference decides which model fields survive
+        self.ShowRegistrationReference(True)
 
     def SwitchModeIOSCBCT(self, index):
+        self.ShowRegistrationReference(False)
         self.ui.CbCBCTInputType.setVisible(False)
         self.ui.label_CBCTInputType.setVisible(False)
         self.ui.advancedCollapsibleButton.collapsed = True
@@ -1092,7 +1258,15 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             model_folder = os.path.join(self.SlicerDownloadPath, "Models", name)
 
         if not model_folder == "":
-            error = self.ActualMeth.TestModel(model_folder, lineEdit.name)
+            if self.isMGLRegistration() and lineEdit.name == "lineEditModel3":
+                # That field holds the ALI models in MGL, so the palatal
+                # checkpoint check does not apply to it
+                error = self.ActualMeth.TestMGLModel(
+                    model_folder_3=model_folder,
+                    mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
+                ) or None
+            else:
+                error = self.ActualMeth.TestModel(model_folder, lineEdit.name)
 
             if isinstance(error, str):
                 qt.QMessageBox.warning(self.parent, "Warning", error)
@@ -1285,6 +1459,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             dic_checkbox=self.dicchckbox,
             isDCMInput=self.isDCMInput,
             OrientReference=self.CBCTOrientRef,
+            reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
+            mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
         )
 
         if isinstance(error, str):
@@ -1299,6 +1475,13 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
             else:
                 merge_seg = None
+
+            if self.isMGLRegistration():
+                # MGL registers the mandibles, which NumberScan does not count
+                self.nb_patient = self.ActualMeth.NumberScanLower(
+                    self.ui.lineEditScanT1LmPath.text, self.ui.lineEditScanT2LmPath.text
+                )
+
             self.list_Processes_Parameters = self.ActualMeth.Process(
                 input_t1_folder=self.ui.lineEditScanT1LmPath.text,
                 input_t2_folder=self.ui.lineEditScanT2LmPath.text,
@@ -1319,6 +1502,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.SegmentationLabels[self.ui.LabelSelectcomboBox.currentIndex]
                 ),
                 ApproxStep=self.ui.ApproxcheckBox.isChecked(),
+                reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
+                patch_radius=self.MGLRadius(),
+                mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
             )
 
             # Guard: if Process() returned an empty list, log and return to avoid IndexError
@@ -1353,6 +1539,27 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 del self.list_Processes_Parameters[0]
 
             elif self.type == "IOS":
+                if self.isMGLRegistration():
+                    # Every step of the MGL pipeline is a conda tool, unlike the
+                    # palatal flow where the orientation is a Slicer CLI, so they
+                    # are simply run one after the other.
+                    while self.list_Processes_Parameters:
+                        module = self.list_Processes_Parameters[0]["Module"]
+                        self.displayModule = self.list_Processes_Parameters[0]["Display"]
+                        if module.startswith("CrownSegmentationcli"):
+                            self.run_conda_tool("seg")    # counts its own runs
+                        elif module.startswith("ALI_IOS"):
+                            self.nb_extension_did += 1
+                            self.run_conda_tool("ali")
+                        else:
+                            self.nb_extension_did += 1
+                            self.run_conda_tool("areg")
+                    try:
+                        self.OnEndProcess()
+                    except Exception:
+                        logger.exception("OnEndProcess failed after the MGL pipeline")
+                    return
+
                 if self.module_name in ["CrownSegmentationcli T1", "AREG_IOS"]:
                     if "CrownSegmentationcli" in self.module_name:
                         self.run_conda_tool("seg")
@@ -1437,7 +1644,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.module_name_before = self.module_name
                 self.progress = 0
                 self.ui.LabelProgressPatient.setText(f"Patient : {self.progress}/{self.nb_patient}")
-                progress_bar_value = round((self.progress) / self.nb_patient * 100,2)
+                progress_bar_value = round(self.progress / self.nb_patient * 100, 2) if self.nb_patient else 0
                 
                 self.ui.progressBar.setValue(progress_bar_value)
                 self.ui.progressBar.setFormat(f"{progress_bar_value:.2f}%")
@@ -1526,7 +1733,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.nb_change_bystep = 0
         total_time = time.time() - self.startTime
-        average_time = total_time / self.nb_patient
+        average_time = total_time / self.nb_patient if self.nb_patient else total_time
         logger.info("PROCESS DONE.")
         logger.info(
             "Done in {} min and {} sec".format(
@@ -2008,8 +2215,8 @@ qMRMLNodeComboBox:focus {
                         timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
                     else:
                         timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
-                    
-                self.ui.LabelTimer.setText(timer)
+
+                    self.ui.LabelTimer.setText(timer)
 
             del self.list_Processes_Parameters[0]
             

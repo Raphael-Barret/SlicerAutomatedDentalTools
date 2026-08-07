@@ -15,6 +15,7 @@ from qt import (
     QStackedWidget,
     QComboBox,
     QPushButton,
+    QSlider,
     QFileDialog,
     QSpinBox,
     QWidget,
@@ -33,6 +34,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
 
+import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 
@@ -64,6 +66,10 @@ def _get_installed_version(lib_name):
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 from FlexReg_utils.orientation import orientation_f
 from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
+from FlexReg_utils.mgl_patch import (
+    MGLPatchBuilder, MGL_ARRAY_NAME, MGL_PREVIEW_ARRAY_NAME, MGL_ORDER,
+    DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT, ReadLandmarks, WriteLandmarks,
+)
 
 # Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
 # larger value in the line edit still works, the knob just saturates.
@@ -72,6 +78,11 @@ ADJUST_RANGE = 5.0
 # Travel of the translation pad, in mm, on both axes. It moves the four
 # centroids together, so it is a rigid shift of the whole patch.
 SHIFT_RANGE = 15.0
+
+# Travel of the MGL joystick, in mm on both axes. It moves the checked
+# landmarks off the line ALI drew, sideways towards the cheek or the tongue and
+# up or down towards the crown or the vestibule.
+MGL_OFFSET_RANGE = 6.0
 
 # Side of the joystick pads, in pixels. The whole 0-1 ratio range is spread
 # across the pad, so this is what sets how much a single pixel of mouse travel
@@ -305,6 +316,15 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self.initializeParameterNode()
 
+        # One arch for the whole registration : both scans are the same jaw,
+        # so the choice is made once here instead of once per scan.
+        row_arch = QHBoxLayout()
+        row_arch.addWidget(QLabel('Arch :'))
+        self.combobox_arch = QComboBox()
+        self.combobox_arch.addItems(['Upper arch (palate)', 'Lower arch (MGL)'])
+        self.combobox_arch.activated.connect(self.onArchChanged)
+        row_arch.addWidget(self.combobox_arch)
+        self.ui.verticalLayout_2.insertLayout(0, row_arch)
 
         self.number_widget_scan = 0
         self.list_widget_scan = []
@@ -386,9 +406,14 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.number_widget_scan -= 1
 
         self.reg.setT1T2(self.list_widget_scan[0],self.list_widget_scan[1])
-        
-        
-        
+
+    def isLowerArch(self):
+        return self.combobox_arch.currentIndex == 1
+
+    def onArchChanged(self, _index=None):
+        '''The arch selector at the top drives every scan panel at once.'''
+        for widget in self.list_widget_scan:
+            widget.setArch(self.isLowerArch())
 
 
     def removeWidgetScan(self):
@@ -407,6 +432,7 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         '''
         self.list_widget_scan.append(
             WidgetParameter(self.ui.verticalLayout_2,self.parent,title,self.list_widget_scan))
+        self.list_widget_scan[-1].setArch(self.isLowerArch())
 
     def openFinder(self,nom : str,_) -> None : 
         """
@@ -948,8 +974,8 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         
     def setup_cli_command(self):
         args = self.find_cli_parameters()
-        conda_exe = self.conda.getCondaExecutable()
-        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"FlexReg_CLI"]
+        # condaRunCommand already wraps everything in `conda run -n <env>`
+        command = ["python", "-m", "FlexReg_CLI"]
         for arg in args :
             command.append("\""+arg+"\"")
 
@@ -1021,6 +1047,25 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
             self.give_pythonpath_windows()
             results = self.check_pythonpath_windows("CrownSegmentationcli")
             
+    def runALI(self, arguments):
+        '''
+        Predict the MG landmarks of one scan, in the conda environment where
+        ALI_IOS has its dependencies. Blocks until the prediction is over.
+        '''
+        if not self.check_pythonpath_windows("ALI_IOS"):
+            self.give_pythonpath_windows()
+
+        # condaRunCommand already wraps everything in `conda run -n <env>`
+        command = ["python", "-m", "ALI_IOS"]
+        for argument in arguments:
+            value = argument
+            if isinstance(value, str) and ("\\" in value or (len(value) > 1 and value[1] == ":")):
+                value = self.windows_to_linux_path(value)
+            command.append(f'"{value}"')
+
+        logger.info(f"Running ALI_IOS: {' '.join(command)}")
+        self.condaRunCommand(command)
+
     def condaRunCommand(self, command: list[str]):
         '''
         Runs a command in a specified Conda environment, handling different operating systems.
@@ -1185,7 +1230,9 @@ class Reg:
         result then no longer leaves a .vtk and a .tfm behind every time.
         '''
         if self.T1.getSurf()!=None and  self.T2.getSurf()!=None :
-            if self.isButterflyPatchAvailable(self.T1.getSurf()) and self.isButterflyPatchAvailable(self.T2.getSurf()) :
+            array_name = self.patchArrayName()
+            if (self.isButterflyPatchAvailable(self.T1.getSurf(), array_name)
+                    and self.isButterflyPatchAvailable(self.T2.getSurf(), array_name)):
                 self.preview = preview
                 self.temp_folder = None
                 if preview:
@@ -1214,7 +1261,7 @@ class Reg:
                             float(0),
                             "None",
                             "None",
-                            "icp",
+                            "icp_mgl" if self.isLowerArch() else "icp",
                             self.T1.getPath(),
                             output_folder,
                             suffix,
@@ -1227,19 +1274,28 @@ class Reg:
                 self.timer.start(500)
 
             else:
-                slicer.util.infoDisplay("Create patch on T1 and T2 before registration")
+                slicer.util.infoDisplay(
+                    f"Create the {array_name} patch on T1 and T2 before registration")
         else :
             slicer.util.infoDisplay(f"Load a vtk file in window number : 1 and 2 \nTo do this, enter the path to a vtk file and click on view.")
 
-    def isButterflyPatchAvailable(self, model_node)->bool:
+    def isButterflyPatchAvailable(self, model_node, array_name="Butterfly")->bool:
         """
-        Check if the Butterfly patch is available for the provided model node.
+        Check if the patch of the current arch is available for the model node.
         """
         polyData = model_node.GetPolyData()
         if polyData:
-            scalars = polyData.GetPointData().GetScalars("Butterfly")
+            scalars = (polyData.GetPointData().GetScalars(array_name)
+                       or polyData.GetPointData().GetArray(array_name))
             return scalars is not None
         return False
+
+    def isLowerArch(self)->bool:
+        """True when both scans are set to the lower arch."""
+        return self.T1.isLowerArch() and self.T2.isLowerArch()
+
+    def patchArrayName(self)->str:
+        return MGL_ARRAY_NAME if self.isLowerArch() else "Butterfly"
 
 
     def onProcessUpdateICP(self)->None:
@@ -1253,7 +1309,9 @@ class Reg:
 
         # Launch pop up with time
         if not hasattr(self, "timerDialog"):
-            self.timerDialog = TimerDialog()
+            # Parented to the main window so it stays on top of Slicer and is
+            # repainted with it, instead of floating as a separate window.
+            self.timerDialog = TimerDialog(slicer.util.mainWindow())
             self.timerDialog.show()
             self.timerDialog.startTimer()
 
@@ -1435,8 +1493,13 @@ class JoystickPad(QWidget):
     FINE = 0.2       # sensitivity multiplier while Ctrl is held
 
     def __init__(self, outward_right=True, adjust_range=5.0, size=None, adjust_sign=1.0,
-                 ratio_range=(0.0, 1.0), side_labels=None, parent=None):
+                 ratio_range=(0.0, 1.0), side_labels=None, spring_back=False, parent=None):
         QWidget.__init__(self, parent)
+        # A spring_back pad is relative : each drag deals out a displacement
+        # and the knob returns to the centre on release, so repeated pushes
+        # never saturate against the ends of the travel.
+        self.spring_back = bool(spring_back)
+        self.onReleased = None
         self.outward_right = outward_right
         self.adjust_range = adjust_range
         self.adjust_sign = float(adjust_sign)
@@ -1452,6 +1515,7 @@ class JoystickPad(QWidget):
         self.adjust = 0.0
         self.default_ratio = 0.0
         self.default_adjust = 0.0
+        self.onWheel = None
         self.onChanged = None
         self.enabled_preview = True
         self._dragging = False
@@ -1539,8 +1603,8 @@ class JoystickPad(QWidget):
         self._dragging = True
         self._anchor = None
         x, y = _eventPosition(event)
-        if self._isFine():
-            # Fine drag : hold the knob where it is and scale the motion down,
+        if self.spring_back or self._isFine():
+            # Relative drag : hold the knob where it is and move from there,
             # rather than jumping it under the cursor.
             self._anchor = ((x, y), self._knobPosition())
             return
@@ -1550,20 +1614,28 @@ class JoystickPad(QWidget):
         if not self._dragging:
             return
         x, y = _eventPosition(event)
-        if self._isFine():
+        if self.spring_back or self._isFine():
             if self._anchor is None:
                 # Ctrl pressed mid-drag : rebase so the knob does not jump.
                 self._anchor = ((x, y), self._knobPosition())
-            (anchor_x, anchor_y), (knob_x, knob_y) = self._anchor
-            x = knob_x + (x - anchor_x) * self.FINE
-            y = knob_y + (y - anchor_y) * self.FINE
         else:
             self._anchor = None
+        if self._anchor is not None:
+            (anchor_x, anchor_y), (knob_x, knob_y) = self._anchor
+            scale = self.FINE if self._isFine() else 1.0
+            x = knob_x + (x - anchor_x) * scale
+            y = knob_y + (y - anchor_y) * scale
         self.setValues(*self._valuesAt(x, y), notify=True)
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
         self._anchor = None
+        if self.spring_back:
+            # The displacement has been dealt out : back to the centre,
+            # silently, ready for the next push.
+            self.setValues(self.default_ratio, self.default_adjust)
+            if self.onReleased:
+                self.onReleased(self)
 
     def setDefaults(self, ratio, adjust):
         '''Where a double-click sends the knob back to.'''
@@ -1580,6 +1652,11 @@ class JoystickPad(QWidget):
         the other axis, where up means outwards.
         '''
         steps = _wheelSteps(event)
+        if self.onWheel is not None:
+            # Both axes drive the movement in MGL, so the wheel is free for
+            # whatever the caller wants to put on it.
+            self.onWheel(self, steps)
+            return
         if slicer.app.keyboardModifiers() & Qt.ShiftModifier:
             # scrolling up walks the point outwards, which is the ratio going up
             self.setValues(self.ratio + self.ratio_step * steps, self.adjust, notify=True)
@@ -1600,6 +1677,11 @@ class JoystickPad(QWidget):
             self.setValues(self.ratio, self.adjust + 0.1 * self.adjust_sign, notify=True)
         elif key == Qt.Key_Down:
             self.setValues(self.ratio, self.adjust - 0.1 * self.adjust_sign, notify=True)
+        if self.spring_back:
+            # each key press is one nudge, dealt out then sprung back
+            self.setValues(self.default_ratio, self.default_adjust)
+            if self.onReleased:
+                self.onReleased(self)
 
     # ---- painting -------------------------------------------------------
 
@@ -1690,6 +1772,8 @@ class WidgetParameter:
         self.matrix = None
         self.title=title
         self.camera = True
+        # Which arch is registered; set from the module-level arch selector.
+        self.lower_arch = False
         # The live list of scan widgets, shared by all of them, so the Copy
         # button can read the values of the one above. It is still being filled
         # while this one is built, hence the lookup at click time.
@@ -1702,6 +1786,10 @@ class WidgetParameter:
         self.fields = {}
         self.preview = ButterflyPreview()
         self.preview_node = None
+        # Touched by handleStackedWidgetChange, which fires as soon as the
+        # first page is inserted -- before setupMGL has run.
+        self.mgl_markups_node = None
+        self.mgl_names = []
         self.preview_dirty = False
         self._syncing = False
         self.preview_timer = QTimer()
@@ -1736,14 +1824,23 @@ class WidgetParameter:
         self.lineedit = QLineEdit()
         self.button_select_scan = QPushButton('Select')
         self.button_select_scan.pressed.connect(self.selectFile)
-        
+
+        self.button_scene = QPushButton('Scene')
+        self.button_scene.setToolTip(
+            'Use a model already loaded in the scene instead of browsing for '
+            'its file. Its own file is used when it has one; otherwise a .vtk '
+            'copy is written. The original model is hidden while FlexReg '
+            'shows its own centered copy of it.')
+        self.button_scene.pressed.connect(self.selectSceneModel)
+
         self.button_test_file = QPushButton('TestFile')
         self.button_test_file.pressed.connect(self.testFile)
-        
+
 
         self.layout_file.addWidget(self.label_1)
         self.layout_file.addWidget(self.lineedit)
         self.layout_file.addWidget(self.button_select_scan)
+        self.layout_file.addWidget(self.button_scene)
         self.layout_file.addWidget(self.button_test_file)
 
         widgetView = QWidget()
@@ -1854,6 +1951,11 @@ class WidgetParameter:
 
         
 
+        # page 2 : the mucogingival patch of the lower arch
+        widget_mgl = QWidget()
+        self.stackedWidget.insertWidget(2, widget_mgl)
+        self.setupMGL(QVBoxLayout(widget_mgl))
+
         self.layout_file2 = QHBoxLayout()
         layout.addLayout(self.layout_file2)
 
@@ -1904,15 +2006,653 @@ class WidgetParameter:
 
         
 
+    # ---------------- lower arch : the mucogingival patch ----------------
+
+    def setupMGL(self, layout):
+        '''
+        Build the lower-arch page : where the landmarks come from, which ones
+        the joystick acts on, and the joystick itself.
+        '''
+        self.mgl_builder = MGLPatchBuilder()
+        self.mgl_landmarks = None
+        self.mgl_names = []
+        # Horizontal pad axis : slide along the mucogingival line (towards
+        # LL6 or LR6). Vertical : towards the crown or the vestibule.
+        self.mgl_tangent = np.zeros(len(MGL_ORDER))
+        self.mgl_apical = np.zeros(len(MGL_ORDER))
+        self.mgl_heights_up = np.full(len(MGL_ORDER), DEFAULT_HEIGHT)
+        self.mgl_heights_down = np.full(len(MGL_ORDER), DEFAULT_HEIGHT)
+        self.mgl_checkboxes = {}
+        self.mgl_preview_node = None
+        self.mgl_markups_node = None
+        self._mgl_pad_origin = (0.0, 0.0)
+
+        # --- landmarks ---
+        row_landmarks = QHBoxLayout()
+        row_landmarks.addWidget(QLabel('Landmarks :'))
+        self.lineedit_mgl_landmarks = QLineEdit()
+        self.lineedit_mgl_landmarks.setPlaceholderText('MG landmarks json, or press Compute')
+        row_landmarks.addWidget(self.lineedit_mgl_landmarks)
+        self.button_mgl_browse = QPushButton('Select')
+        self.button_mgl_browse.pressed.connect(self.selectMGLLandmarks)
+        row_landmarks.addWidget(self.button_mgl_browse)
+        self.button_mgl_compute = QPushButton('Compute')
+        self.button_mgl_compute.setToolTip('Predict the MG landmarks of this scan with ALI')
+        self.button_mgl_compute.pressed.connect(self.computeMGLLandmarks)
+        row_landmarks.addWidget(self.button_mgl_compute)
+        layout.addLayout(row_landmarks)
+
+        # --- which landmarks the pad moves ---
+        row_select = QHBoxLayout()
+        row_select.addWidget(QLabel('Selection :'))
+        for text, action in (('All', self.selectAllMGL), ('None', self.selectNoMGL),
+                             ('R side', self.selectRightMGL), ('L side', self.selectLeftMGL)):
+            button = QPushButton(text)
+            button.pressed.connect(action)
+            row_select.addWidget(button)
+        layout.addLayout(row_select)
+
+        # Toggle buttons over three rows : the R side, the midline point on
+        # its own, then the L side -- distal to mesial reading left to right.
+        point_rows = (
+            [name for name in reversed(MGL_ORDER) if name.startswith('LR')],
+            ['L0MG'],
+            list(reversed([name for name in MGL_ORDER if name.startswith('LL')])),
+        )
+        for row_names in point_rows:
+            row_points = QHBoxLayout()
+            row_points.setSpacing(8)
+            row_points.addStretch()
+            for name in row_names:
+                button = QPushButton(self.shortMGLName(name))
+                button.setCheckable(True)
+                button.setChecked(True)
+                button.setToolTip(f'{name} : include in what the joystick moves')
+                button.setFixedWidth(34)
+                # An explicit checked state : the module stylesheet leaves
+                # checked and unchecked buttons looking the same.
+                button.setStyleSheet(
+                    'QPushButton { background-color: #555555; color: #dddddd; '
+                    'border: 1px solid #777777; border-radius: 4px; padding: 3px 0px; }'
+                    'QPushButton:checked { background-color: #2e7dd1; color: white; '
+                    'border: 1px solid #5dade2; font-weight: bold; }'
+                    'QPushButton:disabled { background-color: #3a3a3a; color: #666666; }'
+                )
+                button.toggled.connect(self.onMGLSelectionChanged)
+                self.mgl_checkboxes[name] = button
+                row_points.addWidget(button)
+            row_points.addStretch()
+            layout.addLayout(row_points)
+
+        # --- the joystick and the height it carries ---
+        row_pad = QHBoxLayout()
+        # The clinician faces the patient : dragging left pushes towards the
+        # patient's right (LR), and dragging up pushes towards the crowns.
+        # adjust_sign flips the vertical axis accordingly; the horizontal one
+        # is flipped where the delta is applied, in onMGLPadMoved.
+        self.mgl_pad = JoystickPad(
+            outward_right=True,
+            adjust_range=MGL_OFFSET_RANGE,
+            adjust_sign=-1.0,
+            ratio_range=(-MGL_OFFSET_RANGE, MGL_OFFSET_RANGE),
+            side_labels=('LR', 'LL'),
+            spring_back=True,
+            # Twice the default pad : the whole travel is only 12 mm, so
+            # every extra pixel is precision under the finger.
+            size=2 * PAD_SIZE,
+        )
+        self.mgl_pad.setValues(0.0, 0.0)
+        self.mgl_pad.setDefaults(0.0, 0.0)
+        self.mgl_pad.onChanged = self.onMGLPadMoved
+        self.mgl_pad.onReleased = self.onMGLPadReleased
+        self.mgl_pad.onWheel = self.onMGLPadWheel
+        self.mgl_pad.setToolTip(
+            'Drag to push the checked landmarks ALONG the mucogingival line : '
+            'left towards the LR6 end, right towards the LL6 end, exactly as '
+            'the arch faces you. Up pushes towards the crowns, down towards '
+            'the vestibule. The knob springs back to the centre : each drag '
+            'is one push, they add up. The wheel changes the heights.'
+        )
+        row_pad.addWidget(self.mgl_pad)
+
+        column_values = QVBoxLayout()
+        # Slider to rough out the height, field to type it exactly : both
+        # drive the checked landmarks and mirror each other, 0.1 mm per step.
+        self.slider_mgl_height_up, self.lineedit_mgl_height_up = self.mglHeightControls(
+            column_values, 'up', 'Upper extension (mm)',
+            'How far the band climbs from the line towards the teeth, '
+            'for the checked landmarks')
+        self.slider_mgl_height_down, self.lineedit_mgl_height_down = self.mglHeightControls(
+            column_values, 'down', 'Lower extension (mm)',
+            'How far the band descends from the line towards the vestibule, '
+            'for the checked landmarks')
+        self.label_mgl_state = QLabel('')
+        column_values.addWidget(self.label_mgl_state)
+        column_values.addStretch()
+        row_pad.addLayout(column_values)
+        layout.addLayout(row_pad)
+
+        row_buttons = QHBoxLayout()
+        self.button_mgl_copy = QPushButton('Copy the patch of the fix scan')
+        self.button_mgl_copy.setToolTip('Apply the offsets and heights of the scan above to this '
+                                        'one. The landmarks are not copied : each scan keeps its own.')
+        self.button_mgl_copy.pressed.connect(self.copyMGLParameters)
+        # The fix scan is the one being copied from, so it has nothing to copy.
+        self.button_mgl_copy.setVisible(self.title != 1)
+        row_buttons.addWidget(self.button_mgl_copy)
+        self.button_mgl_reset = QPushButton('Reset')
+        self.button_mgl_reset.setToolTip('Put the checked landmarks back where ALI placed them')
+        self.button_mgl_reset.pressed.connect(self.resetMGL)
+        row_buttons.addWidget(self.button_mgl_reset)
+        self.button_mgl_update = QPushButton('Update')
+        self.button_mgl_update.pressed.connect(self.applyMGLPatch)
+        row_buttons.addWidget(self.button_mgl_update)
+        layout.addLayout(row_buttons)
+
+        self.selectAllMGL()
+
+    # --- selection ---
+
+    @staticmethod
+    def shortMGLName(name):
+        '''R6..R1, 0, L1..L6 : what fits on a one-row button.'''
+        base = name.replace('MG', '')
+        if base == 'L0':
+            return '0'
+        return base.replace('LL', 'L').replace('LR', 'R')
+
+    def selectedMGL(self):
+        '''Indices, in MGL_ORDER, of the landmarks the pad acts on.'''
+        return [index for index, name in enumerate(MGL_ORDER)
+                if self.mgl_checkboxes[name].isChecked()]
+
+    def mglIndices(self):
+        '''Row, in the MGL_ORDER-indexed arrays, of each loaded landmark.
+
+        The builder compacts the loaded landmarks while the offset and height
+        arrays keep one row per possible name : indexing by name is what keeps
+        the L0 checkbox driving the L0 point when a tooth is missing in the
+        middle of the arch.
+        '''
+        return [MGL_ORDER.index(name) for name in self.mgl_names]
+
+    def setMGLSelection(self, names):
+        self._syncing = True
+        try:
+            for name, checkbox in self.mgl_checkboxes.items():
+                checkbox.setChecked(name in names)
+        finally:
+            self._syncing = False
+        self.onMGLSelectionChanged()
+
+    def selectAllMGL(self):
+        self.setMGLSelection(set(MGL_ORDER))
+
+    def selectNoMGL(self):
+        self.setMGLSelection(set())
+
+    def selectLeftMGL(self):
+        self.setMGLSelection({name for name in MGL_ORDER if name.startswith('LL')})
+
+    def selectRightMGL(self):
+        self.setMGLSelection({name for name in MGL_ORDER if name.startswith('LR')})
+
+    def onMGLSelectionChanged(self, _state=None):
+        '''
+        The pad and the height field show the average of the selection, so the
+        knob always sits where the checked points sit.
+        '''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        self._syncing = True
+        try:
+            if selected:
+                for side in ('up', 'down'):
+                    heights, slider, lineedit = self.mglHeightWidgets(side)
+                    mean = float(np.mean(heights[selected]))
+                    lineedit.setText(f'{mean:.1f}')
+                    slider.setValue(int(round(mean * 10)))
+            # The pad is relative and rests at the centre : only the origin
+            # follows it, the knob is never parked at a mean that could
+            # saturate the travel.
+            self._mgl_pad_origin = (self.mgl_pad.ratio, self.mgl_pad.adjust)
+            self.label_mgl_state.setText(f'{len(selected)} / {len(MGL_ORDER)} selected')
+        finally:
+            self._syncing = False
+
+    # --- edition ---
+
+    def onMGLPadMoved(self, pad):
+        '''
+        The joystick moved : every checked landmark takes the same step, so the
+        differences the user already dialled in are kept.
+        '''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        if not selected:
+            # Say why nothing moves instead of silently doing nothing.
+            self.label_mgl_state.setText('0 selected : check a point below to move it')
+            return
+        delta_tangent = pad.ratio - self._mgl_pad_origin[0]
+        delta_apical = pad.adjust - self._mgl_pad_origin[1]
+        self._mgl_pad_origin = (pad.ratio, pad.adjust)
+        # Dragging left must push towards the patient's right, i.e. towards
+        # LR6, which is the POSITIVE end of the tangent axis : flip the sign.
+        self.mgl_tangent[selected] -= delta_tangent
+        self.mgl_apical[selected] += delta_apical
+        self.markPreviewDirty()
+
+    def onMGLPadReleased(self, pad):
+        '''The knob sprang back to the centre : follow it, without a delta.'''
+        self._mgl_pad_origin = (pad.ratio, pad.adjust)
+
+    def mglHeightControls(self, layout, side, title, tooltip):
+        '''One height : a label, a slider and a field mirroring each other.'''
+        layout.addWidget(QLabel(title))
+        row = QHBoxLayout()
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(int(MIN_HEIGHT * 10), int(MAX_HEIGHT * 10))
+        slider.setValue(int(DEFAULT_HEIGHT * 10))
+        slider.setToolTip(tooltip)
+        slider.valueChanged.connect(partial(self.onMGLHeightSlid, side))
+        row.addWidget(slider)
+        lineedit = QLineEdit(f'{DEFAULT_HEIGHT:.1f}')
+        lineedit.setMaximumWidth(56)
+        lineedit.setToolTip(tooltip)
+        lineedit.textEdited.connect(partial(self.onMGLHeightEdited, side))
+        row.addWidget(lineedit)
+        layout.addLayout(row)
+        return slider, lineedit
+
+    def mglHeightWidgets(self, side):
+        '''The array, slider and field of one side of the band.'''
+        if side == 'up':
+            return self.mgl_heights_up, self.slider_mgl_height_up, self.lineedit_mgl_height_up
+        return self.mgl_heights_down, self.slider_mgl_height_down, self.lineedit_mgl_height_down
+
+    def onMGLHeightSlid(self, side, value):
+        '''A height slider moved : a tenth of a millimetre per step.'''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        heights, _slider, lineedit = self.mglHeightWidgets(side)
+        height = value / 10.0
+        heights[selected] = height
+        self._syncing = True
+        try:
+            lineedit.setText(f'{height:.1f}')
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onMGLPadWheel(self, _pad, steps):
+        '''The wheel raises or lowers both heights of the checked landmarks;
+        the two fields are there for setting each side on its own.'''
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        for heights in (self.mgl_heights_up, self.mgl_heights_down):
+            heights[selected] = np.clip(
+                heights[selected] + 0.5 * steps, MIN_HEIGHT, MAX_HEIGHT)
+        self._syncing = True
+        try:
+            for side in ('up', 'down'):
+                heights, slider, lineedit = self.mglHeightWidgets(side)
+                mean = float(np.mean(heights[selected]))
+                lineedit.setText(f'{mean:.1f}')
+                slider.setValue(int(round(mean * 10)))
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def onMGLHeightEdited(self, side, _text=None):
+        '''A height typed in applies to every checked landmark, on one side of
+        the line only : towards the crown or towards the vestibule.'''
+        if self._syncing:
+            return
+        selected = self.selectedMGL()
+        heights, slider, lineedit = self.mglHeightWidgets(side)
+        height = self.readFloat(lineedit)
+        if height is None or not selected:
+            return  # half-typed number, wait for the rest
+        clamped = min(max(height, MIN_HEIGHT), MAX_HEIGHT)
+        heights[selected] = clamped
+        self._syncing = True
+        try:
+            slider.setValue(int(round(clamped * 10)))
+        finally:
+            self._syncing = False
+        self.markPreviewDirty()
+
+    def resetMGL(self):
+        '''Undo every offset and height on the checked landmarks.'''
+        selected = self.selectedMGL()
+        if not selected:
+            return
+        self.mgl_tangent[selected] = 0.0
+        self.mgl_apical[selected] = 0.0
+        self.mgl_heights_up[selected] = DEFAULT_HEIGHT
+        self.mgl_heights_down[selected] = DEFAULT_HEIGHT
+        self.onMGLSelectionChanged()
+        self.markPreviewDirty()
+
+    # --- landmarks ---
+
+    def selectMGLLandmarks(self):
+        path = QFileDialog.getOpenFileName(slicer.util.mainWindow(), 'Open the MG landmarks', '', 'Markups (*.json *.mrk.json)')
+        if path:
+            self.lineedit_mgl_landmarks.setText(path)
+            self.loadMGLLandmarks()
+
+    def loadMGLLandmarks(self):
+        '''Read the landmark file and hand it to the patch builder.'''
+        path = self.lineedit_mgl_landmarks.text.strip()
+        if not path or not os.path.isfile(path):
+            return False
+        if self.surf is None:
+            self.viewScan()
+        if self.surf is None:
+            return False
+
+        try:
+            self.mgl_landmarks = ReadLandmarks(path)
+        except Exception as error:
+            logger.error(f"Could not read the MG landmarks: {error}")
+            self.warning(f'This landmark file cannot be read.\n{error}')
+            return False
+
+        # The displayed mesh is in RAS : Slicer converts model files on load
+        # (a .vtk with no metadata is assumed LPS), while ReadLandmarks reads
+        # the raw positions of the json. Flip LPS landmarks the way Slicer's
+        # own markups loader would, or the curve is a mirror of the arch.
+        import json
+        with open(path) as handle:
+            system = json.load(handle)['markups'][0].get('coordinateSystem', 'LPS')
+        if system.upper() == 'LPS':
+            for name, position in self.mgl_landmarks.items():
+                self.mgl_landmarks[name] = position * np.array([-1.0, -1.0, 1.0])
+
+        # The mesh was then centered by viewScan (the matrix is kept) : bring
+        # the landmarks along, or the curve is built beside the scan.
+        matrix = self.getMatrix()
+        if matrix is not None and self.camera:
+            for name, position in self.mgl_landmarks.items():
+                moved = matrix.MultiplyPoint((*position, 1.0))
+                self.mgl_landmarks[name] = np.array(moved[:3])
+
+        if not self.mgl_builder.prepare(self.surf.GetPolyData(), self.mgl_landmarks):
+            self.warning(self.mgl_builder.error or 'The MG landmarks do not fit this scan.')
+            return False
+
+        self.mgl_names = self.mgl_builder.names()
+        for name, checkbox in self.mgl_checkboxes.items():
+            checkbox.setEnabled(name in self.mgl_names)
+            if name not in self.mgl_names:
+                checkbox.setChecked(False)
+        self.showMGLLandmarks()
+        self.markPreviewDirty()
+        return True
+
+    def showMGLLandmarks(self):
+        '''Show the MG points on the scan, at their joystick-moved positions.
+
+        They are displayed as soon as the landmarks are loaded, follow the
+        offsets the user dials in, and are locked : the joystick is what moves
+        them, a mouse drag would be invisible to the patch engine.
+
+        The positions shown are the moved points snapped back onto the mesh —
+        the raw offsets leave the surface, and a point floating in the air or
+        buried in the scan says nothing about where the band will be.
+        '''
+        if not self.mgl_builder.ready:
+            return
+        rows = self.mglIndices()
+        positions = self.mgl_builder.snappedLandmarks(
+            np.zeros(len(rows)), self.mgl_apical[rows],
+            tangent_offsets=self.mgl_tangent[rows])
+
+        node = self.mgl_markups_node
+        if node is None or node.GetScene() is None:
+            node = slicer.mrmlScene.AddNewNodeByClass(
+                'vtkMRMLMarkupsFiducialNode', f'MG landmarks {self.title}')
+            node.SetSaveWithScene(False)
+            node.SetLocked(True)
+            node.CreateDefaultDisplayNodes()
+            display = node.GetDisplayNode()
+            display.SetTextScale(2.5)
+            display.SetGlyphScale(1.5)
+            display.SetSelectedColor(1.0, 0.85, 0.0)
+            display.SetPointLabelsVisibility(True)
+            # A point on the far side of the arch stays faintly visible
+            # instead of vanishing behind the scan.
+            display.SetOccludedVisibility(True)
+            display.SetOccludedOpacity(0.4)
+            view = self.previewViewNode()
+            if view:
+                display.SetViewNodeIDs([view.GetID()])
+            self.mgl_markups_node = node
+
+        if node.GetNumberOfControlPoints() == len(positions):
+            for index, position in enumerate(positions):
+                node.SetNthControlPointPosition(index, *position)
+        else:
+            node.RemoveAllControlPoints()
+            for name, position in zip(self.mgl_names, positions):
+                node.AddControlPoint(vtk.vtkVector3d(*position), name.replace('MG', ''))
+        node.SetDisplayVisibility(1)
+
+    def computeMGLLandmarks(self):
+        '''Predict the MG landmarks of this scan with ALI, in the conda env.'''
+        path = str(self.lineedit.text)
+        if not os.path.isfile(path):
+            self.warning('Select the scan first.')
+            return
+
+        models = self.mglModelsFolder()
+        if models is None:
+            return
+
+        output = os.path.join(tempfile.mkdtemp(), 'MGL_landmarks')
+        os.makedirs(output, exist_ok=True)
+        arguments = [path, models, 'None', 'None', ' '.join(MGL_ORDER), output,
+                     '224', '0', '1', os.path.join(output, 'process.log')]
+
+        progress = QProgressDialog('Predicting the MG landmarks with ALI...', None, 0, 0,
+                                   slicer.util.mainWindow())
+        progress.setWindowTitle('ALI_IOS')
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+        # The prediction runs in a thread while this loop keeps pumping events:
+        # a window shown while the event loop is blocked is never painted and
+        # sits on the screen as a transparent ghost.
+        thread = threading.Thread(target=self.logic.runALI, args=(arguments,))
+        thread.start()
+        try:
+            while thread.is_alive():
+                slicer.app.processEvents()
+                time.sleep(0.05)
+        finally:
+            thread.join()
+            progress.close()
+
+        produced = sorted(f for f in os.listdir(output) if f.endswith('.json'))
+        if not produced:
+            self.warning('ALI did not produce any landmark file, see the log for details.')
+            return
+
+        self.lineedit_mgl_landmarks.setText(os.path.join(output, produced[0]))
+        if self.loadMGLLandmarks() and len(self.mgl_names) < len(MGL_ORDER):
+            missing = [name for name in MGL_ORDER if name not in self.mgl_names]
+            self.warning(
+                f'ALI only placed {len(self.mgl_names)} of the {len(MGL_ORDER)} MG landmarks.\n'
+                f'Missing : {", ".join(missing)}.\n\n'
+                'A landmark is only placed when its tooth has a label in the '
+                'segmentation of the scan (Universal_ID / PredictedID). Check '
+                'that the scan is segmented tooth by tooth with universal '
+                'numbering, and see the ALI log for details.'
+            )
+
+    def mglModelsFolder(self):
+        '''Folder holding Lower_MG_*.pth, downloading it once if need be.'''
+        folder = os.path.join(self.SlicerDownloadPath, 'ALI', 'ALI_IOS', 'Models', 'Prediction')
+        if self.hasMGLModel(folder):
+            return folder
+
+        chosen = QFileDialog.getExistingDirectory(slicer.util.mainWindow(), 'Select the ALI models folder')
+        if chosen and self.hasMGLModel(chosen):
+            return chosen
+        if chosen:
+            self.warning('No MGL model in that folder, a file named "Lower_MG_*.pth" is expected.')
+        return None
+
+    @staticmethod
+    def hasMGLModel(folder):
+        if not folder or not os.path.isdir(folder):
+            return False
+        for root, _dirs, files in os.walk(folder):
+            for name in files:
+                if name.endswith('.pth') and 'Lower' in name and name.split('_')[1:2] == ['MG']:
+                    return True
+        return False
+
+    # --- preview and patch ---
+
+    def refreshMGLPreview(self):
+        '''Repaint the band for the current offsets and heights.'''
+        if not self.mgl_builder.ready:
+            return
+        rows = self.mglIndices()
+        labels, _samples = self.mgl_builder.compute(
+            np.zeros(len(rows)), self.mgl_apical[rows],
+            self.mgl_heights_up[rows], self.mgl_heights_down[rows],
+            tangent_offsets=self.mgl_tangent[rows],
+        )
+        self.showMGLPreview(labels)
+        self.showMGLLandmarks()
+
+    def showMGLPreview(self, labels):
+        polydata = self.surf.GetPolyData()
+        array = self.mgl_builder.toArray(labels, MGL_PREVIEW_ARRAY_NAME)
+        polydata.GetPointData().AddArray(array)
+        polydata.GetPointData().SetActiveScalars(MGL_PREVIEW_ARRAY_NAME)
+        display = self.surf.GetDisplayNode()
+        if display is not None:
+            display.SetActiveScalarName(MGL_PREVIEW_ARRAY_NAME)
+            display.SetScalarVisibility(True)
+        polydata.Modified()
+
+    def clearMGLPreview(self):
+        if (self.mgl_markups_node is not None
+                and self.mgl_markups_node.GetScene() is not None):
+            self.mgl_markups_node.SetDisplayVisibility(0)
+        if self.surf is None:
+            return
+        polydata = self.surf.GetPolyData()
+        if polydata.GetPointData().GetArray(MGL_PREVIEW_ARRAY_NAME):
+            polydata.GetPointData().RemoveArray(MGL_PREVIEW_ARRAY_NAME)
+            polydata.Modified()
+
+    def applyMGLPatch(self):
+        '''
+        Write the patch into the scan. The band is computed here rather than by
+        the CLI: it needs no GPU, so what the user sees is exactly what is
+        written.
+        '''
+        if not self.checkArchMatchesScan():
+            return
+        if not self.mgl_builder.ready:
+            self.warning('Load or compute the MG landmarks first.')
+            return
+
+        rows = self.mglIndices()
+        labels, _samples = self.mgl_builder.compute(
+            np.zeros(len(rows)), self.mgl_apical[rows],
+            self.mgl_heights_up[rows], self.mgl_heights_down[rows],
+            tangent_offsets=self.mgl_tangent[rows],
+        )
+        if labels.sum() == 0:
+            self.warning('The patch is empty, raise the height.')
+            return
+
+        path = str(self.lineedit.text)
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(path)
+        reader.Update()
+        polydata = reader.GetOutput()
+
+        if polydata.GetNumberOfPoints() != len(labels):
+            self.warning('The scan on disk no longer matches the one displayed.')
+            return
+
+        polydata.GetPointData().AddArray(self.mgl_builder.toArray(labels, MGL_ARRAY_NAME))
+
+        # For a future training set : keep the refined line itself, not only
+        # its band. Vertex ids are coordinate-free, so everything is stored
+        # against the file's own geometry, inside the file.
+        ids = self.mgl_builder.snappedLandmarkIds(
+            np.zeros(len(rows)), self.mgl_apical[rows],
+            tangent_offsets=self.mgl_tangent[rows])
+        field = polydata.GetFieldData()
+        for name, values, dtype in (
+                ('MGL_landmark_ids', ids, np.int64),
+                ('MGL_landmark_slots', rows, np.int64),
+                ('MGL_offsets_tangent', self.mgl_tangent[rows], np.float64),
+                ('MGL_offsets_apical', self.mgl_apical[rows], np.float64),
+                ('MGL_heights_crown', self.mgl_heights_up[rows], np.float64),
+                ('MGL_heights_vestibule', self.mgl_heights_down[rows], np.float64)):
+            array = numpy_to_vtk(np.asarray(values, dtype=dtype), deep=True)
+            array.SetName(name)
+            field.AddArray(array)
+
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(path)
+        writer.SetInputData(polydata)
+        writer.Write()
+
+        # The same points as a markups file, in the naming and coordinates of
+        # the training annotations : ready to join the corpus.
+        markups_path = path.rsplit('.vtk', 1)[0] + '_MG_edited.mrk.json'
+        WriteLandmarks(markups_path, self.mgl_names,
+                       [polydata.GetPoint(point_id) for point_id in ids])
+        logger.info(f"Refined MGL line saved for training : {markups_path}")
+
+        # The scene node carries it too: that is what the registration reads to
+        # know the patch exists, and what the user is left looking at.
+        displayed = self.surf.GetPolyData()
+        displayed.GetPointData().AddArray(self.mgl_builder.toArray(labels, MGL_ARRAY_NAME))
+        displayed.GetPointData().SetActiveScalars(MGL_ARRAY_NAME)
+        display = self.surf.GetDisplayNode()
+        if display is not None:
+            display.SetActiveScalarName(MGL_ARRAY_NAME)
+            display.SetScalarVisibility(True)
+        displayed.Modified()
+
+        self.preview_dirty = False
+        self.button_mgl_update.setText('Update')
+        logger.info(f"Wrote the {MGL_ARRAY_NAME} patch of {int(labels.sum())} points to {path}")
+
+    def warning(self, text):
+        qt.QMessageBox.warning(slicer.util.mainWindow(), 'Warning', text)
+
     def handleStackedWidgetChange(self, index):
         # When stackedWidget change of page, this is called.
         # Check if the new page is page 0 (index 0) and called hideLandmark if its the case.
         if index == 0:
+            self.clearMGLPreview()
+            self.hideLandmark()
+            self.schedulePreview()
+        elif index == 2:
+            self.clearPreview()
             self.hideLandmark()
             self.schedulePreview()
         else :
             # The joystick preview has no meaning in the drawn-curve mode.
             self.clearPreview()
+            self.clearMGLPreview()
             self.viewLandmark()
 
     def onCheckboxStateChanged(self):
@@ -1937,6 +2677,62 @@ class WidgetParameter:
     
     def changeMode(self,index):
         self.stackedWidget.setCurrentIndex(index)
+
+    def isLowerArch(self):
+        return self.lower_arch
+
+    def scanIsLower(self):
+        '''Which arch the loaded scan actually is, read from its segmentation.
+
+        The lower teeth carry Universal_ID 18 to 31 and the upper ones 2 to 15,
+        so the labels say it without trusting the file name.
+        '''
+        if self.surf is None:
+            return None
+        point_data = self.surf.GetPolyData().GetPointData()
+        for name in ("Universal_ID", "PredictedID", "UniversalID"):
+            scalars = point_data.GetScalars(name) or point_data.GetArray(name)
+            if scalars is not None:
+                labels = vtk_to_numpy(scalars)
+                lower = int(np.isin(labels, range(18, 32)).sum())
+                upper = int(np.isin(labels, range(2, 16)).sum())
+                if lower == upper:
+                    return None
+                return lower > upper
+        return None
+
+    def checkArchMatchesScan(self):
+        '''Warn when the scan is not the arch the panel is set to.
+
+        The two patches are not interchangeable: the palate does not exist on a
+        mandible, and the mucogingival model was only trained on one.
+        '''
+        is_lower = self.scanIsLower()
+        if is_lower is None:
+            return True
+        if is_lower == self.isLowerArch():
+            return True
+
+        scan_arch = "lower" if is_lower else "upper"
+        chosen = "lower" if self.isLowerArch() else "upper"
+        self.warning(f'This scan is a {scan_arch} arch but the module is set to the '
+                     f'{chosen} arch.\nSwitch the arch selector at the top before going on.')
+        return False
+
+    def setArch(self, lower):
+        '''
+        Applied from the module-level arch selector, to every scan at once.
+        Upper keeps the two ways of drawing the palatal patch; lower has a
+        single one, built from the landmarks, so the method selector goes away.
+        '''
+        self.lower_arch = lower
+        self.combobox_choice_method.setVisible(not lower)
+        if self.surf is not None:
+            self.checkArchMatchesScan()
+        self.stackedWidget.setCurrentIndex(2 if lower else self.combobox_choice_method.currentIndex)
+        for widget in (self.label_patch, self.combobox_patch,
+                       self.add_patch, self.label_addpatch, self.delete_patch):
+            widget.setVisible(False if lower else widget.isVisible())
 
     def getPath(self):
         return self.lineedit.text
@@ -2304,6 +3100,25 @@ class WidgetParameter:
             return
         self.setParameterValues(source.parameterValues())
 
+    def mglParameterValues(self):
+        '''The hand-set part of the mucogingival patch : offsets and heights.'''
+        return (self.mgl_tangent.copy(), self.mgl_apical.copy(),
+                self.mgl_heights_up.copy(), self.mgl_heights_down.copy())
+
+    def copyMGLParameters(self):
+        '''
+        Take the offsets and heights of the fix scan and apply them here. The
+        landmarks themselves are not copied : each scan keeps its own, so the
+        same adjustments land on this scan's mucogingival line.
+        '''
+        source = self.sourceWidget()
+        if source is None:
+            return
+        (self.mgl_tangent, self.mgl_apical,
+         self.mgl_heights_up, self.mgl_heights_down) = source.mglParameterValues()
+        self.onMGLSelectionChanged()
+        self.markPreviewDirty()
+
     def readFloat(self, lineedit):
         try:
             return float(lineedit.text)
@@ -2324,7 +3139,9 @@ class WidgetParameter:
 
     def markPreviewDirty(self):
         self.preview_dirty = True
-        self.button_update.setText('Update   (preview not applied)')
+        button = (self.button_mgl_update if self.stackedWidget.currentIndex == 2
+                  else self.button_update)
+        button.setText('Update   (preview not applied)')
         self.schedulePreview()
 
     def schedulePreview(self):
@@ -2336,7 +3153,17 @@ class WidgetParameter:
             self.preview_timer.start(15)
 
     def refreshPreview(self):
-        if self.surf is None or self.stackedWidget.currentIndex != 0:
+        if self.surf is None:
+            return
+        try:
+            page = self.stackedWidget.currentIndex
+        except ValueError:
+            # the panel was closed while a redraw was still pending
+            return
+        if page == 2:
+            self.refreshMGLPreview()
+            return
+        if page != 0:
             return
 
         teeth = self.teethMapping()
@@ -2456,6 +3283,87 @@ class WidgetParameter:
 
         self.lineedit.setText(path_file)
 
+    def sceneModels(self):
+        '''Models of the scene this scan could use.
+
+        FlexReg's own working copies and previews are pinned to one of its
+        views, so a model restricted to specific views is one of ours and is
+        left out; a user's model shows everywhere and has no such restriction.
+        '''
+        models = []
+        for node in slicer.util.getNodesByClass('vtkMRMLModelNode'):
+            if node.GetHideFromEditors() or node.GetPolyData() is None:
+                continue
+            display = node.GetDisplayNode()
+            if display is not None and display.GetViewNodeIDs():
+                continue
+            models.append(node)
+        return models
+
+    def selectSceneModel(self):
+        '''Offer the models already loaded in the scene as this scan.'''
+        models = self.sceneModels()
+        if not models:
+            self.warning('No model is loaded in the scene.')
+            return
+
+        menu = qt.QMenu(self.button_scene)
+        for node in models:
+            storage = node.GetStorageNode()
+            path = storage.GetFullNameFromFileName() if storage else None
+            if path and os.path.isfile(path) and path.endswith('.vtk'):
+                hint = path
+            else:
+                hint = 'no .vtk file, a copy will be written'
+            action = menu.addAction(f'{node.GetName()}   ({hint})')
+            action.triggered.connect(partial(self.useSceneModel, node.GetID()))
+        menu.exec_(qt.QCursor.pos())
+
+    def useSceneModel(self, node_id, _checked=False):
+        '''
+        Use a model already loaded in the scene as this scan. The whole
+        pipeline works on files, so the node's own file is used when it is a
+        readable .vtk; otherwise a .vtk snapshot of the node is written first.
+        '''
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node is None or node.GetPolyData() is None:
+            return
+
+        storage = node.GetStorageNode()
+        path = storage.GetFullNameFromFileName() if storage else None
+        if not path or not os.path.isfile(path) or not path.endswith('.vtk'):
+            path = self.exportNodeToVtk(node)
+            logger.info(f"Scene model '{node.GetName()}' written to {path}")
+
+        # FlexReg displays its own centered copy: the original stays in the
+        # scene but is hidden so the scan is not shown twice.
+        node.SetDisplayVisibility(0)
+        self.lineedit.setText(path)
+        self.viewScan()
+
+    def exportNodeToVtk(self, node):
+        '''A .vtk snapshot of a scene model, as displayed (world coordinates).'''
+        polydata = node.GetPolyData()
+        if node.GetParentTransformNode() is not None:
+            to_world = vtk.vtkGeneralTransform()
+            slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(
+                node.GetParentTransformNode(), None, to_world)
+            transformer = vtk.vtkTransformPolyDataFilter()
+            transformer.SetTransform(to_world)
+            transformer.SetInputData(polydata)
+            transformer.Update()
+            polydata = transformer.GetOutput()
+
+        folder = os.path.join(slicer.app.temporaryPath, 'FlexReg_scene_models')
+        os.makedirs(folder, exist_ok=True)
+        name = re.sub(r'[^\w-]+', '_', node.GetName()).strip('_') or 'model'
+        path = os.path.join(folder, f'{name}.vtk')
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(path)
+        writer.SetInputData(polydata)
+        writer.Write()
+        return path
+
     def checkLineEdit(self)->bool:
         '''
         check if input path is a vtk file
@@ -2474,25 +3382,20 @@ class WidgetParameter:
             check_env = self.onCheckRequirements()
             is_installed = False
             if check_env:
-                if platform.system() == "Windows":
-                    list_libs_windows = [('numpy',"<2.0.0",None),('itk',None,None),('torch','==2.2.0',None),('monai','==1.3.2',None)] #(lib_name, version, url)
-                    is_installed = install_function(self,list_libs_windows)
-                    
-                else:
-                    list_libs_linux = [('numpy',"<2.0.0",None),('itk',None,None),('torch','==2.2.0',None),('monai','==1.3.2',None)] #(lib_name, version, url)
-                    is_installed = install_function(self,list_libs_linux)
-                    
+                # Only torch is missing from a stock Slicer: vtk, numpy, scipy
+                # and SimpleITK all ship with it. numpy in particular must be
+                # left exactly as Slicer installed it: its scipy is built for
+                # that numpy, and swapping numpy on disk under a running
+                # session leaves the next scipy import reading a mix of the
+                # two ("No module named 'numpy.strings'"), which is what used
+                # to kill the MGL patch preview.
+                list_libs = [('torch', None, None)]  # (lib_name, version, url)
+                is_installed = install_function(self, list_libs)
+
             if not is_installed:
                 qt.QMessageBox.warning(self.parent, 'Warning', 'The module will not work properly without the required libraries.\nPlease install them and try again.')
                 return
-            
-            import numpy as np
-            from packaging.version import Version
 
-            numpy_version = Version(np.__version__)
-            if numpy_version > Version("2.0"):
-                pip_install("numpy<2.0.0")
-            
             FlexRegBootManager.booted = True
             self.label_time.setHidden(True)
         

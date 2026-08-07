@@ -137,7 +137,7 @@ def main(args):
         # Delete last array
         modelNode.GetPointData().RemoveArray(f"Butterfly{index-1}")
 
-    elif args.type=="icp":
+    elif args.type in ("icp", "icp_mgl"):
         # Reading the T1 model to register
         reader = vtk.vtkPolyDataReader()
         reader.SetFileName(args.path_reg)
@@ -173,7 +173,11 @@ def main(args):
 
         # ICP
         methode = [vtkICP()]
-        option = vtkMeshTeeth(list_teeth=[1], property="Butterfly")
+        # The palate patch and the mucogingival band live in arrays of their own,
+        # so the arch decides which one the registration is computed on.
+        patch_array = "Bottom_MGL" if args.type == "icp_mgl" else "Butterfly"
+        logger.info(f"registering on the {patch_array} patch")
+        option = vtkMeshTeeth(list_teeth=[1], property=patch_array)
         icp = ICP(methode, option=option)
         output_icp = icp.run(modelNode, modelNodeT1)
 
@@ -232,8 +236,10 @@ def main(args):
     index = 1
     final_array = None
 
-    # Create the patch Butterfly
-    while True:
+    # Create the patch Butterfly. Skipped for the lower arch: there is no
+    # Butterfly1..N to merge there, and the pass needs a GPU the mucogingival
+    # workflow does without.
+    while args.type != "icp_mgl":
         array_name = f"Butterfly{index}"
         
         if modelNode.GetPointData().HasArray(array_name):
@@ -249,15 +255,16 @@ def main(args):
         else:
             break
 
-    if final_array is None:
-        num_points = modelNode.GetNumberOfPoints()
-        V_label = torch.zeros(num_points).to(torch.float32).cuda()
-    else:
-        V_label = final_array
-        
-    V_labels_prediction = numpy_to_vtk(V_label.cpu().numpy())
-    V_labels_prediction.SetName('Butterfly')
-    modelNode.GetPointData().AddArray(V_labels_prediction)
+    if args.type != "icp_mgl":
+        if final_array is None:
+            num_points = modelNode.GetNumberOfPoints()
+            V_label = torch.zeros(num_points).to(torch.float32).cuda()
+        else:
+            V_label = final_array
+
+        V_labels_prediction = numpy_to_vtk(V_label.cpu().numpy())
+        V_labels_prediction.SetName('Butterfly')
+        modelNode.GetPointData().AddArray(V_labels_prediction)
 
 
     # Put back the data in the LPS coordinate
@@ -277,7 +284,9 @@ def main(args):
 
     
     writer = vtk.vtkPolyDataWriter()
-    if args.type!="icp":
+    # A registration writes its result to the output folder; the patch modes
+    # write back into the scan they were given.
+    if args.type not in ("icp", "icp_mgl"):
         writer.SetFileName(args.lineedit)
     else:
         outpath = args.lineedit.replace(os.path.dirname(args.lineedit),args.path_output)

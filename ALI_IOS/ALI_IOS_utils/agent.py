@@ -101,6 +101,23 @@ class Agent:
             logger.error(f"Error in position_agent: {e}")
             raise
 
+    def position_agent_estimated(self, vert, position, tangent, label):
+        """Position the MG agent on a tooth absent from the segmentation.
+
+        `position` and `tangent` come from a fit of the arch through the
+        segmented teeth. The camera geometry is then built exactly as in
+        position_agent: only the source of the tooth centre and of the arch
+        direction changes.
+        """
+        self.positions = position.view(1, 3).to(DEVICE)
+        tangent = tangent.clone().to(DEVICE)
+        tangent[2] = 0.0                      # keep it horizontal
+        norm = torch.norm(tangent)
+        self.arch_tangents = (tangent / norm if norm > 1e-6 else tangent).view(1, 3)
+        if self.lm_type == 'MG':
+            self.buccal_normals, self.aim_points = self._local_frame(vert, self.positions, label)
+        return self.positions
+
     def _arch_tangents(self, text, vert, label):
         """Direction of the dental arch at `label`, one row per mesh, horizontal, unit norm.
 

@@ -29,13 +29,99 @@ logger = logging.getLogger("FlexReg_mgl_patch")
 MGL_ORDER = ['LL6MG', 'LL5MG', 'LL4MG', 'LL3MG', 'LL2MG', 'LL1MG', 'L0MG',
              'LR1MG', 'LR2MG', 'LR3MG', 'LR4MG', 'LR5MG', 'LR6MG']
 
+# The hand annotations of the training set spoke an older naming for the
+# same 13 points, placed symmetrically about the midline: 6 on each side of
+# a central point, no L0. One side carries seven names, and that side counts
+# the midline point as its "1" (verified against the 24|25 incisor plane on
+# the annotated scans: the file with an LL7 has its midline on LL1MG, the
+# file with an LR7 on LR1MG). Translating shifts that side's names inward by
+# one and renames its "1" to L0MG; nothing is lost, an old file keeps its 13
+# points. Which side got the seven varies from file to file, so both markers
+# are recognized.
+MGL_TRAINING_TABLES = {
+    'LL7MG': {
+        'LL7MG': 'LL6MG', 'LL6MG': 'LL5MG', 'LL5MG': 'LL4MG', 'LL4MG': 'LL3MG',
+        'LL3MG': 'LL2MG', 'LL2MG': 'LL1MG', 'LL1MG': 'L0MG',
+        'LR1MG': 'LR1MG', 'LR2MG': 'LR2MG', 'LR3MG': 'LR3MG', 'LR4MG': 'LR4MG',
+        'LR5MG': 'LR5MG', 'LR6MG': 'LR6MG',
+    },
+    'LR7MG': {
+        'LR7MG': 'LR6MG', 'LR6MG': 'LR5MG', 'LR5MG': 'LR4MG', 'LR4MG': 'LR3MG',
+        'LR3MG': 'LR2MG', 'LR2MG': 'LR1MG', 'LR1MG': 'L0MG',
+        'LL1MG': 'LL1MG', 'LL2MG': 'LL2MG', 'LL3MG': 'LL3MG', 'LL4MG': 'LL4MG',
+        'LL5MG': 'LL5MG', 'LL6MG': 'LL6MG',
+    },
+}
+
+
+def CanonicalLandmarks(landmarks):
+    """Landmarks renamed to the canonical naming when the file uses the old one."""
+    for marker, table in MGL_TRAINING_TABLES.items():
+        if marker not in landmarks:
+            continue
+        logger.info(f"Old MG naming detected ({marker} present): translating to "
+                    f"the canonical naming, their midline {table_centre(table)} "
+                    "becomes L0MG")
+        translated = {}
+        for name, position in landmarks.items():
+            canonical = table.get(name)
+            if canonical:
+                translated[canonical] = position
+            else:
+                logger.warning(f"Landmark {name} is not an MG name, dropped")
+        return translated
+    return dict(landmarks)
+
+
+def table_centre(table):
+    """The old name a translation table sends to L0MG."""
+    return next(old for old, new in table.items() if new == 'L0MG')
+
+
+def RecentreNames(landmarks):
+    """Keep the counting anchored on the midline when points are missing.
+
+    The 13 points are symmetric positions about the midline, not fixed tooth
+    identities: when one is missing mid-arch, the names of the points distal
+    to it on its side slide inward by one, so the hole surfaces at the far
+    end of that side and never at L0. A missing midline point is replaced by
+    the innermost right point (then the innermost left one).
+    """
+    left = [name for name in MGL_ORDER[:6] if name in landmarks]    # LL6..LL1
+    right = [name for name in MGL_ORDER[7:] if name in landmarks]   # LR1..LR6
+
+    mapping = {}
+    if 'L0MG' in landmarks:
+        mapping['L0MG'] = 'L0MG'
+    elif right:
+        mapping[right.pop(0)] = 'L0MG'
+    elif left:
+        mapping[left.pop()] = 'L0MG'
+    else:
+        return dict(landmarks)
+
+    for old_name, new_name in zip(reversed(left),
+                                  ('LL1MG', 'LL2MG', 'LL3MG', 'LL4MG', 'LL5MG', 'LL6MG')):
+        mapping[old_name] = new_name
+    for old_name, new_name in zip(right,
+                                  ('LR1MG', 'LR2MG', 'LR3MG', 'LR4MG', 'LR5MG', 'LR6MG')):
+        mapping[old_name] = new_name
+
+    moved = {old: new for old, new in mapping.items() if old != new}
+    if moved:
+        logger.info(f"Renamed to keep the counting anchored on the midline: {moved}")
+    return {new: landmarks[old] for old, new in mapping.items()}
+
 # Name of the point array the patch is written to, matching what AREG_IOS reads.
 MGL_ARRAY_NAME = "Bottom_MGL"
 MGL_PREVIEW_ARRAY_NAME = "Bottom_MGLPreview"
 
-DEFAULT_HEIGHT = 5.0        # mm of surface on each side of the line
-MIN_HEIGHT = 0.5
-MAX_HEIGHT = 20.0
+DEFAULT_HEIGHT = 2.5        # mm of surface on each side of the line
+# 0 is meaningful: the band degenerates into the snapped curve itself, so the
+# registration runs on the mucogingival line rather than on a patch. A short
+# slider travel keeps every 0.1 mm step wide under the finger.
+MIN_HEIGHT = 0.0
+MAX_HEIGHT = 5.0
 SAMPLES_PER_SEGMENT = 25    # spline samples between two consecutive landmarks
 
 # Universal_ID labels of the lower teeth. The crowns move between the two
@@ -53,12 +139,43 @@ def ReadLandmarks(path):
             if point.get("position")}
 
 
-def OrderedLandmarks(landmarks):
-    """MG landmark names and positions in arch order.
+def WriteLandmarks(path, names, positions):
+    """Write landmarks as a Slicer markups json, in the file's coordinates.
 
-    Returns (names, positions). Missing teeth are skipped rather than fatal: a
-    scan where ALI could not place every point still yields a usable curve.
+    The coordinateSystem is declared LPS like the training annotations : the
+    positions passed in must therefore be those of the mesh file on disk, not
+    the RAS ones Slicer displays. What is written reads back with
+    ReadLandmarks and can join the training corpus as it is.
     """
+    import json
+    content = {
+        "@schema": "https://raw.githubusercontent.com/Slicer/Slicer/main/"
+                   "Modules/Loadable/Markups/Resources/Schema/"
+                   "markups-schema-v1.0.3.json",
+        "markups": [{
+            "type": "Fiducial",
+            "coordinateSystem": "LPS",
+            "coordinateUnits": "mm",
+            "controlPoints": [
+                {"id": str(index + 1), "label": name,
+                 "position": [float(value) for value in position]}
+                for index, (name, position) in enumerate(zip(names, positions))
+            ],
+        }],
+    }
+    with open(path, 'w') as handle:
+        json.dump(content, handle, indent=2)
+
+
+def OrderedLandmarks(landmarks):
+    """MG landmark names and positions in arch order, in the canonical naming.
+
+    Files annotated with the older naming (recognizable by their LL7MG) are
+    translated first, so the same name always designates the same tooth
+    downstream. Missing teeth are skipped rather than fatal: a scan where ALI
+    could not place every point still yields a usable curve.
+    """
+    landmarks = RecentreNames(CanonicalLandmarks(landmarks))
     names = [name for name in MGL_ORDER if name in landmarks]
     if len(names) < 3:
         raise ValueError(
@@ -69,14 +186,16 @@ def OrderedLandmarks(landmarks):
 
 
 def LocalFrames(points):
-    """Buccal and apical unit vectors at each landmark.
+    """Buccal, tangent and apical unit vectors at each landmark.
 
     The apical axis is the normal of the plane the landmarks lie in, so it does
-    not depend on how the scan happens to be oriented in world space. The buccal
-    axis is perpendicular to both that normal and the local arch tangent, and is
-    flipped where needed so it always points away from the arch.
+    not depend on how the scan happens to be oriented in world space. The
+    tangent follows the arch in landmark order, from LL6 towards LR6. The
+    buccal axis is perpendicular to both, flipped where needed so it always
+    points away from the arch.
 
-    Returns (buccal, apical) with buccal of shape (N, 3) and apical of shape (3,).
+    Returns (buccal, tangent, apical) with buccal and tangent of shape (N, 3)
+    and apical of shape (3,).
     """
     centre = points.mean(axis=0)
     centred = points - centre
@@ -85,6 +204,9 @@ def LocalFrames(points):
     apical = apical / np.linalg.norm(apical)
 
     tangents = np.gradient(points, axis=0)
+    norms = np.linalg.norm(tangents, axis=1, keepdims=True)
+    tangent = tangents / np.where(norms < 1e-9, 1.0, norms)
+
     buccal = np.cross(tangents, apical)
     norms = np.linalg.norm(buccal, axis=1, keepdims=True)
     buccal = buccal / np.where(norms < 1e-9, 1.0, norms)
@@ -92,7 +214,7 @@ def LocalFrames(points):
     outward = centred - np.outer(centred @ apical, apical)
     flip = np.sum(buccal * outward, axis=1) < 0
     buccal[flip] *= -1.0
-    return buccal, apical
+    return buccal, tangent, apical
 
 
 def OrientApical(apical, points, tooth_points):
@@ -182,8 +304,9 @@ class MGLPatchBuilder:
         self._locator.BuildLocator()
 
         tooth_points = self._points[self._tooth_mask] if self._tooth_mask.any() else None
-        buccal, apical = LocalFrames(self._landmarks)
+        buccal, tangent, apical = LocalFrames(self._landmarks)
         self._buccal = buccal
+        self._tangent = tangent
         self._apical = OrientApical(apical, self._landmarks, tooth_points)
 
         self.ready = True
@@ -225,45 +348,81 @@ class MGLPatchBuilder:
     def names(self):
         return list(self._names)
 
-    def movedLandmarks(self, buccal_offsets, apical_offsets):
+    def movedLandmarks(self, buccal_offsets, apical_offsets, tangent_offsets=None):
         """Landmark positions after the offsets the user dialled in."""
         moved = self._landmarks.copy()
         moved = moved + self._buccal * np.asarray(buccal_offsets, dtype=float)[:, None]
         moved = moved + np.outer(np.asarray(apical_offsets, dtype=float), self._apical)
+        if tangent_offsets is not None:
+            moved = moved + self._tangent * np.asarray(tangent_offsets, dtype=float)[:, None]
         return moved
 
-    def compute(self, buccal_offsets, apical_offsets, heights, exclude_teeth=True):
+    def snappedLandmarkIds(self, buccal_offsets, apical_offsets, tangent_offsets=None):
+        """Vertex id under each moved landmark.
+
+        The coordinate-free form of snappedLandmarks : an id designates the
+        same vertex in every copy of the mesh, whatever the coordinate system
+        or centering, which is what makes it worth saving into the file.
+        """
+        moved = self.movedLandmarks(buccal_offsets, apical_offsets, tangent_offsets)
+        return [int(self._locator.FindClosestPoint(point)) for point in moved]
+
+    def snappedLandmarks(self, buccal_offsets, apical_offsets, tangent_offsets=None):
+        """Moved landmarks, brought back onto the mesh.
+
+        The offsets push the points along straight axes, off the surface; the
+        band is built from the curve snapped back onto it, so this is where
+        the landmarks effectively act — and where they should be displayed.
+        """
+        ids = self.snappedLandmarkIds(buccal_offsets, apical_offsets, tangent_offsets)
+        return self._points[ids]
+
+    def compute(self, buccal_offsets, apical_offsets, heights, heights_down=None,
+                exclude_teeth=True, tangent_offsets=None):
         """Patch labels for the current settings, as a 0/1 array over the mesh.
 
         Each vertex is reached from the nearest spline sample; the height that
         sample carries is the one it is judged against, so a tall stretch and a
         short stretch can sit side by side on the same curve.
+
+        With `heights_down`, the band is asymmetric: `heights` bounds the crown
+        side of the curve and `heights_down` the vestibule side. Left to None,
+        both sides use `heights` and the band is the symmetric one of before.
         """
         from scipy.sparse.csgraph import dijkstra
 
-        moved = self.movedLandmarks(buccal_offsets, apical_offsets)
+        moved = self.movedLandmarks(buccal_offsets, apical_offsets, tangent_offsets)
         samples, positions = SplineThroughPoints(moved)
-        sample_heights = InterpolateHeights(np.asarray(heights, dtype=float), positions)
+        heights_up = np.asarray(heights, dtype=float)
+        heights_down = (heights_up if heights_down is None
+                        else np.asarray(heights_down, dtype=float))
+        sample_up = InterpolateHeights(heights_up, positions)
+        sample_down = InterpolateHeights(heights_down, positions)
 
-        seeds, seed_heights = [], []
+        seeds, seed_up, seed_down = [], [], []
         seen = {}
-        for sample, height in zip(samples, sample_heights):
+        for sample, up, down in zip(samples, sample_up, sample_down):
             point_id = self._locator.FindClosestPoint(sample)
             if point_id in seen:
                 # one vertex can serve several samples: keep the tallest, so a
                 # height raised anywhere is never swallowed by a neighbour
-                seed_heights[seen[point_id]] = max(seed_heights[seen[point_id]], height)
+                at = seen[point_id]
+                seed_up[at] = max(seed_up[at], up)
+                seed_down[at] = max(seed_down[at], down)
                 continue
             seen[point_id] = len(seeds)
             seeds.append(point_id)
-            seed_heights.append(height)
+            seed_up.append(up)
+            seed_down.append(down)
 
         seeds = np.asarray(seeds)
-        seed_heights = np.asarray(seed_heights)
+        seed_up = np.asarray(seed_up)
+        seed_down = np.asarray(seed_down)
 
         distances, _, sources = dijkstra(
             self._graph, directed=False, indices=seeds,
-            limit=float(seed_heights.max()), min_only=True, return_predecessors=True,
+            limit=float(max(seed_up.max(), seed_down.max())),
+            min_only=True, return_predecessors=True,
         )
 
         reached = np.isfinite(distances)
@@ -271,9 +430,18 @@ class MGLPatchBuilder:
         if reached.any():
             # sources holds the seed vertex each node was reached from
             seed_index = {seed: i for i, seed in enumerate(seeds)}
+            reached_ids = np.flatnonzero(reached)
             source_ids = sources[reached]
-            heights_here = np.array([seed_heights[seed_index[s]] for s in source_ids])
-            inside[np.flatnonzero(reached)] = distances[reached] <= heights_here
+            source_at = np.array([seed_index[s] for s in source_ids])
+            # Which side of the curve each vertex sits on: the apical axis
+            # leads away from the crowns, so a positive component along it is
+            # the vestibule side. On the curve itself the component is ~0 and
+            # both heights agree well enough for the tie not to matter.
+            below = np.sum(
+                (self._points[reached_ids] - self._points[source_ids]) * self._apical,
+                axis=1) > 0
+            allowed = np.where(below, seed_down[source_at], seed_up[source_at])
+            inside[reached_ids] = distances[reached] <= allowed
 
         if exclude_teeth:
             inside &= ~self._tooth_mask

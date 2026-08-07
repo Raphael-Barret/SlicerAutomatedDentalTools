@@ -74,6 +74,60 @@ else :
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+def EstimateMissingArchPositions(lst_teeth, RI, V):
+    """Centroid and arch tangent of the teeth missing from the segmentation.
+
+    The MG cameras are aimed with the centroid of each tooth and the local
+    direction of the arch, both read from the segmentation. When a tooth has
+    no label, both can still be estimated: the lower labels are consecutive
+    along the arch (19 to 31), so the centroids of the segmented teeth trace
+    the arch and a quadratic fit of each coordinate against the label index
+    fills the gaps.
+
+    Needs at least 4 segmented teeth spread over a span of at least 4 labels,
+    otherwise the extrapolation is not trustworthy and {} is returned, leaving
+    the caller to skip those teeth as before.
+
+    Returns {label: (position, tangent)} as float32 tensors in unit-sphere
+    space, for the missing labels only.
+    """
+    ids = RI.squeeze(0)
+    present, centroids = [], []
+    for label in lst_teeth:
+        idx = (ids == int(label)).nonzero(as_tuple=True)[0]
+        if len(idx) > 0:
+            present.append(int(label))
+            centroids.append(V[0][idx].mean(dim=0).cpu().numpy())
+    missing = [int(label) for label in lst_teeth if int(label) not in present]
+    if not missing:
+        return {}
+    if len(present) < 4 or (max(present) - min(present)) < 4:
+        span = max(present) - min(present) if present else 0
+        logger.warning(
+            f"Only {len(present)} teeth segmented over a span of {span} labels: "
+            f"not enough to estimate the position of teeth {missing}")
+        return {}
+
+    present_arr = np.array(present, dtype=float)
+    centroids = np.array(centroids)
+    fits = [np.polyfit(present_arr, centroids[:, axis], deg=2) for axis in range(3)]
+
+    def at(label_value):
+        return np.array([np.polyval(fit, label_value) for fit in fits])
+
+    estimated = {}
+    for label in missing:
+        estimated[label] = (
+            torch.tensor(at(label), dtype=torch.float32),
+            torch.tensor(at(label + 0.5) - at(label - 0.5), dtype=torch.float32),
+        )
+    logger.info(
+        f"Teeth {missing} are not in the segmentation: their positions were "
+        f"estimated from the arch traced by the {len(present)} segmented teeth")
+    return estimated
+
+
 def main(args):
     """Main function with comprehensive error handling."""
     logger.info(f"Starting ALI_IOS with args: {args}")
@@ -245,7 +299,18 @@ def main(args):
                         path_vtk = patient_path
                         model = models_to_use[models_type]['Lower'] if jaw == 'Lower' else models_to_use[models_type]['Upper']
                         camera_position = dic_cam[models_type]['L'] if jaw == 'Lower' else dic_cam[models_type]['U']
-                        
+
+                        # The MG cameras need a position per tooth. For the
+                        # teeth the segmentation does not know, estimate one
+                        # from the arch of the teeth it does know, instead of
+                        # skipping their landmark.
+                        mg_estimated = {}
+                        if models_type == "MG":
+                            surf_est = ReadSurf(path_vtk)
+                            unit_est, mean_est, scale_est = ScaleSurf(surf_est)
+                            (V_est, _f_est, _cn_est, RI_est) = GetSurfProp(unit_est, mean_est, scale_est)
+                            mg_estimated = EstimateMissingArchPositions(lst_teeth, RI_est, V_est)
+
                         for label in lst_teeth:
                             try:
                                 logger.debug(f"Loading model for patient {patient_id}, label {label}, jaw {jaw}")
@@ -266,8 +331,15 @@ def main(args):
                                 surf_unit, mean_arr, scale_factor = ScaleSurf(SURF)
                                 (V, F, CN, RI) = GetSurfProp(surf_unit, mean_arr, scale_factor)
 
-                                if int(label) in RI.squeeze(0):
-                                    agent.position_agent(RI, V, label)
+                                estimated = mg_estimated.get(int(label)) if models_type == "MG" else None
+                                if int(label) in RI.squeeze(0) or estimated is not None:
+                                    if estimated is None:
+                                        agent.position_agent(RI, V, label)
+                                    else:
+                                        agent.position_agent_estimated(V, estimated[0], estimated[1], label)
+                                        logger.info(
+                                            f"Label {label} is not in the segmentation of {patient_id}: "
+                                            "cameras aimed at its position estimated from the arch")
                                     textures = TexturesVertex(verts_features=CN)
                                     meshe = Meshes(verts=V, faces=F, textures=textures).to(DEVICE)
 
@@ -398,9 +470,14 @@ def main(args):
                                                     final = upscale_pos.detach().cpu().numpy()
 
                                                     entry = {"x": final[0], "y": final[1], "z": final[2]}
+                                                    # Flag degraded points in the json: they need a clinical review
+                                                    notes = []
+                                                    if estimated is not None:
+                                                        notes.append("cameras aimed from an arch fit, tooth not segmented")
                                                     if forced_conf is not None:
-                                                        # Flag it in the json: a forced point needs a clinical review
-                                                        entry["desc"] = f"forced (confidence {forced_conf:.3f})"
+                                                        notes.append(f"forced (confidence {forced_conf:.3f})")
+                                                    if notes:
+                                                        entry["desc"] = "; ".join(notes)
                                                     group_data[land_name] = entry
                                                 elif models_type == "MG" and args.force_landmarks:
                                                     # Last resort: not one predicted pixel landed on the mesh.
@@ -424,12 +501,28 @@ def main(args):
                                         logger.error(f"Error during neural network inference for label {label}: {e}")
                                         continue
                                 else:
-                                    logger.debug(f"Label {label} not found in surface")
+                                    logger.warning(
+                                        f"Label {label} is not in the segmentation of {patient_id} "
+                                        f"and too few teeth are segmented to estimate it: the "
+                                        f"landmark(s) {LABEL[str(label)]} cannot be placed")
                                     
                             except Exception as e:
                                 logger.error(f"Error processing label {label} for patient {patient_id}: {e}")
                                 continue
                         
+                        if models_type == "MG":
+                            # A skipped tooth is easy to miss in the log stream:
+                            # say in one line how much of the line is missing.
+                            requested = [LABEL[str(label)][MODELS_DICT['MG']['MG']] for label in lst_teeth]
+                            missing = [name for name in requested if name not in group_data]
+                            if missing:
+                                logger.warning(
+                                    f"{patient_id}: only {len(requested) - len(missing)} of the "
+                                    f"{len(requested)} requested MG landmarks were placed. Missing: "
+                                    f"{', '.join(missing)} — their teeth are not in the segmentation "
+                                    "(Universal_ID / PredictedID) and too few teeth were segmented "
+                                    "to estimate their position along the arch")
+
                         if len(group_data.keys()) > 0:
                             try:
                                 lm_lst = GenControlPoint(group_data, landmarks_selected)

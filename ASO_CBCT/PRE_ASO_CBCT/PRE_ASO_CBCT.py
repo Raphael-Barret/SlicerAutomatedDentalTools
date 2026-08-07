@@ -202,7 +202,16 @@ def main(args):
 
                 # ===== SAVE TRANSFORMATION =====
                 try:
-                    translation_outpath = os.path.join(dir_scan, os.path.basename(input_file).replace(".nii.gz", ".tfm"))
+                    MED_EXTS = (".nii.gz", ".nrrd.gz", ".gipl.gz", ".nii", ".nrrd", ".gipl")
+
+                    def strip_ext(name):
+                        for ext in MED_EXTS:
+                            if name.endswith(ext):
+                                return name[: -len(ext)]
+                        return os.path.splitext(name)[0]
+
+                    translation_outpath = os.path.join(dir_scan, strip_ext(os.path.basename(input_file)) + ".tfm")
+                    
                     if not os.path.exists(translation_outpath):
                         logger.debug(f"Saving transformation to {translation_outpath}")
                         sitk.WriteTransform(translation, translation_outpath)

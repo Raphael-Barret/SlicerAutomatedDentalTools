@@ -9,6 +9,7 @@ set(FOLDER_LIBRARY AREG_IOS_utils)
 
 set(MODULE_PYTHON_SCRIPTS
   ${FOLDER_LIBRARY}/__init__.py
+  ${FOLDER_LIBRARY}/check_deps.py
   ${FOLDER_LIBRARY}/dataset.py
   ${FOLDER_LIBRARY}/ICP.py
   ${FOLDER_LIBRARY}/mgl_patch.py

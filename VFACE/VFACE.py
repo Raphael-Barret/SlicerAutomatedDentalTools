@@ -1,5 +1,7 @@
+import contextlib
 import logging
 import os
+import tempfile
 from typing import Annotated
 import urllib.request
 import shutil
@@ -26,12 +28,16 @@ try:
     
     from VFACE_utils import createlistprocess
     importlib.reload(createlistprocess)
-    from VFACE_utils.createlistprocess import CreateListProcess, NumberScan
+    from VFACE_utils.createlistprocess import CreateListProcess, NumberScan, patientIdFromFileName
+
+    from VFACE_utils import review_steps
+    importlib.reload(review_steps)
 
 except Exception as e:
     logger.error(f"Error loading VFACE utilities: {e}")
     from VFACE_utils.Progress import DisplayALICBCT,DisplayAMASSS,DisplayASOCBCT,Display
-    from VFACE_utils.createlistprocess import CreateListProcess, NumberScan
+    from VFACE_utils.createlistprocess import CreateListProcess, NumberScan, patientIdFromFileName
+    from VFACE_utils import review_steps
 
 import vtk
 
@@ -183,7 +189,10 @@ class PopUpWindow(qt.QDialog):
             type: Dialog type - 'radio' for single selection, 'checkbox' for multiple
             tocheck: Items to pre-check (for checkbox mode)
         """
-        qt.QWidget.__init__(self)
+        # Without a parent the window manager attaches the dialog to a 1x1
+        # dummy window and never maps it. A modal one then takes every click
+        # with nothing on screen to dismiss - the run looks frozen at the end.
+        qt.QWidget.__init__(self, slicer.util.mainWindow())
         self.setWindowTitle(title)
         layout = qt.QGridLayout()
         self.setLayout(layout)
@@ -305,8 +314,25 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.cliNode = None
         self.list_process = []
         self.paused_for_visualization = False
-        self.current_output_to_load = None
         self.current_process_info = None
+        # One review item per patient for the step being reviewed, plus the
+        # nodes it put in the scene and the landmark positions as loaded, so
+        # Continue can tell an edited file from an untouched one.
+        self.pause_queue = []
+        self.pause_index = 0
+        self.pause_nodes = []
+        self.pause_markups_nodes = []
+        self.pause_markups_start = {}
+        self.pause_transform = None
+        self.pause_transform_item = None
+        self.pause_pending = False
+        # Batch review: the patients marked for rework, the steps already run
+        # so a rollback knows what lies behind, the patients a rollback is
+        # replaying, and the temporary folders a narrowed replay leaves behind.
+        self.review_flagged = set()
+        self.executed_steps = []
+        self.review_flagged_carry = []
+        self.review_temp_folders = []
         # onCliUpdated only assigns this when progress is 0, so a first event
         # carrying a non-zero progress would read it before it exists.
         self.updateProgessBar = False
@@ -339,6 +365,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
         uiWidget = slicer.util.loadUI(self.resourcePath("UI/VFACE.ui"))
+        self.uiWidget = uiWidget
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -350,6 +377,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Also apply label-specific stylesheet
         self._applyLabelStyleSheets(isDarkMode)
         self._applyButtonStyleSheets(isDarkMode)
+        self._applyCheckboxStyleSheets(isDarkMode)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
@@ -383,9 +411,14 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.CheckDependencyButton.connect("clicked(bool)", self.CheckDependency)
         self.ui.cancelButton.connect("clicked(bool)", self.onCancelButton)
         self.ui.DefaultListButton.connect("clicked(bool)", self.onDefaultButton)
+        self.ui.TestFilesButton.connect("clicked(bool)", self.onTestFilesButton)
 
         self.ui.continueButton.setVisible(False)
         self.ui.continueButton.connect("clicked(bool)", self.onContinueButton)
+        self.ui.reviewPrevPatientButton.connect("clicked(bool)", self.onReviewPreviousPatient)
+        self.ui.reviewNextPatientButton.connect("clicked(bool)", self.onReviewNextPatient)
+        self.ui.reviewFlagButton.connect("clicked(bool)", self.onReviewToggleFlag)
+        self.ui.reviewGoBackButton.connect("clicked(bool)", self.onReviewGoBack)
 
         documentsLocation = qt.QStandardPaths.DocumentsLocation
         self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
@@ -398,7 +431,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+        self.setupReviewUi()
         self.ui.label_3.setVisible(False)
+        self.ui.reviewLabel.setVisible(False)
         self.ui.progressBar.setVisible(False)
 
     def _isDarkMode(self) -> bool:
@@ -546,13 +581,133 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         # List of labels to style
         labels = [
-            'label_5', 'label_4', 'label_2', 'label_6', 'label_7', 'label_3', 'label', 'modeLabel', 't2label', 'excellabel'
+            'label_5', 'label_4', 'label_2', 'label_6', 'label_3', 'label', 'modeLabel', 't2label', 'excellabel'
         ]
         
         for labelName in labels:
             if hasattr(self.ui, labelName):
                 label = getattr(self.ui, labelName)
                 label.setStyleSheet(labelStyle)
+
+        if hasattr(self.ui, "reviewLabel"):
+            if isDarkMode:
+                reviewStyle = (
+                    "color: #e8e8e8; background-color: #2f3b47;"
+                    " border: 1px solid #4ba3ff; border-radius: 4px; padding: 8px;"
+                )
+            else:
+                reviewStyle = (
+                    "color: #1f2d3a; background-color: #eaf3fb;"
+                    " border: 1px solid #3498db; border-radius: 4px; padding: 8px;"
+                )
+            self.ui.reviewLabel.setStyleSheet(reviewStyle)
+
+    def _applyCheckboxStyleSheets(self, isDarkMode: bool) -> None:
+        """
+        Style every checkbox of the module, the review list included.
+
+        Slicer's default indicator all but disappears against a dark panel, so
+        it is redrawn - the same treatment AREG gives its own. In light mode
+        the default is already right, and the style is cleared rather than
+        left behind when the theme changes back.
+
+        Args:
+            isDarkMode: Whether the application is in dark mode
+        """
+        if isDarkMode:
+            stylesheet = """
+            QCheckBox {
+              color: #ffffff;
+              font-weight: 500;
+              spacing: 6px;
+            }
+            QCheckBox::indicator {
+              width: 18px;
+              height: 18px;
+              border: 1px solid #555555;
+              border-radius: 3px;
+              background-color: #3c3c3c;
+            }
+            QCheckBox::indicator:hover {
+              border: 1px solid #5dade2;
+            }
+            QCheckBox::indicator:checked {
+              width: 18px;
+              height: 18px;
+              border: 1px solid #5dade2;
+              border-radius: 3px;
+              background-color: #5dade2;
+              image: url(:/Icons/SmallCheckMark.png);
+            }
+            QCheckBox::indicator:checked:hover {
+              border: 1px solid #7bbcef;
+              background-color: #7bbcef;
+            }
+            """
+        else:
+            # Same shape, light palette. AREG only redraws its checkboxes in
+            # dark mode, which left this module's own look inconsistent: its
+            # buttons are styled in both themes, so its boxes have to be too.
+            stylesheet = """
+            QCheckBox {
+              color: #34495e;
+              font-weight: 500;
+              spacing: 6px;
+            }
+            QCheckBox::indicator {
+              width: 18px;
+              height: 18px;
+              border: 1px solid #b0bec5;
+              border-radius: 3px;
+              background-color: #ffffff;
+            }
+            QCheckBox::indicator:hover {
+              border: 1px solid #3498db;
+            }
+            QCheckBox::indicator:checked {
+              width: 18px;
+              height: 18px;
+              border: 1px solid #3498db;
+              border-radius: 3px;
+              background-color: #3498db;
+              image: url(:/Icons/SmallCheckMark.png);
+            }
+            QCheckBox::indicator:checked:hover {
+              border: 1px solid #5cb3ff;
+              background-color: #5cb3ff;
+            }
+            QCheckBox:disabled {
+              color: #9aa5ab;
+            }
+            QCheckBox::indicator:disabled {
+              border: 1px solid #d5dbdd;
+              background-color: #eceff1;
+            }
+            """
+
+        self._styleAllCheckboxes(getattr(self, "uiWidget", None), stylesheet)
+
+    def _styleAllCheckboxes(self, parent, stylesheet: str) -> None:
+        """
+        Walk the widget tree and style every checkbox it holds.
+
+        The review steps are built after setup and rebuilt on every change of
+        mode, so they cannot be styled by name from a fixed list.
+
+        Args:
+            parent: Widget to start from
+            stylesheet: Style to apply, empty to restore the default
+        """
+        if parent is None:
+            return
+        if isinstance(parent, qt.QCheckBox):
+            try:
+                parent.setStyleSheet(stylesheet)
+            except Exception as e:
+                logger.warning(f"Could not style a checkbox: {e}")
+        if hasattr(parent, "children"):
+            for child in parent.children():
+                self._styleAllCheckboxes(child, stylesheet)
 
     def _applyButtonStyleSheets(self, isDarkMode: bool) -> None:
         """Apply button-specific stylesheets."""
@@ -652,7 +807,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             """
         
         # Apply standard style to most buttons
-        for buttonName in ['applyButton', 'CheckDependencyButton', 'continueButton','DefaultListButton']:
+        for buttonName in ['applyButton', 'CheckDependencyButton', 'continueButton',
+                           'DefaultListButton', 'TestFilesButton',
+                           'reviewSelectAllButton', 'reviewSelectNoneButton']:
             if hasattr(self.ui, buttonName):
                 button = getattr(self.ui, buttonName)
                 button.setStyleSheet(standardButtonStyle)
@@ -952,6 +1109,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onComboBoxChanged(self, text):
         """Called when the main comboBox value changes"""
         logger.info(f"ComboBox changed to: {text}")
+        self.rebuildReviewSteps()
 
     def onComboBox2Changed(self, text):
         
@@ -964,6 +1122,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.PathLineEdit_3.setVisible(True)
             self.ui.DefaultListButton.setVisible(True)
 
+        self.rebuildReviewSteps()
         self._checkCanApply()
 
     def onComboBox3Changed(self, text):
@@ -984,6 +1143,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.modeLabel.setText("Oriented T1 Folder")
         else:
             self.ui.modeLabel.setText("T1 Folder")
+        self.rebuildReviewSteps()
         self._checkCanApply()
 
     def onComboBox4Changed(self, text):
@@ -999,6 +1159,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.ui.comboBox3.currentText == "File already Registered":
                 self.ui.t2label.setText("Registered T2 Folder")
             
+        self.rebuildReviewSteps()
         self._checkCanApply()
 
     def onApplyButton(self) -> None:
@@ -1028,6 +1189,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                 mode2 = self.ui.comboBox4.currentText,
                                 model_vface = os.path.join(self.SlicerDownloadPath,"V_FACE"))
 
+        if self.list_process:
+            self.applyReviewSelection()
+
         if not self.list_process:
             PopUpWindow(
                 title="Nothing to run",
@@ -1040,9 +1204,15 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.CheckDependencyButton.enabled = False
         self.ui.cancelButton.setVisible(True)
         self.ui.label_3.setVisible(True)
+        self.ui.reviewLabel.setVisible(False)
         self.ui.progressBar.setVisible(True)
 
         self.NumberProcess = len(self.list_process)
+        # A second run in the same session must not see the first one's steps.
+        self.executed_steps = []
+        self.review_flagged = set()
+        self.review_flagged_carry = []
+        self.clearReviewTempFolders()
         self.executeProcess(self.list_process[0])
         del self.list_process[0]
 
@@ -1080,10 +1250,22 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         Called after user has reviewed visualization and is ready to proceed with next steps.
         """
+        # Moving between patients is what the navigation buttons are for, so
+        # this one does the single thing its label promises: it ends the pause.
+        # What the user changed on the patient in front of them is saved first,
+        # and the patients they never opened keep the results they already have.
+        if self.pause_queue:
+            self.savePauseEdits()
+            seen = self.pause_index + 1
+            total = len(self.pause_queue)
+            if seen < total:
+                logger.info(f"{total - seen} patient(s) accepted without being opened")
+
+        self.resetPauseState()
+
         logger.info("Continuing process after visualization...")
         self.ui.continueButton.setVisible(False)
         self.ui.cancelButton.setVisible(True)
-        self.paused_for_visualization = False
         self.ui.label_3.setVisible(True)
         self.ui.progressBar.setVisible(True)
         
@@ -1094,6 +1276,90 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.OnEndProcess()
     
+    # VFACE has no test archive of its own, and its T1 input is a plain CBCT:
+    # AREG's orientation set holds exactly that, unoriented, which is what the
+    # full pipeline expects. Replace with a VFACE release asset if one is ever
+    # published.
+    TEST_FILES_NAME = "Oriented-Automated"
+    TEST_FILES_URL = (
+        "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/"
+        "Or_FullyAuto.zip"
+    )
+
+    def onTestFilesButton(self) -> None:
+        """
+        Download a sample CBCT and point the T1 input at it.
+
+        The archive carries a T1 and a T2; only the T1 is of any use here, so
+        that is the folder the input is set to.
+        """
+        if not os.path.exists(self.SlicerDownloadPath):
+            os.makedirs(self.SlicerDownloadPath)
+
+        # Under V_FACE, next to DefaultList: the archive is borrowed from AREG
+        # but the copy belongs to this module, and uninstalling one must not
+        # take the other's sample away.
+        folder_name = os.path.join("V_FACE", "Test_Files", self.TEST_FILES_NAME)
+        try:
+            self.DownloadUnzip(
+                url=self.TEST_FILES_URL,
+                directory=self.SlicerDownloadPath,
+                folder_name=folder_name,
+                check_file="T1",
+            )
+        except Exception as e:
+            logger.error(f"Could not download the test files: {e}")
+            PopUpWindow(
+                title="Download failed",
+                text=f"The sample scan could not be downloaded:\n\n{e}",
+            ).exec_()
+            return
+
+        # The archive is AREG's, so it carries a second timepoint. VFACE makes
+        # its own T2 by mirroring the T1 and never reads one from disk, so that
+        # half is dropped rather than left to take up room for nothing.
+        t2_folder = os.path.join(self.SlicerDownloadPath, folder_name, "T2")
+        if os.path.isdir(t2_folder):
+            try:
+                shutil.rmtree(t2_folder)
+                logger.info("Test files: dropped the T2 this module has no use for")
+            except OSError as e:
+                logger.warning(f"Could not remove the unused T2 folder: {e}")
+
+        t1_folder = os.path.join(self.SlicerDownloadPath, folder_name, "T1")
+        if not os.path.isdir(t1_folder):
+            logger.error(f"No T1 folder in the test files: {t1_folder}")
+            PopUpWindow(
+                title="Test files incomplete",
+                text=f"The archive holds no T1 folder:\n\n{t1_folder}",
+            ).exec_()
+            return
+
+        nb_scan = NumberScan(t1_folder)
+        if nb_scan == 0:
+            logger.error(f"No scan found in the test files: {t1_folder}")
+            PopUpWindow(
+                title="No scan found",
+                text=f"No readable scan in the downloaded folder:\n\n{t1_folder}",
+            ).exec_()
+            return
+
+        self.ui.PathLineEdit.setCurrentPath(t1_folder)
+        logger.info(f"Test files ready: {nb_scan} patient(s) in {t1_folder}")
+
+        # Somewhere to write, beside the scans it will read, so the sample runs
+        # on a single click. A folder the user already chose is left alone.
+        if not self._parameterNode.OutputFolder:
+            output = os.path.join(self.SlicerDownloadPath, folder_name, "Output")
+            self.ui.PathLineEdit_2.setCurrentPath(output)
+            logger.info(f"Test files: output set to {output}")
+
+        # The sample is only runnable with the measurement lists beside it, so
+        # fetch those too rather than leaving the user one unexplained click
+        # short. A folder they already chose is left alone.
+        if not self.ui.PathLineEdit_3.currentPath:
+            self.onDefaultButton()
+
     def onDefaultButton(self):
         if not os.path.exists(self.SlicerDownloadPath):
             os.makedirs(self.SlicerDownloadPath)
@@ -1223,8 +1489,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.applyButton.enabled = True
         self.ui.CheckDependencyButton.enabled = True
 
-        self.paused_for_visualization = False
-        self.current_output_to_load = None
+        self.resetPauseState()
         self.current_process_info = None
         self.cliNode = None
         self.ActualProcess = 1
@@ -1232,84 +1497,913 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         logger.info("Interface reset after cancellation")
 
-    def loadOutputInSlicer(self, output_path: str) -> bool:
-        """
-        Load processed output into Slicer viewer for visualization.
-        
-        Supports volume formats (.nrrd, .nii, .nii.gz) and model format (.vtk).
-        Automatically configures appropriate layout and view settings.
-        
-        Args:
-            output_path: Path to the output file to load
-            
-        Returns:
-            bool: True if loading was successful, False otherwise
-        """
-        try:
-            if not output_path or not os.path.exists(output_path):
-                logger.warning(f"Output path does not exist: {output_path}")
-                return False
+    # ===== Manual review pauses =====
+    #
+    # A step marked "pause_for_visualization" stops the run once it finishes, so
+    # the user can look at what it produced and, for landmarks, correct it before
+    # the rest of the pipeline consumes it. The step itself says where its output
+    # went ("ReviewFolder"), which is what keeps this in step with the folders
+    # createlistprocess actually writes to.
 
-            if output_path.endswith(('.nrrd', '.nii', '.nii.gz')):
-                # Load volume file
-                volume_node = slicer.util.loadVolume(output_path)
-                if volume_node:
-                    slicer.util.setSliceViewerLayers(background=volume_node)
-                    slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
-                    slicer.util.resetSliceViews()
-                    logger.info(f"Volume loaded: {output_path}")
-                    return True
-                    
-            elif output_path.endswith('.vtk'):
-                # Load model file
-                model_node = slicer.util.loadModel(output_path)
-                if model_node:
-                    slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
-                    threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
-                    threeDView.resetFocalPoint()
-                    logger.info(f"Model loaded: {output_path}")
-                    return True
-                    
-        except Exception as e:
-            logger.error(f"Error loading output file {output_path}: {e}")
-        
-        return False
+    VOLUME_EXT = (".nrrd", ".nii.gz", ".nii", ".nrrd.gz", ".gipl.gz", ".gipl")
+    MODEL_EXT = (".vtk", ".vtp", ".stl")
+    CONTINUE_BUTTON_TEXT = "Next step"
+
+    # ------------------------------------------------------- choosing the pauses
+
+    REVIEW_SETTINGS_KEY = "VFACE/ReviewSteps"
+
+    def setupReviewUi(self) -> None:
+        """Wire the review section up. Called once, from setup()."""
+        self.ui.checkBox_2.connect("toggled(bool)", self.onReviewEnableToggled)
+        self.ui.reviewSelectAllButton.connect("clicked(bool)", lambda: self.setAllReviewSteps(True))
+        self.ui.reviewSelectNoneButton.connect("clicked(bool)", lambda: self.setAllReviewSteps(False))
+        self.onReviewEnableToggled(self.ui.checkBox_2.isChecked())
+        self.rebuildReviewSteps()
+
+    def onReviewEnableToggled(self, enabled: bool) -> None:
+        """Grey the list out when pausing is off, rather than hiding it."""
+        for widget in (self.ui.reviewScrollArea, self.ui.reviewSelectAllButton,
+                       self.ui.reviewSelectNoneButton, self.ui.reviewHelpLabel):
+            widget.setEnabled(enabled)
+
+    def rebuildReviewSteps(self) -> None:
+        """Rebuild the checkboxes for the settings now chosen.
+
+        A run that skips a step must not offer it: ticking a pause the run
+        never reaches reads as a broken feature the first time it goes
+        straight past. What the user ticked before is restored wherever the
+        same step still exists.
+        """
+        contents = getattr(self.ui, "reviewScrollContents", None)
+        layout = contents.layout() if contents is not None else None
+        if layout is None:
+            logger.warning("Review step list not found in the UI, no pause offered")
+            return
+
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+        self.review_checkboxes = {}
+
+        steps = review_steps.availableSteps(
+            mode=self.ui.comboBox3.currentText,
+            mode2=self.ui.comboBox4.currentText,
+            reg_type=self.ui.comboBox.currentText,
+            visualization="Visualization" in self.ui.comboBox2.currentText,
+            quantification="Quantitative" in self.ui.comboBox2.currentText,
+        )
+
+        remembered = self.loadReviewSelection()
+        group = None
+        for step in steps:
+            if step["group"] != group:
+                group = step["group"]
+                layout.addWidget(qt.QLabel(f"<b>{group}</b>"))
+
+            label = step["label"]
+            if step["kind"] != review_steps.VIEW:
+                label += "  (editable)"
+            box = qt.QCheckBox(label)
+            box.setToolTip(
+                "You can correct this one." if step["kind"] != review_steps.VIEW
+                else "Look only."
+            )
+            box.setChecked(step["id"] in remembered)
+            box.connect("toggled(bool)", lambda _checked: self.saveReviewSelection())
+            layout.addWidget(box)
+            self.review_checkboxes[step["id"]] = box
+
+        layout.addStretch(1)
+        # These boxes did not exist when the theme was applied.
+        self._applyCheckboxStyleSheets(self._isDarkMode())
+
+    def setAllReviewSteps(self, checked: bool) -> None:
+        """Tick or untick every step currently offered."""
+        for box in self.review_checkboxes.values():
+            box.setChecked(checked)
+
+    def selectedReviewIds(self) -> set:
+        """Ids the user ticked, empty when pausing is switched off."""
+        if not self.ui.checkBox_2.isChecked():
+            return set()
+        return {i for i, box in self.review_checkboxes.items() if box.isChecked()}
+
+    def saveReviewSelection(self) -> None:
+        """Keep the ticked steps between sessions."""
+        chosen = [i for i, box in self.review_checkboxes.items() if box.isChecked()]
+        qt.QSettings().setValue(self.REVIEW_SETTINGS_KEY, ",".join(sorted(chosen)))
+
+    def loadReviewSelection(self) -> set:
+        """Steps ticked the last time, as a set of ids."""
+        stored = qt.QSettings().value(self.REVIEW_SETTINGS_KEY, "")
+        if not stored:
+            return set()
+        if isinstance(stored, (list, tuple)):
+            return set(stored)
+        return {i for i in str(stored).split(",") if i}
+
+    def applyReviewSelection(self) -> int:
+        """Drop the pause from the steps the user did not ask to stop at.
+
+        The pipeline marks every step it could pause on; this is what turns
+        that into the handful the user actually wants.
+        """
+        chosen = self.selectedReviewIds()
+        kept = 0
+        for step in self.list_process:
+            if not step.get("pause_for_visualization"):
+                continue
+            if step.get("ReviewId") in chosen:
+                kept += 1
+            else:
+                step["pause_for_visualization"] = False
+        logger.info(f"{kept} step(s) will pause for review")
+        return kept
 
     def shouldPauseAfterProcess(self, process_info: dict) -> bool:
         """
         Determine if process execution should pause for visualization review.
-        
+
         Args:
             process_info: Process information dictionary
-            
+
         Returns:
             bool: True if pause is requested, False otherwise
         """
         return process_info.get("pause_for_visualization", False)
 
-    def getOutputPathForModule(self, module_name: str) -> str:
-        output_paths = {
-            "Orient T1 (CB)": os.path.join(self._parameterNode.OutputFolder, "Oriented Scans", "Oriented relative CB"),
-            "Orient T1 (MAX)": os.path.join(self._parameterNode.OutputFolder, "Oriented Scans", "Oriented relative MAX"),
-            "Masks Generation for T1 (MAX)": os.path.join(self._parameterNode.OutputFolder, "Masks"),
-            "Mirroring Masks": os.path.join(self._parameterNode.OutputFolder, "Mirrored_Masks"),
-            "Mirroring MAX Oriented Scan": os.path.join(self._parameterNode.OutputFolder, "Mirrored_Scan", "CB"),
-            "AREG - Registering Scan (MAND)": os.path.join(self._parameterNode.OutputFolder, "Registered Scan", "Mandible"),
-            "BDS - Segmentation T2 MAX": os.path.join(self._parameterNode.OutputFolder, "VTK Files","T2 MAX"),
-        }
-        
-        base_path = output_paths.get(module_name)
-        if base_path and os.path.exists(base_path):
-            for ext in ['.nrrd', '.nii.gz', '.nii', '.vtk']:
-                for file in os.listdir(base_path):
-                    if file.endswith(ext):
-                        return os.path.join(base_path, file)
-            
-            for root, dirs, files in os.walk(base_path):
-                for file in files:
-                    if file.endswith(('.nrrd', '.nii.gz', '.nii', '.vtk')):
-                        return os.path.join(root, file)
-        return None
+    def runPatientIds(self) -> set:
+        """The patients this run is about, read from the folder it was given.
+
+        The scans on the input side are what defines a run. An output folder may
+        hold months of earlier work, and a step that skips a patient it has
+        already done leaves that patient's file untouched and old - so the file
+        date says nothing useful about who is being processed. Only the input
+        list does.
+
+        Returns:
+            set: Patient ids, empty if the folder cannot be read
+        """
+        node = getattr(self, "_parameterNode", None)
+        folder = getattr(node, "InputFolder", None) if node is not None else None
+        if not folder or not os.path.isdir(folder):
+            return set()
+
+        wanted = self.VOLUME_EXT + self.MODEL_EXT + (".json",)
+        ids = set()
+        for root, _, files in os.walk(folder):
+            for name in files:
+                if name.endswith(wanted):
+                    ids.add(patientIdFromFileName(name))
+        return ids
+
+    @staticmethod
+    def belongsToRun(patient: str, wanted_ids: set) -> bool:
+        """Whether a produced file's id names one of the run's patients.
+
+        Usually the ids match outright. Some steps append a marker that
+        patientIdFromFileName does not know how to strip - the heatmaps come out
+        as "C_0001_Mandible_ModelDistance" - which leaves a longer id built on
+        the patient's own. Those still belong to the run, so accept an id that
+        extends an expected one at a separator. "C_0001" must not swallow
+        "C_00011", hence the boundary rather than a bare startswith.
+        """
+        if patient in wanted_ids:
+            return True
+        return any(patient.startswith(w + "_") for w in wanted_ids)
+
+    def buildPauseQueue(self, process_info: dict) -> list:
+        """
+        Build one review item per patient for the step that just finished.
+
+        Args:
+            process_info: Process information dictionary of the finished step
+
+        Returns:
+            list: Review items, each holding a patient's files and its scan
+        """
+        review_folder = process_info.get("ReviewFolder")
+        if not review_folder or not os.path.isdir(review_folder):
+            logger.warning(f"Nothing to review: {review_folder} not found")
+            return []
+
+        editable = process_info.get("ReviewEditable", False)
+        adjustable = process_info.get("ReviewAdjustable", False)
+        if editable:
+            wanted = (".json",)
+        elif adjustable:
+            wanted = self.VOLUME_EXT
+        else:
+            wanted = self.VOLUME_EXT + self.MODEL_EXT
+
+        # Output folders get reused between runs. Without this the review walks
+        # patients this run never processed - "patient 1 of 5" on a batch of
+        # three - and asks the user to check results that are not theirs.
+        # Only what the step just produced is filtered: the scans and matrices
+        # it is judged against are often copied in from earlier, and dropping
+        # those would leave the landmarks with nothing underneath.
+        #
+        # Identity, not file date: a step that skips a patient whose output is
+        # already there leaves that file weeks old, and dating it drops a
+        # patient the run really is processing.
+        # After a rollback only the marked patients were replayed, so they are
+        # the only ones this step is about - the others still hold the results
+        # they were accepted with.
+        expected = self.review_flagged_carry or self.runPatientIds()
+        self.review_flagged_carry = []
+        wanted_ids = set(expected) or None
+
+        # Some steps write several files per scan - BDS writes one surface per
+        # anatomical structure plus a merged one holding them all - and loading
+        # every one buries the view. A step can name what is worth looking at.
+        keep = process_info.get("ReviewNameContains")
+
+        by_patient = {}
+        held_back = {}
+        skipped = set()
+        for root, _, files in os.walk(review_folder):
+            for name in sorted(files):
+                if not name.endswith(wanted):
+                    continue
+                if keep and keep not in name:
+                    continue
+                patient = patientIdFromFileName(name)
+                path = os.path.join(root, name)
+                if wanted_ids is not None and not self.belongsToRun(patient, wanted_ids):
+                    skipped.add(patient)
+                    held_back.setdefault(patient, []).append(path)
+                    continue
+                by_patient.setdefault(patient, []).append(path)
+
+        # A filter that empties the review is worse than one that lets an extra
+        # patient through: the user would be told there is nothing to check and
+        # the run would carry on past a step they asked to inspect. If nothing
+        # survived but files were found, the ids simply do not line up with the
+        # input folder - show them all rather than nothing.
+        if not by_patient and held_back:
+            logger.warning(
+                "None of the files in this step matched the run's patients "
+                f"{sorted(wanted_ids)}; showing all {len(held_back)} found "
+                "instead of skipping the review"
+            )
+            by_patient = held_back
+        elif skipped:
+            logger.info(
+                f"{len(skipped)} patient(s) left out of the review, not part of "
+                f"this run: {sorted(skipped)}"
+            )
+
+        # Landmarks are only editable against the scan they were placed on, so
+        # pair each patient with its oriented volume when the step names one.
+        scans = {}
+        volume_folder = process_info.get("ReviewVolumeFolder")
+        if volume_folder and os.path.isdir(volume_folder):
+            for root, _, files in os.walk(volume_folder):
+                for name in sorted(files):
+                    if name.endswith(self.VOLUME_EXT):
+                        scans.setdefault(
+                            patientIdFromFileName(name), os.path.join(root, name)
+                        )
+
+        # An adjusted registration is only worth anything if its matrix can be
+        # updated too: the landmarks downstream follow the matrix, not the voxels.
+        matrices = {}
+        if adjustable:
+            for root, _, files in os.walk(review_folder):
+                for name in sorted(files):
+                    if name.endswith(".tfm"):
+                        matrices.setdefault(
+                            patientIdFromFileName(name), os.path.join(root, name)
+                        )
+
+        queue = []
+        for patient in sorted(by_patient):
+            if editable and patient not in scans:
+                logger.warning(
+                    f"No scan found for {patient}, its landmarks cannot be reviewed"
+                )
+            if adjustable and patient not in matrices:
+                logger.warning(
+                    f"No registration matrix found for {patient}, its registration "
+                    f"can be looked at but not adjusted"
+                )
+            queue.append(
+                {
+                    "patient": patient,
+                    "files": by_patient[patient],
+                    "volume": scans.get(patient),
+                    "editable": editable,
+                    "adjustable": adjustable and patient in matrices,
+                    "matrix": matrices.get(patient),
+                }
+            )
+
+        logger.info(f"{len(queue)} patient(s) to review after {self.module_name}")
+        return queue
+
+    def enterPauseForReview(self, process_info: dict) -> bool:
+        """
+        Decide whether to pause; the loading itself is left to the event loop.
+
+        Args:
+            process_info: Process information dictionary of the finished step
+
+        Returns:
+            bool: True if the run is now paused and must not advance
+        """
+        if not self.shouldPauseAfterProcess(process_info):
+            return False
+        if not self.ui.checkBox_2.isChecked():
+            return False
+
+        # Reading a volume makes Slicer write to the stdout pipe it only drains
+        # from the Qt event loop. This runs inside a VTK observer callback,
+        # where that loop cannot turn, so doing it here fills the pipe with no
+        # reader and hangs the main thread in write() - the same window that
+        # never comes back as the CLI output above. Hand the work to the event
+        # loop and return at once, exactly as that fix does.
+        self.pause_pending = True
+        qt.QTimer.singleShot(0, self.beginReview)
+        return True
+
+    def beginReview(self) -> None:
+        """Load the finished step's results, once the event loop is turning."""
+        if not self.pause_pending:
+            # cancelled between the callback returning and this firing
+            return
+        self.pause_pending = False
+
+        process_info = self.current_process_info or {}
+        self.pause_queue = self.buildPauseQueue(process_info)
+        self.pause_index = 0
+
+        if not self.pause_queue or not self.showPauseItem():
+            logger.warning(
+                f"Nothing could be loaded to review after {self.module_name}, continuing"
+            )
+            self.onContinueButton()
+            return
+
+        self.paused_for_visualization = True
+        self.ui.continueButton.setVisible(True)
+        self.ui.progressBar.setValue(0)
+        logger.info(f"Process on pause after {self.module_name}.")
+
+    def showPauseItem(self) -> bool:
+        """
+        Load the patient at the current queue position, skipping unloadable ones.
+
+        Returns:
+            bool: True if a patient is now on screen
+        """
+        while self.pause_index < len(self.pause_queue):
+            item = self.pause_queue[self.pause_index]
+            if self.loadPauseItem(item):
+                self.showReviewMessage(item)
+                self.updateReviewButtons()
+                return True
+            logger.warning(f"Nothing to load for {item['patient']}, skipping it")
+            self.pause_index += 1
+        return False
+
+    def showReviewMessage(self, item: dict) -> None:
+        """
+        Say where the run is and what the user may change, in the module panel.
+
+        The console log is not where a clinician looks, and the step counter must
+        stay readable: the pause used to overwrite it with its own text, leaving
+        no sign of how far along the run was.
+
+        Args:
+            item: Review item currently on screen
+        """
+        info = self.current_process_info or {}
+        title = info.get("ReviewTitle") or self.module_name
+        hint = info.get("ReviewHint", "")
+
+        self.ui.label_3.setText(
+            f"Paused at step {self.ActualProcess}/{self.NumberProcess} "
+            f"- {self.module_name}"
+        )
+
+        patient = item["patient"]
+        position = ""
+        if len(self.pause_queue) > 1:
+            position = f" - patient {self.pause_index + 1} of {len(self.pause_queue)}"
+
+        # A registration is adjustable, not editable: testing only the one flag
+        # labelled a step "Review only" while its own hint told the user to drag
+        # it, and the checkbox that armed it said it could be changed.
+        if item.get("editable"):
+            action = "You can move the points"
+        elif item.get("adjustable"):
+            action = "You can drag it into place"
+        else:
+            action = "Review only"
+        self.ui.reviewLabel.setText(
+            f"<b>{title}</b><br/>"
+            f"{patient}{position} &nbsp;·&nbsp; <i>{action}</i><br/>{hint}"
+        )
+        self.ui.reviewLabel.setVisible(True)
+
+        # Moving between patients is what the navigation buttons are for, so
+        # this one says the single thing it does: it ends the pause.
+        self.ui.continueButton.setText(self.CONTINUE_BUTTON_TEXT)
+
+        logger.info(f"Review - {title} - {patient}{position}")
+
+    def loadPauseItem(self, item: dict) -> bool:
+        """
+        Load one patient's result into the scene for review.
+
+        Args:
+            item: Review item built by buildPauseQueue
+
+        Returns:
+            bool: True if anything could be loaded
+        """
+        self.clearPauseNodes()
+        loaded = False
+        reference = None
+
+        if item.get("volume"):
+            reference = self.loadPauseFile(item["volume"])
+            if reference:
+                slicer.util.setSliceViewerLayers(background=reference)
+                loaded = True
+
+        moving = None
+        for path in item["files"]:
+            node = self.loadPauseFile(path)
+            if node:
+                moving = node
+                if not item.get("volume") and path.endswith(self.VOLUME_EXT):
+                    slicer.util.setSliceViewerLayers(background=node)
+                loaded = True
+
+        if loaded and item.get("adjustable") and moving is not None:
+            self.setUpAdjustment(item, reference, moving)
+
+        if loaded:
+            self.applyPauseLayout(item)
+        return loaded
+
+    def setUpAdjustment(self, item: dict, reference, moving) -> None:
+        """
+        Show the registered scan over the original and let the user move it.
+
+        The user drags the scan into place; the matrix that displacement amounts
+        to is what the landmarks need, and it is read back on Continue. Nothing
+        is asked of the user beyond moving the image.
+
+        Args:
+            item: Review item currently on screen
+            reference: The T1 volume node the registration is judged against
+            moving: The registered volume node the user may move
+        """
+        transform = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLLinearTransformNode", f"{item['patient']} manual adjustment"
+        )
+        moving.SetAndObserveTransformNodeID(transform.GetID())
+        self.pause_nodes.append(transform)
+        self.pause_transform = transform
+        self.pause_transform_item = item
+
+        # Half-opaque over the original is what makes a misalignment visible.
+        if reference is not None:
+            slicer.util.setSliceViewerLayers(
+                background=reference, foreground=moving, foregroundOpacity=0.5
+            )
+        try:
+            display = transform.GetDisplayNode()
+            if display is None:
+                transform.CreateDefaultDisplayNodes()
+                display = transform.GetDisplayNode()
+            if display is not None:
+                display.SetEditorVisibility(True)
+        except Exception as e:
+            logger.warning(f"Could not show the interaction handles: {e}")
+
+    def loadPauseFile(self, path: str):
+        """
+        Load a single review file, dispatching on its type.
+
+        Args:
+            path: File to load
+
+        Returns:
+            The loaded node, or None if it could not be loaded
+        """
+        try:
+            if path.endswith(".json"):
+                node = self.loadEditableMarkups(path)
+            elif path.endswith(self.MODEL_EXT):
+                node = slicer.util.loadModel(path)
+            else:
+                node = slicer.util.loadVolume(path)
+        except Exception as e:
+            logger.error(f"Could not load {path}: {e}")
+            return None
+
+        if node is None:
+            logger.warning(f"Nothing loaded from {path}")
+            return None
+
+        self.pause_nodes.append(node)
+        return node
+
+    def loadEditableMarkups(self, path: str):
+        """
+        Load a landmark file so its points can actually be moved.
+
+        ALI writes every control point with "locked": true and the display
+        hidden, so loading one as-is shows an empty view holding points that
+        cannot be dragged. Both are forced here, on the node only - the file
+        keeps its own flags unless the user edits a position.
+
+        Args:
+            path: Landmark .mrk.json file
+
+        Returns:
+            The loaded markups node, or None
+        """
+        node = slicer.util.loadMarkups(path)
+        if node is None:
+            return None
+
+        node.SetLocked(False)
+        for i in range(node.GetNumberOfControlPoints()):
+            node.SetNthControlPointLocked(i, False)
+
+        display = node.GetDisplayNode()
+        if display:
+            display.SetVisibility(True)
+            display.SetPointLabelsVisibility(True)
+
+        self.pause_markups_nodes.append(node)
+        self.pause_markups_start[node.GetID()] = self.markupsPositions(node)
+        return node
+
+    @staticmethod
+    def markupsPositions(node) -> list:
+        """Control point positions of a markups node, in order."""
+        positions = []
+        for i in range(node.GetNumberOfControlPoints()):
+            position = [0.0, 0.0, 0.0]
+            node.GetNthControlPointPosition(i, position)
+            positions.append(tuple(position))
+        return positions
+
+    def savePauseEdits(self) -> None:
+        """
+        Write back the landmark files whose points the user moved.
+
+        Files left untouched are not rewritten, so a run where the user only
+        looked leaves ALI's output exactly as it was.
+        """
+        for node in self.pause_markups_nodes:
+            storage = node.GetStorageNode()
+            path = storage.GetFileName() if storage else None
+            if not path:
+                logger.warning(f"No file to save {node.GetName()} back to")
+                continue
+
+            before = self.pause_markups_start.get(node.GetID())
+            after = self.markupsPositions(node)
+            if before == after:
+                logger.info(f"{os.path.basename(path)} unchanged, not rewritten")
+                continue
+
+            moved = sum(1 for a, b in zip(before, after) if a != b)
+            try:
+                if slicer.util.saveNode(node, path):
+                    logger.info(f"{moved} landmark(s) adjusted, saved to {path}")
+                else:
+                    logger.error(f"Could not save adjusted landmarks to {path}")
+            except Exception as e:
+                logger.error(f"Could not save adjusted landmarks to {path}: {e}")
+
+        self.saveAdjustedRegistration()
+
+    def saveAdjustedRegistration(self) -> None:
+        """
+        Fold the user's displacement into the registration it corrects.
+
+        AutoMatrix applies one matrix per patient and per structure downstream,
+        and it cannot chain two. Composing here keeps that contract: the file it
+        already reads now carries the registration and the correction together,
+        so nothing after this step has to know an adjustment happened.
+        """
+        transform = self.pause_transform
+        item = self.pause_transform_item
+        if transform is None or not item or not item.get("matrix"):
+            return
+
+        matrix = vtk.vtkMatrix4x4()
+        transform.GetMatrixTransformToParent(matrix)
+        if self.isIdentityMatrix(matrix):
+            logger.info(f"{item['patient']}: registration left as AREG produced it")
+            return
+
+        import numpy as np
+        import SimpleITK as sitk
+
+        path = item["matrix"]
+        try:
+            areg = sitk.ReadTransform(path)
+        except Exception as e:
+            logger.error(f"Could not read {os.path.basename(path)}: {e}")
+            return
+
+        ras = np.array([[matrix.GetElement(r, c) for c in range(4)] for r in range(4)])
+        # Slicer holds the displacement in RAS; a .tfm is LPS, and the two differ
+        # by a flip of the first two axes.
+        flip = np.diag([-1.0, -1.0, 1.0, 1.0])
+        lps = flip @ ras @ flip
+
+        nudge = sitk.AffineTransform(3)
+        nudge.SetMatrix(lps[:3, :3].flatten().tolist())
+        nudge.SetTranslation(lps[:3, 3].tolist())
+
+        # Verified against applying the two in sequence: AutoMatrix inverts the
+        # matrix before moving a point, and this is the order that survives it.
+        composed = sitk.CompositeTransform([areg, nudge.GetInverse()])
+
+        try:
+            sitk.WriteTransform(composed, path)
+            logger.info(f"{item['patient']}: adjustment folded into {os.path.basename(path)}")
+        except Exception as e:
+            logger.error(f"Could not write the adjusted matrix to {path}: {e}")
+            return
+
+        self.saveAdjustedVolume(item, transform)
+
+    def saveAdjustedVolume(self, item: dict, transform) -> None:
+        """
+        Write the moved scan back, so the surfaces and heatmaps match the matrix.
+
+        Args:
+            item: Review item currently on screen
+            transform: The transform node holding the user's displacement
+        """
+        for node in self.pause_nodes:
+            if not node.IsA("vtkMRMLScalarVolumeNode"):
+                continue
+            if node.GetTransformNodeID() != transform.GetID():
+                continue
+            storage = node.GetStorageNode()
+            path = storage.GetFileName() if storage else None
+            if not path:
+                continue
+            try:
+                node.HardenTransform()
+                if slicer.util.saveNode(node, path):
+                    logger.info(f"{item['patient']}: adjusted scan saved to {os.path.basename(path)}")
+                else:
+                    logger.error(f"Could not save the adjusted scan to {path}")
+            except Exception as e:
+                logger.error(f"Could not save the adjusted scan to {path}: {e}")
+            return
+
+    @staticmethod
+    def isIdentityMatrix(matrix, tolerance: float = 1e-9) -> bool:
+        """
+        Tell whether a 4x4 holds no displacement at all.
+
+        Args:
+            matrix: vtkMatrix4x4 to test
+            tolerance: Largest deviation still counted as identity
+
+        Returns:
+            bool: True if the matrix is the identity within tolerance
+        """
+        for row in range(4):
+            for col in range(4):
+                expected = 1.0 if row == col else 0.0
+                if abs(matrix.GetElement(row, col) - expected) > tolerance:
+                    return False
+        return True
+
+    def clearPauseNodes(self) -> None:
+        """Remove the nodes the previous review item put in the scene."""
+        for node in self.pause_nodes:
+            try:
+                slicer.mrmlScene.RemoveNode(node)
+            except Exception as e:
+                logger.warning(f"Could not remove a reviewed node from the scene: {e}")
+        self.pause_nodes = []
+        self.pause_markups_nodes = []
+        self.pause_markups_start = {}
+        self.pause_transform = None
+        self.pause_transform_item = None
+
+    def showDoneMessage(self) -> None:
+        """Say the run is over without taking the application hostage.
+
+        Nothing waits on this answer, so it is shown rather than executed: a
+        modal dialog that fails to appear leaves the user with no way to click
+        anything, and that is exactly what a finished run must not do.
+        """
+        self.done_popup = PopUpWindow(
+            title="Process Complete", text="Processing completed successfully!"
+        )
+        self.done_popup.setModal(False)
+        self.done_popup.show()
+        self.done_popup.raise_()
+
+    def previousCorrectableStep(self):
+        """The nearest step behind this one the user can actually change.
+
+        Looking at a bad orientation is useless without a way back to the
+        landmarks that caused it. Steps that can only ever be looked at are
+        skipped over, so the button lands where something can be done.
+
+        Returns:
+            tuple: (step, steps to replay after it), or (None, []) when there is
+                nothing correctable behind the current one
+        """
+        current = self.current_process_info
+        history = self.executed_steps
+        # By identity, not equality: two runs of the same step carry equal
+        # dictionaries, and the one meant here is the one on screen.
+        here = None
+        for i in range(len(history) - 1, -1, -1):
+            if history[i] is current:
+                here = i
+                break
+        if here is None:
+            return None, []
+
+        for i in range(here - 1, -1, -1):
+            kind = review_steps.describe(history[i].get("ReviewId", "")).get("kind")
+            if kind in (review_steps.LANDMARKS, review_steps.REGISTRATION):
+                return history[i], history[i + 1:here + 1]
+        return None, []
+
+    def flaggedPatients(self) -> list:
+        """The marked patients, in the order the queue shows them."""
+        return [i["patient"] for i in self.pause_queue
+                if i["patient"] in self.review_flagged]
+
+    def updateReviewButtons(self) -> None:
+        """Show the actions this patient, and this step, actually allow.
+
+        Each button does one thing and says so: moving between patients never
+        advances the run, and going back never hides behind a forward label.
+        """
+        total = len(self.pause_queue)
+        index = self.pause_index
+        patient = self.pause_queue[index]["patient"] if total else ""
+
+        self.ui.reviewPatientLabel.setVisible(bool(patient))
+        self.ui.reviewPatientLabel.setText(
+            f"<b>{patient}</b>"
+            + (f" &nbsp;({index + 1} / {total})" if total > 1 else "")
+        )
+
+        self.ui.reviewPrevPatientButton.setVisible(total > 1)
+        self.ui.reviewPrevPatientButton.setEnabled(index > 0)
+        self.ui.reviewNextPatientButton.setVisible(total > 1)
+        self.ui.reviewNextPatientButton.setEnabled(index < total - 1)
+
+        # Marking is only worth offering when there is somewhere to go back to.
+        target, _ = self.previousCorrectableStep()
+        self.ui.reviewFlagButton.setVisible(target is not None)
+        if patient in self.review_flagged:
+            self.ui.reviewFlagButton.setText("Cancel - this patient is fine")
+        else:
+            self.ui.reviewFlagButton.setText("Go back and edit this patient")
+
+        flagged = self.flaggedPatients()
+        self.ui.reviewGoBackButton.setVisible(bool(flagged) and target is not None)
+        if flagged and target is not None:
+            name = review_steps.describe(target.get("ReviewId", "")).get(
+                "label", "the previous step")
+            self.ui.reviewGoBackButton.setText(
+                f"Go back to {name} for {len(flagged)} patient(s)"
+            )
+
+    def onReviewPreviousPatient(self) -> None:
+        """Show the patient before this one, keeping any edit made here."""
+        if self.pause_index > 0:
+            self.savePauseEdits()
+            self.pause_index -= 1
+            self.showPauseItem()
+
+    def onReviewNextPatient(self) -> None:
+        """Show the next patient of this step, keeping any edit made here."""
+        if self.pause_index < len(self.pause_queue) - 1:
+            self.savePauseEdits()
+            self.pause_index += 1
+            self.showPauseItem()
+
+    def onReviewToggleFlag(self) -> None:
+        """Mark this patient for rework, or take the mark back."""
+        if not self.pause_queue:
+            return
+        patient = self.pause_queue[self.pause_index]["patient"]
+        if patient in self.review_flagged:
+            self.review_flagged.discard(patient)
+            logger.info(f"{patient}: mark removed")
+        else:
+            self.review_flagged.add(patient)
+            logger.info(f"{patient}: marked for rework")
+        self.updateReviewButtons()
+
+    def onReviewGoBack(self) -> None:
+        """Return to the last correctable step, for the patients marked there.
+
+        Correcting the landmarks changes nothing on its own - the orientation
+        was computed from the old ones. So the steps in between are queued to
+        run again, narrowed to the marked patients: the rest of the batch keeps
+        the results it already has, and a run of fifty does not start over
+        because one case was wrong.
+        """
+        target, replay = self.previousCorrectableStep()
+        if target is None:
+            logger.warning("Nothing correctable behind this step")
+            return
+
+        flagged = self.flaggedPatients()
+        if not flagged:
+            logger.warning("No patient marked for rework")
+            return
+
+        name = review_steps.describe(target.get("ReviewId", "")).get(
+            "label", target.get("Module"))
+        logger.info(
+            f"Going back to '{name}' for {flagged}; "
+            f"{len(replay)} step(s) will run again for them"
+        )
+
+        narrowed = []
+        for step in replay:
+            restricted, folders = review_steps.restrictStepToPatients(step, flagged)
+            self.review_temp_folders.extend(folders)
+            narrowed.append(restricted)
+
+        self.resetPauseState()
+
+        # The steps between the two run again, ahead of whatever was left, and
+        # the user lands back on the step they can actually fix.
+        self.list_process[0:0] = narrowed
+        self.NumberProcess += len(narrowed)
+        self.review_flagged_carry = list(flagged)
+        self.current_process_info = target
+        self.module_name = target.get("Module", self.module_name)
+        # beginReview guards against a pause cancelled between the callback and
+        # the event loop; this one comes from a button, so it is armed here.
+        self.pause_pending = True
+        self.beginReview()
+
+    def clearReviewTempFolders(self) -> None:
+        """Drop the temporary folders a narrowed replay left behind."""
+        for folder in self.review_temp_folders:
+            try:
+                shutil.rmtree(folder, ignore_errors=True)
+            except OSError as e:
+                logger.warning(f"Could not remove {folder}: {e}")
+        self.review_temp_folders = []
+
+    def resetPauseState(self) -> None:
+        """Drop everything held for the review in progress."""
+        self.pause_pending = False
+        self.clearPauseNodes()
+        self.ui.reviewLabel.setVisible(False)
+        self.ui.reviewLabel.setText("")
+        self.ui.continueButton.setText(self.CONTINUE_BUTTON_TEXT)
+        for name in ("reviewPatientLabel", "reviewPrevPatientButton",
+                     "reviewNextPatientButton", "reviewFlagButton",
+                     "reviewGoBackButton"):
+            getattr(self.ui, name).setVisible(False)
+        self.pause_queue = []
+        self.pause_index = 0
+        self.review_flagged = set()
+        self.paused_for_visualization = False
+
+    def applyPauseLayout(self, item: dict) -> None:
+        """
+        Set a layout suited to what is being reviewed.
+
+        Args:
+            item: Review item currently on screen
+        """
+        layoutManager = slicer.app.layoutManager()
+        surfaces_only = not item.get("volume") and all(
+            f.endswith(self.MODEL_EXT) for f in item["files"]
+        )
+
+        if surfaces_only:
+            layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
+            widget = layoutManager.threeDWidget(0)
+            if widget:
+                widget.threeDView().resetFocalPoint()
+        else:
+            layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+            slicer.util.resetSliceViews()
 
     def executeProcess(self, process_info):
         import time
@@ -1317,6 +2411,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.module_name = process_info["Module"]
         self.displayModule = process_info["Display"]
         self.current_process_info = process_info  # Stocker les infos du processus actuel
+        # Kept in order: going back means finding what ran before this step.
+        self.executed_steps.append(process_info)
         
         process = process_info["Process"]
         parameters = process_info["Parameter"]
@@ -1341,7 +2437,16 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.addObserver(self.cliNode, vtk.vtkCommand.ModifiedEvent, self.onCliUpdated)
         else:
             logger.info(f"{self.module_name} is executed.")
-            self.ui.label_3.setText(f"Process : {self.module_name} ({self.ActualProcess}/{self.NumberProcess})")
+            # A python step holds the event loop for its whole duration, so this
+            # is the last thing drawn until it returns and the window stops
+            # repainting meanwhile. Say so, or a segmentation that legitimately
+            # takes minutes is indistinguishable from a freeze.
+            self.ui.label_3.setText(
+                f"Process : {self.module_name} "
+                f"({self.ActualProcess}/{self.NumberProcess}) - running, "
+                f"the window stays still until it finishes"
+            )
+            slicer.app.processEvents()
 
             # No CLI is running during a Python step: forget the previous node so
             # a late event from it cannot advance the chain from under our feet.
@@ -1358,26 +2463,137 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def startPythonProcess(self):
         """Start a Python process"""
+        import time
+
+        started = time.time()
+        log_path = None
         try:
             if callable(self.python_process):
-                # Execute the process
-                result = self.python_process(**self.python_parameters)
-                logger.info(f"Result of {self.module_name}: {result}")
+                with self.outputToFile() as log_path:
+                    result = self.python_process(**self.python_parameters)
+                logger.info(
+                    f"Result of {self.module_name}: {result} "
+                    f"(in {self.readableDuration(time.time() - started)})"
+                )
                 self.python_process_completed = True
             else:
                 logger.error(f"Error: {self.python_process} is not a callable function")
                 self.python_process_error = "Process is not callable"
                 self.python_process_completed = True
-                
+
         except Exception as e:
             logger.error(f"Error during the execution of {self.module_name}: {e}")
             import traceback
             traceback.print_exc()
             self.python_process_error = str(e)
             self.python_process_completed = True
-        
+
+        finally:
+            # A step that raised still wrote to the file, and its last lines are
+            # exactly the ones worth seeing; reporting here also stops the
+            # temporary file leaking on that path.
+            if log_path:
+                self._reportStepOutput(log_path)
+
         import qt
         qt.QTimer.singleShot(100, self.checkPythonProcessStatus)
+
+    @contextlib.contextmanager
+    def outputToFile(self):
+        """
+        Send everything a step prints to a file instead of Slicer's own pipe.
+
+        Slicer captures its standard output into a pipe it drains from the Qt
+        event loop. A python step runs with that loop stopped, so nothing drains
+        the pipe while it prints: a talkative one - the segmentation prints per
+        epoch - fills it and the main thread blocks in write() for ever, with a
+        window that never comes back. Writing to a file cannot block, which is
+        why the heatmap workers already do this.
+
+        The redirection is at file-descriptor level on purpose: torch and the
+        segmentation write from C, straight to fd 1, where swapping sys.stdout
+        would not catch them.
+
+        Yields:
+            str: path of the file the step's output was written to
+        """
+        handle = tempfile.NamedTemporaryFile(
+            mode="w+", suffix=".log", prefix="vface_step_", delete=False
+        )
+        saved_out, saved_err = None, None
+        saved_sys_out, saved_sys_err = sys.stdout, sys.stderr
+        try:
+            for stream in (sys.stdout, sys.stderr):
+                try:
+                    stream.flush()
+                except Exception:
+                    pass
+            saved_out = os.dup(1)
+            saved_err = os.dup(2)
+            os.dup2(handle.fileno(), 1)
+            os.dup2(handle.fileno(), 2)
+            sys.stdout, sys.stderr = handle, handle
+            yield handle.name
+        finally:
+            sys.stdout, sys.stderr = saved_sys_out, saved_sys_err
+            try:
+                handle.flush()
+            except Exception:
+                pass
+            if saved_out is not None:
+                os.dup2(saved_out, 1)
+                os.close(saved_out)
+            if saved_err is not None:
+                os.dup2(saved_err, 2)
+                os.close(saved_err)
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+    def _reportStepOutput(self, log_path: str, keep_lines: int = 12) -> None:
+        """
+        Put the tail of a step's own output back in the log, and drop the file.
+
+        Args:
+            log_path: File the step's output was redirected to
+            keep_lines: How many trailing lines to bring back
+        """
+        try:
+            with open(log_path, encoding="utf-8", errors="replace") as f:
+                lines = [line.rstrip() for line in f if line.strip()]
+        except OSError:
+            return
+        finally:
+            try:
+                os.remove(log_path)
+            except OSError:
+                pass
+
+        if not lines:
+            return
+        shown = lines[-keep_lines:]
+        skipped = len(lines) - len(shown)
+        prefix = f"[{skipped} earlier line(s) not shown]\n" if skipped else ""
+        logger.info(f"{self.module_name} said:\n{prefix}" + "\n".join(shown))
+
+    @staticmethod
+    def readableDuration(seconds: float) -> str:
+        """
+        Spell out a duration the way the CLI steps already report theirs.
+
+        Args:
+            seconds: Elapsed seconds
+
+        Returns:
+            str: Human readable duration
+        """
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds}s"
+        if seconds < 3600:
+            return f"{seconds // 60}min and {seconds % 60}s"
+        return f"{seconds // 3600}h, {seconds % 3600 // 60}min and {seconds % 60}s"
 
     def checkPythonProcessStatus(self):
         """Check Python process status"""
@@ -1390,16 +2606,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onProcessCompleted(self):
         logger.info("\n\n ========= PROCESSED ========= \n")
 
-        if self.shouldPauseAfterProcess(self.current_process_info) and self.ui.checkBox_2.isChecked():
-            output_path = self.getOutputPathForModule(self.module_name)
-            if output_path:
-                if self.loadOutputInSlicer(output_path):
-                    self.paused_for_visualization = True
-                    self.current_output_to_load = output_path
-                    self.ui.continueButton.setVisible(True)
-                    self.ui.label_3.setText(f"Result of {self.module_name} loaded - Click on Continue to start next steps")
-                    logger.info(f"Process on pause after {self.module_name}. Result loaded.")
-                    return
+        if self.enterPauseForReview(self.current_process_info):
+            return
 
         try:
             self.executeProcess(self.list_process[0])
@@ -1463,17 +2671,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 0, lambda: logger.info(f"\n\n ========= PROCESSED ========= \n{cli_output}")
             )
             
-            if self.shouldPauseAfterProcess(self.current_process_info) and self.ui.checkBox_2.isChecked():
-                output_path = self.getOutputPathForModule(self.module_name)
-                if output_path:
-                    if self.loadOutputInSlicer(output_path):
-                        self.paused_for_visualization = True
-                        self.current_output_to_load = output_path
-                        self.ui.continueButton.setVisible(True)
-                        self.ui.label_3.setText(f"Result of {self.module_name} loaded - Click on Continue to start next steps")
-                        logger.info(f"Process on pause after {self.module_name}. Result loaded.")
-                        self.ui.progressBar.setValue(0)
-                        return
+            if self.enterPauseForReview(self.current_process_info):
+                return
             
             try:
                 # Run next process
@@ -1528,17 +2727,20 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         logger.info(f"PROCESS COMPLETED in {timer}")
 
+        # The narrowed replays are only links into the real output; once the run
+        # is over they say nothing and would pile up run after run.
+        self.clearReviewTempFolders()
+
         self.ui.label_3.setVisible(False)
         self.ui.progressBar.setVisible(False)
         self.ui.continueButton.setVisible(False)
         self.ui.cancelButton.setVisible(False)
         self.ui.CheckDependencyButton.enabled = True
-        self.paused_for_visualization = False
+        self.resetPauseState()
         self.ActualProcess = 1
         self.NumberProcess = 0
         self.cliNode = None
         self.list_process = []
-        self.current_output_to_load = None
         self.current_process_info = None
 
         self._checkCanApply()
@@ -1571,12 +2773,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # nested event loop while the CLI node is still dispatching events, and
         # the modal grab can leave the whole desktop session unresponsive, not
         # just Slicer. Same fix as AREG: defer it so the callback returns first.
-        qt.QTimer.singleShot(
-            0,
-            lambda: PopUpWindow(
-                title="Process Complete", text="Processing completed successfully!"
-            ).exec_(),
-        )
+        qt.QTimer.singleShot(0, self.showDoneMessage)
             
             
             

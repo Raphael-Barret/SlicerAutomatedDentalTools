@@ -809,7 +809,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Apply standard style to most buttons
         for buttonName in ['applyButton', 'CheckDependencyButton', 'continueButton',
                            'DefaultListButton', 'TestFilesButton',
-                           'reviewSelectAllButton', 'reviewSelectNoneButton']:
+                           'reviewSelectAllButton', 'reviewSelectNoneButton',
+                           'reviewPrevPatientButton', 'reviewNextPatientButton',
+                           'reviewFlagButton', 'reviewGoBackButton']:
             if hasattr(self.ui, buttonName):
                 button = getattr(self.ui, buttonName)
                 button.setStyleSheet(standardButtonStyle)

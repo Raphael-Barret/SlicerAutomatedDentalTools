@@ -32,6 +32,10 @@ def patientIdFromFileName(basename: str) -> str:
     the id is what is left once those are stripped. The order matters: the
     longest markers have to go first or a shorter one cuts inside them.
     """
+    # TIMEPOINT-SUFFIX: this list mirrors the split chains used across the
+    # pipeline and carries the same limit - only _T1/_T2 are stripped, so _T3/_T4
+    # inputs break pairing. See the full note above GetPatients in
+    # AREG_CBCT/AREG_CBCT_utils/utils.py.
     for token in ["_SegOr", "_Scan", "_scan", "_Or", "_OR", "_MAND", "_MD",
                   "_MAX", "_MX", "_CB", "_lm", "_Pred", "_T1", "_T2", "_Cl",
                   "_Center", "_left", "_Left", "_right", "_Right", "_U", "_L",

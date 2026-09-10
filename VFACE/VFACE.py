@@ -2760,7 +2760,18 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 files_to_keep.append("Classification")
 
             try:
-                output_path = Path(self._parameterNode.OutputFolder)
+                # Path("") is Path("."), and iterdir() would then walk whatever
+                # directory Slicer happens to be running from, deleting every
+                # sub-folder in it and leaving the files - which is how a run
+                # with no output folder set can empty a source tree. Nothing is
+                # cleaned unless the folder is an absolute path that exists.
+                output = (self._parameterNode.OutputFolder or "").strip()
+                if not output or not os.path.isabs(output) or not os.path.isdir(output):
+                    raise ValueError(
+                        f"output folder {output!r} is not an absolute existing "
+                        "directory; nothing cleaned"
+                    )
+                output_path = Path(output)
                 for item in output_path.iterdir():
                     if item.is_dir() and item.name not in files_to_keep:
                         shutil.rmtree(item)

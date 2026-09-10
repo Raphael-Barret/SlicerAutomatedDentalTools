@@ -212,6 +212,13 @@ def restrictStepToPatients(step, patients, tempdir_factory=None, id_of=None):
                 relative = os.path.relpath(source, folder)
                 target = os.path.join(linked, relative)
                 os.makedirs(os.path.dirname(target), exist_ok=True)
+                # slicer.util.tempDirectory() names its folder to the millisecond,
+                # so two narrowings close together can be handed the same one. The
+                # file is then already linked, and copying onto a link that points
+                # at its own source raises SameFileError.
+                if os.path.lexists(target):
+                    kept += 1
+                    continue
                 try:
                     os.symlink(source, target)
                     kept += 1

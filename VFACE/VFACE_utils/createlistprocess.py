@@ -13,6 +13,7 @@ from .functionaq3dc import AQ3DCLogic, AQ3DCWidget, patientIdFromFileName
 import qt
 import re
 import shutil
+import tempfile
 from pathlib import Path
 import pandas as pd
 import traceback
@@ -236,7 +237,7 @@ def CreateListProcess(**kwargs):
             "output_folder": preaso_MAX_folder_path,
             "model_folder": False,
             "SmallFOV": False,
-            "temp_folder": slicer.util.tempDirectory(),
+            "temp_folder": _unique_temp_dir("work"),
             "DCMInput": False,
         }
         list_process.append(
@@ -255,7 +256,7 @@ def CreateListProcess(**kwargs):
             "dir_models": kwargs["model_folder_ali"],
             "lm_type": "'ANS','IF','PNS','UL6O','UR1O','UR6O'",
             "output_dir": preaso_MAX_folder_path,
-            "temp_fold": slicer.util.tempDirectory(),
+            "temp_fold": _unique_temp_dir("work"),
             "DCMInput": False,
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
@@ -316,7 +317,7 @@ def CreateListProcess(**kwargs):
             "output_folder": preaso_CB_folder_path,
             "model_folder": False,
             "SmallFOV": False,
-            "temp_folder": slicer.util.tempDirectory(),
+            "temp_folder": _unique_temp_dir("work"),
             "DCMInput": False,
         }
 
@@ -336,7 +337,7 @@ def CreateListProcess(**kwargs):
             "dir_models": kwargs["model_folder_ali"],
             "lm_type": "'Ba', 'LPo', 'N', 'RPo', 'S', 'LOr', 'ROr'",
             "output_dir": preaso_CB_folder_path,
-            "temp_fold": slicer.util.tempDirectory(),
+            "temp_fold": _unique_temp_dir("work"),
             "DCMInput": False,
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
@@ -434,7 +435,7 @@ def CreateListProcess(**kwargs):
                 "output_folder": t2_centered_folder_path,
                 "model_folder": False,
                 "SmallFOV": False,
-                "temp_folder": slicer.util.tempDirectory(),
+                "temp_folder": _unique_temp_dir("work"),
                 "DCMInput": False,
             }
 
@@ -526,7 +527,7 @@ def CreateListProcess(**kwargs):
                     "matrix_name": False,
                     "fromAreg": False,
                     "output_folder": t2mask_folder_path,
-                    "log_path": slicer.util.tempDirectory(),
+                    "log_path": _unique_temp_dir("log"),
                     "is_seg": True
                 }
                 list_process.append(
@@ -556,7 +557,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": t2_cb_folder,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
             }
 
@@ -579,7 +580,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": t2_max_folder,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
             }
 
@@ -620,7 +621,7 @@ def CreateListProcess(**kwargs):
             "add_name": "_Reg",
             "DCMInput": False,
             "SegmentationLabel": "0",
-            "temp_folder": slicer.util.tempDirectory(),
+            "temp_folder": _unique_temp_dir("work"),
             "ApproxReg": False,
             "mask_folder_t1": mask_folder_path,
         }
@@ -656,7 +657,7 @@ def CreateListProcess(**kwargs):
             "add_name": "_Reg",
             "DCMInput": False,
             "SegmentationLabel": "0",
-            "temp_folder": slicer.util.tempDirectory(),
+            "temp_folder": _unique_temp_dir("work"),
             "ApproxReg": False,
             "mask_folder_t1": mask_folder_path,
         }
@@ -692,7 +693,7 @@ def CreateListProcess(**kwargs):
             "add_name": "_Reg",
             "DCMInput": False,
             "SegmentationLabel": "0",
-            "temp_folder": slicer.util.tempDirectory(),
+            "temp_folder": _unique_temp_dir("work"),
             "ApproxReg": False,
             "mask_folder_t1": mask_folder_path,
         }
@@ -758,7 +759,13 @@ def CreateListProcess(**kwargs):
         # step outside the unpadded image, so a landmark at the edge is out of
         # reach. Hand it a roomier copy: the scans on disk are untouched and
         # every later step still reads the originals.
-        padded_scans_path = slicer.util.tempDirectory()
+        # tempfile.mkdtemp, not slicer.util.tempDirectory: the latter names its
+        # folder to the millisecond, and the calls that build this list run
+        # microseconds apart, so it handed the padded scans and ALI's own
+        # temp_fold the same directory. ALI then found the leftovers of an
+        # earlier step there - elastix's fixed_image_masked - and landmarked
+        # that instead of the patients.
+        padded_scans_path = _unique_temp_dir("padded")
 
         list_process.append(
             {
@@ -780,7 +787,7 @@ def CreateListProcess(**kwargs):
                 "dir_models": kwargs["model_folder_ali"],
                 "lm_type": ",".join([f"'{e}'" for e in list_landmark]),
                 "output_dir": landmarks_cb_folder_path,
-                "temp_fold": slicer.util.tempDirectory(),
+                "temp_fold": _unique_temp_dir("ali"),
                 "DCMInput": False,
                 "spacing": "[1,0.3]",
                 "speed_per_scale": "[1,1]",
@@ -855,7 +862,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": mirrored_landmarks_cb_folder_path,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
                 }
 
@@ -878,7 +885,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": mirrored_landmarks_max_folder_path,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
                 }
 
@@ -919,7 +926,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": mirrored_registered_cb_landmarks_folder_path,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
                 }
 
@@ -942,7 +949,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": mirrored_registered_mand_landmarks_folder_path,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
                 }
 
@@ -965,7 +972,7 @@ def CreateListProcess(**kwargs):
                 "matrix_name": False,
                 "fromAreg": False,
                 "output_folder": mirrored_registered_max_landmarks_folder_path,
-                "log_path": slicer.util.tempDirectory(),
+                "log_path": _unique_temp_dir("log"),
                 "is_seg": False
                 }
 
@@ -997,7 +1004,7 @@ def CreateListProcess(**kwargs):
                     "dir_models": kwargs["model_folder_ali"],
                     "lm_type": ",".join([f"'{e}'" for e in list_landmark]),
                     "output_dir": t2_landmarks_cb_folder_path,
-                    "temp_fold": slicer.util.tempDirectory(),
+                    "temp_fold": _unique_temp_dir("ali"),
                     "DCMInput": False,
                     "spacing": "[1,0.3]",
                     "speed_per_scale": "[1,1]",
@@ -1021,7 +1028,7 @@ def CreateListProcess(**kwargs):
                     "dir_models": kwargs["model_folder_ali"],
                     "lm_type": ",".join([f"'{e}'" for e in list_landmark_max]),
                     "output_dir": t2_landmarks_max_folder_path,
-                    "temp_fold": slicer.util.tempDirectory(),
+                    "temp_fold": _unique_temp_dir("ali"),
                     "DCMInput": False,
                     "spacing": "[1,0.3]",
                     "speed_per_scale": "[1,1]",
@@ -1045,7 +1052,7 @@ def CreateListProcess(**kwargs):
                     "dir_models": kwargs["model_folder_ali"],
                     "lm_type": ",".join([f"'{e}'" for e in list_landmark_max]),
                     "output_dir": t2_landmarks_mand_folder_path,
-                    "temp_fold": slicer.util.tempDirectory(),
+                    "temp_fold": _unique_temp_dir("ali"),
                     "DCMInput": False,
                     "spacing": "[1,0.3]",
                     "speed_per_scale": "[1,1]",
@@ -2071,6 +2078,29 @@ def create_list_measure(df_path):
         else:
             logger.error("There is an issue in the xlsx file")
     return list_measure
+
+def _unique_temp_dir(what):
+    """A directory no other step can be handed.
+
+    slicer.util.tempDirectory() names its folder from the clock to the
+    millisecond, and the steps of a pipeline are built microseconds apart, so two
+    of them are regularly given the *same* directory. That is not theoretical:
+    the padded scans and ALI's own temp_fold collided, ALI found elastix's
+    leftover fixed_image_masked there and landmarked it instead of the patients.
+
+    Kept under Slicer's temporary root so its own cleanup still applies.
+
+    Args:
+        what: short tag that ends up in the folder name, to make a stray one
+            traceable back to the step that made it
+
+    Returns:
+        str: path of a fresh, empty directory
+    """
+    root = getattr(slicer.app, "temporaryPath", None) or tempfile.gettempdir()
+    os.makedirs(root, exist_ok=True)
+    return tempfile.mkdtemp(prefix=f"VFACE_{what}_", dir=root)
+
 
 def pad_scans_for_landmarks(input_folder, output_folder, margin_mm=30):
     """Copy each scan with empty space around it so ALI can work at the edges.

@@ -2495,7 +2495,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if table is not None:
                 break
 
-        shown, loaded = 0, 0
+        shown, loaded, spans = 0, 0, []
         for path in files:
             try:
                 model = slicer.util.loadModel(path)
@@ -2520,6 +2520,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     # surface with no scale, and its range can be ten times
                     # smaller than the merged map's.
                     self.addColorLegend(display)
+                    spans.append((os.path.basename(path).replace("_ModelDistance.vtk", ""), edge))
                     if on:
                         shown += 1
                 loaded += 1
@@ -2542,17 +2543,45 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # dismissed and leaves nothing behind, so a clinician looking at a
             # coloured skull a minute later has no clue what to do with it. The
             # explanatory box is where every other instruction has appeared.
+            # The same numbers in the panel, out of the 3D view: with several maps
+            # shown the bars compete for the same corner, and a written range is
+            # readable whatever is on screen.
+            ranges = "<br/>".join(
+                f"&nbsp;&nbsp;{name} &nbsp;<b>&plusmn;{edge:.1f} mm</b>"
+                for name, edge in sorted(spans)
+            )
             self.ui.reviewLabel.setText(
                 f"<b>Distance maps</b><br/>"
                 f"{shown} map(s) in the 3D view, coloured by signed distance "
                 "around zero; the scale beside them is in millimetres."
+                f"<br/>{ranges}"
                 f"<br/><span style='color:#7f8c8d'>{loaded} map(s) loaded in all: "
                 "tick one in <b>Models</b> to show it, where you can also change "
                 "the colours or the range.</span>"
             )
+            self.layoutLegends()
             self.ui.reviewLabel.setVisible(True)
             logger.info(f"{shown} heatmap(s) on screen, coloured by signed distance")
         return shown
+
+    def layoutLegends(self) -> None:
+        """Spread the visible scales across the view instead of stacking them.
+
+        Every colour legend is created at the same spot, (0.95, 0.5), so showing
+        three maps at once puts three bars exactly on top of each other. Each
+        visible one gets its own column, right to left, in the order the maps
+        were loaded.
+        """
+        visible = [legend for display, legend in self.legend_pairs
+                   if display.GetVisibility()]
+        for i, legend in enumerate(visible):
+            try:
+                legend.SetSize(0.13, 0.45)
+                # 0.16 apart for a bar 0.13 wide: they sit side by side without
+                # touching, and three still fit inside the view.
+                legend.SetPosition(max(0.05, 0.95 - 0.16 * i), 0.5)
+            except Exception as e:
+                logger.warning(f"Could not place a colour scale: {e}")
 
     def onHeatmapVisibilityChanged(self, caller, event) -> None:
         """Keep each scale with the surface it describes.
@@ -2564,6 +2593,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for display, legend in self.legend_pairs:
             if display is caller:
                 legend.SetVisibility(bool(display.GetVisibility()))
+                self.layoutLegends()
                 return
 
     def addColorLegend(self, display) -> None:

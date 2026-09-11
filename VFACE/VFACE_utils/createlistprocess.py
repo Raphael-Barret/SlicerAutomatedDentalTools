@@ -754,8 +754,29 @@ def CreateListProcess(**kwargs):
         landmarks_max_folder_path = os.path.join(landmarks_folder_path,"MAX")
         os.makedirs(landmarks_max_folder_path, exist_ok=True)
 
+        # ALI's agent may sample inside the border ALI adds, but it refuses to
+        # step outside the unpadded image, so a landmark at the edge is out of
+        # reach. Hand it a roomier copy: the scans on disk are untouched and
+        # every later step still reads the originals.
+        padded_scans_path = slicer.util.tempDirectory()
+
+        list_process.append(
+            {
+                "Process": pad_scans_for_landmarks,
+                "Parameter": {
+                    "input_folder": orientation_cb_folder_path,
+                    "output_folder": padded_scans_path,
+                    "margin_mm": 30,
+                },
+                "Module": "Making room for the landmark search",
+                "Display": DisplayAREGCBCT(
+                    nb_scan
+                ),
+            },
+        )
+
         parameter_ali = {
-                "input": orientation_cb_folder_path,
+                "input": padded_scans_path,
                 "dir_models": kwargs["model_folder_ali"],
                 "lm_type": ",".join([f"'{e}'" for e in list_landmark]),
                 "output_dir": landmarks_cb_folder_path,
@@ -2050,6 +2071,58 @@ def create_list_measure(df_path):
         else:
             logger.error("There is an issue in the xlsx file")
     return list_measure
+
+def pad_scans_for_landmarks(input_folder, output_folder, margin_mm=30):
+    """Copy each scan with empty space around it so ALI can work at the edges.
+
+    ALI border-pads the image it samples (agent_fov/2 + 1 voxels), but Agent.Move
+    refuses any position outside the *unpadded* size. A landmark sitting a voxel
+    or two from the border therefore sends the agent into a bounds bounce: random
+    restart, attempt counter up, and after three tries it gives up. Me is 1.2 mm
+    above the floor of these CBCTs, and the very same model finds it at once when
+    there is room around it.
+
+    Fixing that mismatch belongs in ALI and would serve every module that calls
+    it. This is the safe half of the answer: give the scan room, touch nothing
+    that AREG and ASO also depend on.
+
+    Physical coordinates are preserved - the origin moves with the padding - so
+    the landmarks come back in the original scan's space. Measured against an
+    unpadded run: points away from the border moved by at most one voxel.
+
+    Args:
+        input_folder: Folder of scans to copy
+        output_folder: Where the padded copies go
+        margin_mm: Room to add on every side, in millimetres
+
+    Returns:
+        str: output_folder, so the caller can feed it straight to ALI
+    """
+    import SimpleITK as sitk
+
+    os.makedirs(output_folder, exist_ok=True)
+    scans = GetListFiles(input_folder, [".nii", ".nii.gz", ".nrrd", ".gipl", ".gipl.gz"])
+    if not scans:
+        logger.warning(f"No scan to pad in {input_folder}; landmarks will run on it as it is")
+        return input_folder
+
+    for path in scans:
+        target = os.path.join(output_folder, os.path.basename(path))
+        try:
+            image = sitk.ReadImage(path)
+            pad = [max(1, int(round(margin_mm / sp))) for sp in image.GetSpacing()]
+            # The scan's own minimum, not zero: an air value that already exists
+            # in the volume keeps the intensity rescaling ALI applies unchanged.
+            background = float(sitk.GetArrayViewFromImage(image).min())
+            sitk.WriteImage(sitk.ConstantPad(image, pad, pad, background), target)
+        except Exception as e:
+            # A scan that cannot be padded is still worth landmarking as it is.
+            logger.warning(f"Could not pad {os.path.basename(path)}, using it unpadded: {e}")
+            shutil.copy(path, target)
+
+    logger.info(f"{len(scans)} scan(s) given {margin_mm} mm of room for the landmark search")
+    return output_folder
+
 
 def create_list_landmark(df_path):
 

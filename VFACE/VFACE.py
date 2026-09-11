@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import os
+import re
 import stat
 import tempfile
 from typing import Annotated
@@ -331,6 +332,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # so a rollback knows what lies behind, the patients a rollback is
         # replaying, and the temporary folders a narrowed replay leaves behind.
         self.review_flagged = set()
+        # {landmark: [scans it was missed on, scans tried]}, filled from the
+        # summary ALI prints when a run ends.
+        self.missing_landmarks = {}
         self.executed_steps = []
         self.review_flagged_carry = []
         self.review_temp_folders = []
@@ -1262,8 +1266,10 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.progressBar.setVisible(True)
 
         self.NumberProcess = len(self.list_process)
-        # A second run in the same session must not see the first one's steps.
+        # A second run in the same session must not see the first one's steps,
+        # nor report the landmarks the previous one missed.
         self.executed_steps = []
+        self.missing_landmarks = {}
         self.review_flagged = set()
         self.review_flagged_carry = []
         self.clearReviewTempFolders()
@@ -2287,6 +2293,32 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.pause_transform = None
         self.pause_transform_item = None
 
+    # ALI says which landmarks its agents could not place, then moves on. Those
+    # lines used to scroll past in the console: the first sign of trouble was an
+    # empty column in the measurements, or a KeyError three steps later.
+    MISSING_LANDMARK_RE = re.compile(r"Landmark '([^']+)': (\d+)/(\d+) failures")
+
+    def collectMissingLandmarks(self, output_text: str) -> None:
+        """Note the landmarks a finished ALI run reported it could not find.
+
+        Args:
+            output_text: The CLI's standard output, untrimmed
+        """
+        for name, failed, total in self.MISSING_LANDMARK_RE.findall(output_text or ""):
+            entry = self.missing_landmarks.setdefault(name, [0, 0])
+            entry[0] += int(failed)
+            entry[1] += int(total)
+
+    def missingLandmarkReport(self) -> str:
+        """One line per landmark the run never placed, or an empty string."""
+        if not self.missing_landmarks:
+            return ""
+        lines = [
+            f"- {name}: not found on {failed} of {total} scan(s)"
+            for name, (failed, total) in sorted(self.missing_landmarks.items())
+        ]
+        return "\n".join(lines)
+
     def showDoneMessage(self) -> None:
         """Say the run is over without taking the application hostage.
 
@@ -2294,9 +2326,22 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         modal dialog that fails to appear leaves the user with no way to click
         anything, and that is exactly what a finished run must not do.
         """
-        self.done_popup = PopUpWindow(
-            title="Process Complete", text="Processing completed successfully!"
-        )
+        # A measurement is only as good as the points it rests on: a run that
+        # finished with landmarks missing produced empty columns, and saying so
+        # here is the difference between a known gap and a silent one.
+        report = self.missingLandmarkReport()
+        if report:
+            logger.warning(f"Landmarks never placed during this run:\n{report}")
+            text = (
+                "Processing completed, but some landmarks were never found:\n\n"
+                f"{report}\n\n"
+                "Measurements that rest on them are empty. A landmark is usually "
+                "missed because it falls outside the scan's field of view."
+            )
+        else:
+            text = "Processing completed successfully!"
+
+        self.done_popup = PopUpWindow(title="Process Complete", text=text)
         self.done_popup.setModal(False)
         self.done_popup.show()
         self.done_popup.raise_()
@@ -2753,7 +2798,12 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # a VTK observer callback where that loop cannot run. Writing here
             # is what lets the pipe fill until the main thread blocks in write()
             # with no reader left - the black window that never comes back.
-            cli_output = self._briefCliOutput(caller.GetOutputText())
+            full_output = caller.GetOutputText() or ""
+            # From the untrimmed text: the summary sits at the very end of ALI's
+            # output, but _briefCliOutput keeps only a tail and a longer run
+            # could push it out.
+            self.collectMissingLandmarks(full_output)
+            cli_output = self._briefCliOutput(full_output)
 
             # CompletedWithErrors is Completed | ErrorsMask, so the test above is
             # also true of a CLI that died. Without this branch the failure was

@@ -2119,10 +2119,13 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if loaded and item.get("adjustable") and moving is not None:
             self.setUpAdjustment(item, reference, moving)
 
-        # Only where points are being placed: on a registration the user judges
-        # two scans against each other on the slices, and a rendered block on top
-        # of that hides the very overlap they are looking at.
-        if loaded and item.get("editable") and reference is not None:
+        # On the reference only, and on every kind of pause. Rendering both scans
+        # of a registration would put two opaque blocks inside each other and
+        # show nothing - but rendering one costs nothing, because the rendering
+        # lives in the 3D view while the overlap is judged on the slices. An
+        # earlier version skipped registrations entirely, on the mistaken idea
+        # that a rendering would cover that overlap; it cannot.
+        if loaded and reference is not None:
             self.showVolumeRendering(reference)
 
         if loaded:

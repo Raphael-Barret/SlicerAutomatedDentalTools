@@ -326,6 +326,14 @@
           <property name="text"><string>Select none</string></property>
          </widget>
         </item>
+          <item>
+           <widget class="QPushButton" name="reviewSelectRecommendedButton">
+            <property name="toolTip">
+             <string>The steps worth a look on most runs: the landmarks you can correct, each registration, and the final surfaces</string>
+            </property>
+            <property name="text"><string>Select recommended</string></property>
+           </widget>
+          </item>
        </layout>
       </item>
       <item>

@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import glob
 import os
 import re
 import stat
@@ -866,6 +867,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for buttonName in ['applyButton', 'CheckDependencyButton', 'continueButton',
                            'DefaultListButton', 'TestFilesButton',
                            'reviewSelectAllButton', 'reviewSelectNoneButton',
+                           'reviewSelectRecommendedButton',
                            'reviewPrevPatientButton', 'reviewNextPatientButton',
                            'reviewFlagButton', 'reviewGoBackButton']:
             if hasattr(self.ui, buttonName):
@@ -1611,6 +1613,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.checkBox_2.connect("toggled(bool)", self.onReviewEnableToggled)
         self.ui.reviewSelectAllButton.connect("clicked(bool)", lambda: self.setAllReviewSteps(True))
         self.ui.reviewSelectNoneButton.connect("clicked(bool)", lambda: self.setAllReviewSteps(False))
+        self.ui.reviewSelectRecommendedButton.connect("clicked(bool)", self.setRecommendedReviewSteps)
         self.onReviewEnableToggled(self.ui.checkBox_2.isChecked())
         self.rebuildReviewSteps()
 
@@ -1672,6 +1675,32 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         layout.addStretch(1)
         # These boxes did not exist when the theme was applied.
         self._applyCheckboxStyleSheets(self._isDarkMode())
+
+    # What a clinician checks on a normal run: the landmarks they can actually
+    # correct, each of the three registrations, and the surfaces the measurements
+    # rest on. Everything else is worth a look while debugging, not routinely.
+    RECOMMENDED_REVIEW_IDS = (
+        "t1_landmarks",
+        "registration_cb",
+        "registration_max",
+        "registration_mand",
+        "bone_surfaces",
+    )
+
+    def setRecommendedReviewSteps(self) -> None:
+        """Tick the steps worth pausing on for a routine run.
+
+        Only among the steps this mode actually offers: ticking an id the run
+        will never reach reads as a broken feature the first time it goes
+        straight past it.
+        """
+        wanted = set(self.RECOMMENDED_REVIEW_IDS)
+        for review_id, box in self.review_checkboxes.items():
+            box.setChecked(review_id in wanted)
+        offered = wanted & set(self.review_checkboxes)
+        logger.info(f"{len(offered)} recommended step(s) ticked: {sorted(offered)}")
+        if not offered:
+            logger.warning("None of the recommended steps exist in this mode")
 
     def setAllReviewSteps(self, checked: bool) -> None:
         """Tick or untick every step currently offered."""
@@ -1996,9 +2025,22 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             action = "You can drag it into place"
         else:
             action = "Review only"
+        # Name the modules: a clinician who does not already know Slicer has no
+        # way to guess that the points are editable in Markups, or that the 3D
+        # view they are looking at is driven by Volume Rendering.
+        if item.get("editable"):
+            tools = ("Open <b>Markups</b> to pick a point from the list, and "
+                     "<b>Volume Rendering</b> to change how the bone is shown.")
+        elif item.get("adjustable"):
+            tools = ("Drag the scan in a slice view. <b>Volume Rendering</b> "
+                     "changes how the bone is shown.")
+        else:
+            tools = "<b>Models</b> and <b>Volume Rendering</b> change how this is shown."
+
         self.ui.reviewLabel.setText(
             f"<b>{title}</b><br/>"
             f"{patient}{position} &nbsp;·&nbsp; <i>{action}</i><br/>{hint}"
+            f"<br/><span style='color:#7f8c8d'>{tools}</span>"
         )
         self.ui.reviewLabel.setVisible(True)
 
@@ -2007,6 +2049,40 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.continueButton.setText(self.CONTINUE_BUTTON_TEXT)
 
         logger.info(f"Review - {title} - {patient}{position}")
+
+    def showVolumeRendering(self, volume) -> None:
+        """Turn on volume rendering for the scan a landmark review sits on.
+
+        Points are placed on anatomy, and anatomy reads far better in 3D than on
+        three grey slices. Slicer can do this in one call but nobody thinks to
+        ask for it mid-run, so the pause sets it up and the clinician only has to
+        look.
+
+        Best effort throughout: a machine without the Volume Rendering module, or
+        one that refuses the GPU, still gets a perfectly usable review on the
+        slices. Failing the pause over a convenience would be the wrong trade.
+
+        Args:
+            volume: The loaded scalar volume node
+        """
+        if volume is None or not hasattr(slicer.modules, "volumerendering"):
+            return
+        try:
+            vr = slicer.modules.volumerendering.logic()
+            display = vr.CreateDefaultVolumeRenderingNodes(volume)
+            if display is None:
+                return
+            # CT-Bone reads the skeleton, which is what every landmark here sits
+            # on. If this build does not ship it, the default transfer function
+            # still shows something rather than nothing.
+            preset = vr.GetPresetByName("CT-Bone") or vr.GetPresetByName("CT-AAA")
+            if preset is not None and display.GetVolumePropertyNode():
+                display.GetVolumePropertyNode().Copy(preset)
+            display.SetVisibility(True)
+            self.pause_nodes.append(display)
+            logger.info(f"Volume rendering on for {volume.GetName()}")
+        except Exception as e:
+            logger.warning(f"Could not turn on volume rendering: {e}")
 
     def loadPauseItem(self, item: dict) -> bool:
         """
@@ -2039,6 +2115,12 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if loaded and item.get("adjustable") and moving is not None:
             self.setUpAdjustment(item, reference, moving)
+
+        # Only where points are being placed: on a registration the user judges
+        # two scans against each other on the slices, and a rendered block on top
+        # of that hides the very overlap they are looking at.
+        if loaded and item.get("editable") and reference is not None:
+            self.showVolumeRendering(reference)
 
         if loaded:
             self.applyPauseLayout(item)
@@ -2319,6 +2401,78 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ]
         return "\n".join(lines)
 
+    def showHeatmaps(self) -> int:
+        """Put the distance maps on screen once the run is over.
+
+        The heatmaps are the point of a visualization run, and they were being
+        left as files nobody opened. A model carrying a "Distance" array shows
+        nothing until that array is made active with a colour range, so this does
+        the three things that turn a grey surface into a readable map.
+
+        The range is made symmetric around zero on purpose: the distances are
+        signed, and a range like [-2.7, 2.4] would paint zero slightly off the
+        middle colour, so untouched anatomy would read as a small displacement.
+
+        Only the merged map per patient is loaded. The per-structure files say
+        the same thing over a smaller area, and one of these surfaces runs to
+        120 MB - loading all of them would cost a gigabyte to show the same
+        thing three times. They stay in the folder for anyone who wants them.
+
+        Returns:
+            int: how many maps were put on screen
+        """
+        folder = os.path.join(self._parameterNode.OutputFolder or "", "Heatmaps")
+        if not os.path.isdir(folder):
+            return 0
+
+        files = sorted(glob.glob(os.path.join(folder, "*merged*ModelDistance.vtk")))
+        if not files:
+            files = sorted(glob.glob(os.path.join(folder, "*.vtk")))
+        if not files:
+            logger.info("No heatmap to show")
+            return 0
+
+        # Rainbow reads as a map; if this build ships the cold-to-hot variant,
+        # its ends are clearer for signed data.
+        table = None
+        for name in ("ColdToHotRainbow", "Rainbow"):
+            table = slicer.mrmlScene.GetFirstNodeByName(name)
+            if table is not None:
+                break
+
+        shown = 0
+        for path in files:
+            try:
+                model = slicer.util.loadModel(path)
+                if model is None:
+                    continue
+                data = model.GetPolyData()
+                array = data.GetPointData().GetArray("Distance") if data else None
+                display = model.GetDisplayNode()
+                if array is not None and display is not None:
+                    low, high = array.GetRange()
+                    edge = max(abs(low), abs(high)) or 1.0
+                    display.SetActiveScalarName("Distance")
+                    display.SetScalarRangeFlag(display.UseManualScalarRange)
+                    display.SetScalarRange(-edge, edge)
+                    if table is not None:
+                        display.SetAndObserveColorNodeID(table.GetID())
+                    display.SetScalarVisibility(True)
+                shown += 1
+            except Exception as e:
+                logger.warning(f"Could not show {os.path.basename(path)}: {e}")
+
+        if shown:
+            try:
+                slicer.app.layoutManager().setLayout(
+                    slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
+                slicer.util.selectModule("Models")
+                slicer.util.resetThreeDViews()
+            except Exception as e:
+                logger.warning(f"Heatmaps loaded but the view could not be set: {e}")
+            logger.info(f"{shown} heatmap(s) on screen, coloured by signed distance")
+        return shown
+
     def showDoneMessage(self) -> None:
         """Say the run is over without taking the application hostage.
 
@@ -2329,6 +2483,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # A measurement is only as good as the points it rests on: a run that
         # finished with landmarks missing produced empty columns, and saying so
         # here is the difference between a known gap and a silent one.
+        shown = self.showHeatmaps()
         report = self.missingLandmarkReport()
         if report:
             logger.warning(f"Landmarks never placed during this run:\n{report}")
@@ -2340,6 +2495,12 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
         else:
             text = "Processing completed successfully!"
+        if shown:
+            text += (
+                f"\n\n{shown} distance map(s) are on screen, coloured from the "
+                "surface's own range. Use <b>Models</b> to change the colours or "
+                "hide one."
+            ).replace("<b>", "").replace("</b>", "")
 
         self.done_popup = PopUpWindow(title="Process Complete", text=text)
         self.done_popup.setModal(False)

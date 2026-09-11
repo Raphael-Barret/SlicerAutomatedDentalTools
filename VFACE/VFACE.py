@@ -2458,6 +2458,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     if table is not None:
                         display.SetAndObserveColorNodeID(table.GetID())
                     display.SetScalarVisibility(True)
+                    self.addColorLegend(display)
                 shown += 1
             except Exception as e:
                 logger.warning(f"Could not show {os.path.basename(path)}: {e}")
@@ -2474,8 +2475,42 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 slicer.util.resetThreeDViews()
             except Exception as e:
                 logger.warning(f"Heatmaps loaded but the view could not be set: {e}")
+            # In the panel, not only in the end-of-run dialog: that dialog is
+            # dismissed and leaves nothing behind, so a clinician looking at a
+            # coloured skull a minute later has no clue what to do with it. The
+            # explanatory box is where every other instruction has appeared.
+            self.ui.reviewLabel.setText(
+                f"<b>Distance maps</b><br/>"
+                f"{shown} map(s) in the 3D view, coloured by signed distance "
+                "around zero; the scale beside them is in millimetres."
+                "<br/><span style='color:#7f8c8d'>Open <b>Models</b> to change "
+                "the colours or the range, or to hide a surface. The maps VFACE "
+                "did not open are in the Heatmaps folder.</span>"
+            )
+            self.ui.reviewLabel.setVisible(True)
             logger.info(f"{shown} heatmap(s) on screen, coloured by signed distance")
         return shown
+
+    @staticmethod
+    def addColorLegend(display) -> None:
+        """Put a scale next to the map, so the colours mean a distance.
+
+        Without it a gradient says nothing: the merged map of a case runs to
+        +/-32 mm while its mandible alone stays under +/-3 mm, and the two look
+        identical. Best effort - an older Slicer without colour legends still
+        shows the map, just without its scale.
+
+        Args:
+            display: The model display node whose scalars are already visible
+        """
+        try:
+            logic = slicer.modules.colors.logic()
+            legend = logic.AddDefaultColorLegendDisplayNode(display)
+            if legend is not None:
+                legend.SetTitleText("Distance (mm)")
+                legend.SetVisibility(True)
+        except Exception as e:
+            logger.warning(f"No colour legend on this build: {e}")
 
     def showDoneMessage(self) -> None:
         """Say the run is over without taking the application hostage.

@@ -2464,9 +2464,13 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if shown:
             try:
+                # The 3D view, because a surface map is unreadable on slices -
+                # but the module panel stays on VFACE. Switching to Models here
+                # would move the clinician away at the exact moment the run ends,
+                # hiding the end-of-run message and the buttons. The message
+                # points at Models for anyone who wants to go further.
                 slicer.app.layoutManager().setLayout(
                     slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
-                slicer.util.selectModule("Models")
                 slicer.util.resetThreeDViews()
             except Exception as e:
                 logger.warning(f"Heatmaps loaded but the view could not be set: {e}")
@@ -2497,10 +2501,11 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             text = "Processing completed successfully!"
         if shown:
             text += (
-                f"\n\n{shown} distance map(s) are on screen, coloured from the "
-                "surface's own range. Use <b>Models</b> to change the colours or "
-                "hide one."
-            ).replace("<b>", "").replace("</b>", "")
+                f"\n\n{shown} distance map(s) are on screen in the 3D view, "
+                "coloured by signed distance around zero.\n"
+                "Open the Models module to look closer - colour scale, range, "
+                "or hiding a surface."
+            )
 
         self.done_popup = PopUpWindow(title="Process Complete", text=text)
         self.done_popup.setModal(False)

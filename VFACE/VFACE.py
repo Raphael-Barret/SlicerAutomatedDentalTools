@@ -336,6 +336,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # {landmark: [scans it was missed on, scans tried]}, filled from the
         # summary ALI prints when a run ends.
         self.missing_landmarks = {}
+        # (display node, its colour legend) so one follows the other's visibility
+        self.legend_pairs = []
         self.executed_steps = []
         self.review_flagged_carry = []
         self.review_temp_folders = []
@@ -2513,8 +2515,12 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     display.SetScalarVisibility(True)
                     on = (not merged) or (path in merged)
                     display.SetVisibility(on)
+                    # A legend on every map, not only the visible one: ticking a
+                    # hidden map in Models would otherwise show a coloured
+                    # surface with no scale, and its range can be ten times
+                    # smaller than the merged map's.
+                    self.addColorLegend(display)
                     if on:
-                        self.addColorLegend(display)
                         shown += 1
                 loaded += 1
             except Exception as e:
@@ -2548,8 +2554,19 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logger.info(f"{shown} heatmap(s) on screen, coloured by signed distance")
         return shown
 
-    @staticmethod
-    def addColorLegend(display) -> None:
+    def onHeatmapVisibilityChanged(self, caller, event) -> None:
+        """Keep each scale with the surface it describes.
+
+        Args:
+            caller: The model display node that changed
+            event: Unused, required by the observer signature
+        """
+        for display, legend in self.legend_pairs:
+            if display is caller:
+                legend.SetVisibility(bool(display.GetVisibility()))
+                return
+
+    def addColorLegend(self, display) -> None:
         """Put a scale next to the map, so the colours mean a distance.
 
         Without it a gradient says nothing: the merged map of a case runs to
@@ -2563,9 +2580,16 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         try:
             logic = slicer.modules.colors.logic()
             legend = logic.AddDefaultColorLegendDisplayNode(display)
-            if legend is not None:
-                legend.SetTitleText("Distance (mm)")
-                legend.SetVisibility(True)
+            if legend is None:
+                return
+            legend.SetTitleText("Distance (mm)")
+            legend.SetVisibility(bool(display.GetVisibility()))
+            # A legend does not follow its surface on its own - measured: hiding
+            # the model leaves its scale on screen. Without this, loading three
+            # maps would stack three bars over each other for good.
+            self.legend_pairs.append((display, legend))
+            self.addObserver(display, vtk.vtkCommand.ModifiedEvent,
+                             self.onHeatmapVisibilityChanged)
         except Exception as e:
             logger.warning(f"No colour legend on this build: {e}")
 

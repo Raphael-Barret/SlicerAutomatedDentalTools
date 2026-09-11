@@ -2032,8 +2032,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             tools = ("Open <b>Markups</b> to pick a point from the list, and "
                      "<b>Volume Rendering</b> to change how the bone is shown.")
         elif item.get("adjustable"):
-            tools = ("Drag the scan in a slice view. <b>Volume Rendering</b> "
-                     "changes how the bone is shown.")
+            tools = ("Drag the scan in a slice view. <b>Transforms</b> shows the "
+                     "displacement you are applying, in numbers; "
+                     "<b>Volume Rendering</b> changes how the bone is shown.")
         else:
             tools = "<b>Models</b> and <b>Volume Rendering</b> change how this is shown."
 
@@ -2305,7 +2306,15 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Verified against applying the two in sequence: AutoMatrix inverts the
         # matrix before moving a point, and this is the order that survives it.
+        # CompositeTransform([A, B]) applies A(B(p)) - the last added acts first.
         composed = sitk.CompositeTransform([areg, nudge.GetInverse()])
+
+        # Written as one matrix whenever both are affine, which is the normal
+        # case. A composite .tfm is valid and AutoMatrix does read it, but it
+        # leaves two matrices in a file every other tool expects to hold one, and
+        # a second manual correction would stack a third. The product is exactly
+        # equivalent - checked point by point - so there is nothing to lose.
+        composed = self.flattenIfAffine(composed, areg, nudge.GetInverse())
 
         try:
             sitk.WriteTransform(composed, path)
@@ -2315,6 +2324,47 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         self.saveAdjustedVolume(item, transform)
+
+    @staticmethod
+    def flattenIfAffine(composite, first, second):
+        """One matrix instead of two, when both parts are affine.
+
+        CompositeTransform([A, B]) moves a point as A(B(p)), which is the product
+        of their matrices. Collapsing keeps the file to a single transform, so
+        nothing downstream has to know an adjustment happened - which is what the
+        pipeline assumed all along.
+
+        Returns the composite untouched if either part is not affine: correctness
+        first, tidiness second.
+
+        Args:
+            composite: The composed transform, returned as-is on any doubt
+            first: Transform applied second to a point
+            second: Transform applied first to a point
+
+        Returns:
+            A single AffineTransform, or the composite unchanged
+        """
+        import numpy as np
+        import SimpleITK as sitk
+
+        def as_matrix(t):
+            affine = sitk.AffineTransform(t)      # raises unless truly affine
+            m = np.eye(4)
+            m[:3, :3] = np.array(affine.GetMatrix()).reshape(3, 3)
+            m[:3, 3] = affine.GetTranslation()
+            return m
+
+        try:
+            product = as_matrix(first) @ as_matrix(second)
+        except Exception as e:
+            logger.info(f"Keeping a composite transform, not both parts are affine: {e}")
+            return composite
+
+        flat = sitk.AffineTransform(3)
+        flat.SetMatrix(product[:3, :3].flatten().tolist())
+        flat.SetTranslation(product[:3, 3].tolist())
+        return flat
 
     def saveAdjustedVolume(self, item: dict, transform) -> None:
         """
@@ -2425,12 +2475,15 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not os.path.isdir(folder):
             return 0
 
-        files = sorted(glob.glob(os.path.join(folder, "*merged*ModelDistance.vtk")))
-        if not files:
-            files = sorted(glob.glob(os.path.join(folder, "*.vtk")))
+        files = sorted(glob.glob(os.path.join(folder, "*.vtk")))
         if not files:
             logger.info("No heatmap to show")
             return 0
+        # All of them are loaded and coloured, so a tick in Models is enough to
+        # see one. Only the merged map starts visible: the per-structure maps
+        # cover the same anatomy, and showing them at once would stack surfaces
+        # on top of each other until none is readable.
+        merged = [f for f in files if "merged" in os.path.basename(f).lower()]
 
         # Rainbow reads as a map; if this build ships the cold-to-hot variant,
         # its ends are clearer for signed data.
@@ -2440,7 +2493,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if table is not None:
                 break
 
-        shown = 0
+        shown, loaded = 0, 0
         for path in files:
             try:
                 model = slicer.util.loadModel(path)
@@ -2458,8 +2511,12 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     if table is not None:
                         display.SetAndObserveColorNodeID(table.GetID())
                     display.SetScalarVisibility(True)
-                    self.addColorLegend(display)
-                shown += 1
+                    on = (not merged) or (path in merged)
+                    display.SetVisibility(on)
+                    if on:
+                        self.addColorLegend(display)
+                        shown += 1
+                loaded += 1
             except Exception as e:
                 logger.warning(f"Could not show {os.path.basename(path)}: {e}")
 
@@ -2483,9 +2540,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 f"<b>Distance maps</b><br/>"
                 f"{shown} map(s) in the 3D view, coloured by signed distance "
                 "around zero; the scale beside them is in millimetres."
-                "<br/><span style='color:#7f8c8d'>Open <b>Models</b> to change "
-                "the colours or the range, or to hide a surface. The maps VFACE "
-                "did not open are in the Heatmaps folder.</span>"
+                f"<br/><span style='color:#7f8c8d'>{loaded} map(s) loaded in all: "
+                "tick one in <b>Models</b> to show it, where you can also change "
+                "the colours or the range.</span>"
             )
             self.ui.reviewLabel.setVisible(True)
             logger.info(f"{shown} heatmap(s) on screen, coloured by signed distance")

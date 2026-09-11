@@ -1070,7 +1070,11 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         paths = slicer.app.moduleManager().factoryManager().searchPaths
         mnt_paths = []
         for path in paths :
-            mnt_paths.append(f"\"{self.windows_to_linux_path(path)}\"")
+            # No quotes: this value is handed to conda through an argv list, so no
+            # shell ever strips them. They survived into PYTHONPATH, Python read
+            # each entry as a relative path and prefixed the cwd, and every
+            # sys.path entry pointed nowhere - 'No module named CrownSegmentationcli'.
+            mnt_paths.append(self.windows_to_linux_path(path))
         pythonpath_arg = 'PYTHONPATH=' + ':'.join(mnt_paths)
         conda_exe = self.conda.getCondaExecutable()
         argument = [conda_exe, 'env', 'config', 'vars', 'set', '-n', self.name_env, pythonpath_arg]

@@ -2529,6 +2529,34 @@ def _landmark_label(dic_features, composant, i):
     return (first+" / "+second).replace("_","-")
 
 
+def _measurement(by_landmark, dic_features, composant, i, feature, patient):
+    """One measurement for a feature column, or None if the run never made it.
+
+    A column can name a landmark the pipeline does not produce - the reference
+    sheet asks for "Me", which ALI's mandible model does not predict - and
+    indexing that blind ends the whole post-processing on a KeyError. The Excel
+    is then never written, and every later step fails looking for it: that is how
+    one missing landmark turned into a failed classification.
+
+    A column left empty is visible and recoverable; a run stopped halfway is not.
+    """
+    label = _landmark_label(dic_features, composant, i)
+    row = by_landmark.get(label)
+    if row is None:
+        logger.warning(
+            f"{patient}: no '{label}' measurement, leaving '{feature}' empty"
+        )
+        return None
+    try:
+        return float(row[composant])
+    except (KeyError, TypeError, ValueError):
+        logger.warning(
+            f"{patient}: '{label}' carries no usable {composant}, "
+            f"leaving '{feature}' empty"
+        )
+        return None
+
+
 def _index_measurements(df):
     """{patient: {landmark: row}}, keeping the first row of a repeated landmark."""
     index = {}
@@ -2622,12 +2650,23 @@ def postprocess (cb_path,mand_path,max_path,exemple_path,outputfolder):
 
             composant = dic_features.get("Composant")
             if dic_features.get("Average") == "No":
-                record[feature] = float(by_landmark[_landmark_label(dic_features, composant, 0)][composant])
+                value = _measurement(by_landmark, dic_features, composant, 0, feature, val)
+                if value is None:
+                    continue
+                record[feature] = value
             else:
                 nbr = dic_features.get("Nbr_Landmarks")//2
                 average = 0
                 for i in range(nbr):
-                    average += float(by_landmark[_landmark_label(dic_features, composant, i)][composant])
+                    value = _measurement(by_landmark, dic_features, composant, i, feature, val)
+                    if value is None:
+                        # Averaging what is left would quietly report a different
+                        # measurement than the column claims to be.
+                        average = None
+                        break
+                    average += value
+                if average is None:
+                    continue
                 record[feature] = average / nbr
 
         records.append(record)

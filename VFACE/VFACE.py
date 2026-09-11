@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import os
+import stat
 import tempfile
 from typing import Annotated
 import urllib.request
@@ -356,9 +357,60 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         except Exception as e:
             logger.error(f"Error reloading custom modules: {e}")
 
+    @staticmethod
+    def widenCapturedPipes() -> None:
+        """Give Slicer's captured output more room than the default 64 KB.
+
+        Precaution, not a proven cure. What is established: long VFACE runs have
+        frozen several times with the main thread in `pipe_write` on the pipe
+        Slicer captures its own stdout into, zero CPU, never recovering. What is
+        not established: what fills it. Writing 200 KB from inside a VTK observer
+        callback - the shape the freeze was blamed on - does NOT deadlock, with
+        or without a main window, so that explanation is wrong or incomplete.
+
+        Widening suppresses no output and changes no behaviour; it only raises
+        the ceiling from 64 KB to whatever the kernel allows, typically 1 MB,
+        against a whole run's console output of roughly 100 KB. If the freeze
+        really is an accumulation, this removes it; if it is something else, this
+        costs nothing. Do not read it as the fix until a run confirms it.
+
+        Fails quietly wherever it does not apply - Windows, output redirected to
+        a file rather than a pipe, a kernel that refuses - because a smaller pipe
+        is not worth failing over.
+        """
+        try:
+            import fcntl
+        except ImportError:
+            return  # not a POSIX platform; nothing to widen
+        F_SETPIPE_SZ, F_GETPIPE_SZ = 1031, 1032
+        try:
+            with open("/proc/sys/fs/pipe-max-size") as fh:
+                target = int(fh.read().strip())
+        except (OSError, ValueError):
+            target = 1024 * 1024
+        for fd in (1, 2):
+            try:
+                if not stat.S_ISFIFO(os.fstat(fd).st_mode):
+                    continue
+                before = fcntl.fcntl(fd, F_GETPIPE_SZ)
+                if before >= target:
+                    continue
+                fcntl.fcntl(fd, F_SETPIPE_SZ, target)
+                logger.info(
+                    f"Captured output fd{fd} widened {before} -> "
+                    f"{fcntl.fcntl(fd, F_GETPIPE_SZ)} bytes"
+                )
+            except (OSError, ValueError) as e:
+                logger.warning(f"Could not widen fd{fd}, leaving it as it is: {e}")
+
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
+
+        # Before anything else writes: the deadlock this avoids takes the whole
+        # application down, and an undersized pipe is only a problem once it is
+        # already full.
+        self.widenCapturedPipes()
 
         self.reloadCustomModules()
 
@@ -1498,6 +1550,39 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.NumberProcess = 0
         
         logger.info("Interface reset after cancellation")
+
+    def abortOnCliError(self, module_name: str, error_text: str) -> None:
+        """
+        Stop the run where a CLI failed.
+
+        Every later step reads what the previous one wrote, so carrying on past a
+        failure only produces a chain of steps finding nothing and a run that
+        claims to have completed. Stop here and say which step broke.
+
+        Args:
+            module_name: Step whose CLI reported errors
+            error_text: Tail of that CLI's stderr, already trimmed
+        """
+        self.list_process = []
+        self.resetUIAfterCancel()
+
+        details = error_text.strip() if error_text else ""
+        if not details:
+            details = "The step produced no error output; see the Python console."
+
+        # Deferred for the same reason as the completion dialog: this is reached
+        # from inside a VTK observer callback, and an application-modal dialog
+        # opened there runs a nested event loop while the CLI node is still
+        # dispatching events.
+        qt.QTimer.singleShot(
+            0,
+            lambda: PopUpWindow(
+                title="Process failed",
+                text=(
+                    f"'{module_name}' failed, so the run was stopped.\n\n{details}"
+                ),
+            ).exec_(),
+        )
 
     # ===== Manual review pauses =====
     #
@@ -2669,6 +2754,22 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # is what lets the pipe fill until the main thread blocks in write()
             # with no reader left - the black window that never comes back.
             cli_output = self._briefCliOutput(caller.GetOutputText())
+
+            # CompletedWithErrors is Completed | ErrorsMask, so the test above is
+            # also true of a CLI that died. Without this branch the failure was
+            # invisible - a Python traceback goes to stderr, which GetOutputText()
+            # does not carry - and the chain went on running every later step on
+            # the empty folders the dead one never filled, reporting success.
+            if status & slicer.vtkMRMLCommandLineModuleNode.ErrorsMask:
+                failed_module = self.module_name
+                cli_error = self._briefCliOutput(caller.GetErrorText())
+                qt.QTimer.singleShot(0, lambda: logger.error(
+                    f"\n\n ========= {failed_module} FAILED ========= \n{cli_output}"
+                    f"\n ========= ERROR DETAILS ========= \n{cli_error}"
+                ))
+                self.abortOnCliError(failed_module, cli_error)
+                return
+
             qt.QTimer.singleShot(
                 0, lambda: logger.info(f"\n\n ========= PROCESSED ========= \n{cli_output}")
             )

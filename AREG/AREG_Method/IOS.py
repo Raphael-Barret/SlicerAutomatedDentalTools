@@ -12,6 +12,7 @@ import csv
 
 import logging
 import sys
+from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 # ===== Logging Configuration =====
 logger = logging.getLogger("AREG_Method_CBCT")
 logger.setLevel(logging.INFO)
@@ -214,19 +215,9 @@ class Auto_IOS(Method):
                             writer.writerow([self.windows_to_linux_path(norm_file_path)])
         return csv_file
     
-    def windows_to_linux_path(self,windows_path):
-        '''
-        Convert a windows path to a wsl path
-        '''
-        windows_path = windows_path.strip()
-
-        path = windows_path.replace('\\', '/')
-
-        if ':' in path:
-            drive, path_without_drive = path.split(':', 1)
-            path = "/mnt/" + drive.lower() + path_without_drive
-
-        return path
+    def windows_to_linux_path(self, windows_path):
+        """A Windows path as WSL sees it."""
+        return windows_to_linux_path_shared(windows_path)
 
     def TestReference(self, ref_folder: str):
 

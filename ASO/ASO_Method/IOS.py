@@ -13,6 +13,7 @@ import shutil
 from itertools import chain
 import logging
 import sys
+from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_Method_IOS")
@@ -456,19 +457,9 @@ class Auto_IOS(Method):
     def is_wsl(self):
         return platform.system() == "Linux" and "microsoft" in platform.release().lower()
     
-    def windows_to_linux_path(self,windows_path):
-        '''
-        convert a windows path to a wsl path
-        '''
-        windows_path = windows_path.strip()
-
-        path = windows_path.replace('\\', '/')
-
-        if ':' in path:
-            drive, path_without_drive = path.split(':', 1)
-            path = "/mnt/" + drive.lower() + path_without_drive
-
-        return path
+    def windows_to_linux_path(self, windows_path):
+        """A Windows path as WSL sees it."""
+        return windows_to_linux_path_shared(windows_path)
     
     def create_csv(self,input_dir,name_csv):
         '''

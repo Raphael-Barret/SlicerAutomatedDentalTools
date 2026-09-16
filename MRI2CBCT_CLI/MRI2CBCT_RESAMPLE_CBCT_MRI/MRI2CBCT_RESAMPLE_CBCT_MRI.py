@@ -26,7 +26,6 @@ fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 sys.path.append(fpath)
 
 from MRI2CBCT_CLI_utils import create_csv, resample_images
-import csv
 
 
 def run_resample(img=None, dir=None, csv=None, csv_column='image', csv_root_path=None, csv_use_spc=0,

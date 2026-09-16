@@ -110,19 +110,6 @@ def RotateTransform(surf, transform):
     return transformFilter.GetOutput()
 
 
-def TransformSurf(surf, matrix):
-    assert isinstance(surf, vtk.vtkPolyData)
-    surf_copy = vtk.vtkPolyData()
-    surf_copy.DeepCopy(surf)
-    surf = surf_copy
-
-    transform = vtk.vtkTransform()
-    transform.SetMatrix(np.reshape(matrix, 16))
-    surf = RotateTransform(surf, transform)
-
-    return surf
-
-
 def TransformList(input, matrix):
     type = np.array
     if isinstance(input, list):

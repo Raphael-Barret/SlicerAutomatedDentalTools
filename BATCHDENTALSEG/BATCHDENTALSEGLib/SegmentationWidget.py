@@ -7,7 +7,6 @@ import numpy as np
 import qt
 import subprocess
 import sys
-import sys
 import slicer
 import logging
 import os
@@ -30,7 +29,6 @@ from .Utils import (
     setBoxAndTextVisibilityOnThreeDViews,
 )
 from collections import deque
-import sys
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("BatchDentalSeg_SegmentationWidget")

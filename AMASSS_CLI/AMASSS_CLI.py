@@ -10,7 +10,6 @@ import torch, cc3d, dicom2nifti
 import SimpleITK as sitk
 import vtk
 import re
-import vtk
 import logging
 
 # --- LOGGING CONFIGURATION ---

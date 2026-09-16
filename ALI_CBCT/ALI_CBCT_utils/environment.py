@@ -10,7 +10,6 @@ from ALI_CBCT_utils.constants import LABELS, LABEL_GROUPS, SCALE_KEYS, DEVICE, b
 from ALI_CBCT_utils.io import WriteJson, GenControlPoint
 
 import logging
-import sys
 # --- LOGGING CONFIGURATION ---
 logger = logging.getLogger("ALI_CBCT_environment")
 logger.setLevel(logging.INFO)

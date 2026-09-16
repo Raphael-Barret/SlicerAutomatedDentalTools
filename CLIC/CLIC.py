@@ -17,7 +17,6 @@ import json
 # Slicer-Conda helper
 from CondaSetUp import CondaSetUpCall
 
-import sys
 import logging
 
 # ===== Logging Configuration =====

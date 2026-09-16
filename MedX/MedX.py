@@ -26,14 +26,12 @@ from MedX_Method.Progress import Display
 
 
 import signal
-import time
 import textwrap
 import platform
 import threading
 import subprocess
 import io
 
-import sys
 import logging
 
 # ===== Logging Configuration =====

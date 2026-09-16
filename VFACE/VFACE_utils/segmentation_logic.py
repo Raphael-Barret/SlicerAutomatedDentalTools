@@ -11,7 +11,6 @@ import zipfile
 from pathlib import Path
 from enum import Flag, auto
 import qt
-import sys
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("VFACE_segmentation_logic")

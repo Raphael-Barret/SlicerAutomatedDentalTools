@@ -24,7 +24,6 @@ from qt import (
     QGridLayout,
 )
 
-import logging
 import sys
 
 # ===== Logging Configuration =====

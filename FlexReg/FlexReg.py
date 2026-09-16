@@ -21,7 +21,6 @@ from qt import (
     QWidget,
     QTimer,
     QApplication,
-    QStandardPaths,
     QDialog,
     QSizePolicy,
     QSpacerItem,

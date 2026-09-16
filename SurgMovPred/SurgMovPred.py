@@ -6,8 +6,6 @@ import urllib.request
 import vtk
 import slicer
 import sys
-import os
-import urllib.request
 import ctypes
 import qt
 from slicer.i18n import tr as _
@@ -18,7 +16,6 @@ from slicer.parameterNodeWrapper import parameterNodeWrapper
 from slicer import vtkMRMLScalarVolumeNode
 import importlib
 
-import sys
 import logging
 
 # ===== Logging Configuration =====

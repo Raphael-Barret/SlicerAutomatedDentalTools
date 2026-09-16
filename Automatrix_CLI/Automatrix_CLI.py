@@ -6,7 +6,6 @@ import sys, os, time
 import SimpleITK as sitk
 
 import logging
-import sys
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("AutoMatrix_CLI")

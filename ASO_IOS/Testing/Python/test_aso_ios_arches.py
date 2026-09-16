@@ -27,7 +27,7 @@ sys.path.insert(0, ASO_IOS)
 sys.path.insert(0, os.path.join(ASO_IOS, "PRE_ASO_IOS"))
 
 from ASO_IOS_utils.utils import (  # noqa: E402
-    JawFromFileName, StripJawFromFileName, UpperOrLower)
+    JawFromFileName, PatientNumber, StripJawFromFileName, UpperOrLower)
 from ASO_IOS_utils.data_file import Files_vtk_link  # noqa: E402
 import PRE_ASO_IOS  # noqa: E402
 
@@ -258,6 +258,30 @@ class OrientationTest(unittest.TestCase):
         self.assertEqual(report["failed"], 1)
         self.assertEqual(report["errors"][0]["stage"], "teeth_for_jaw")
         self.assertIn("Lower teeth", report["errors"][0]["message"])
+
+
+class PatientNumberTest(unittest.TestCase):
+    """What PatientNumber answers, pinned because the name meant two things.
+
+    The module defined it twice. The first returned the first run of digits in
+    the name, as an int; the second returned the name with the jaw marker and
+    the extension cut off, as a str. Python keeps the last definition, so the
+    first was unreachable and the callers had always been getting the string.
+    Removing the dead one changes nothing -- these cases say what "nothing" is,
+    so the two never silently trade places again.
+    """
+
+    def test_returns_the_name_without_jaw_marker_or_extension(self):
+        self.assertEqual(PatientNumber("/data/P07_Upper.vtk"), "P07")
+        self.assertEqual(PatientNumber("/data/P07_Lower.vtk"), "P07")
+
+    def test_answers_a_string_not_a_number(self):
+        """The definition that returned an int is the one that was dead."""
+        self.assertIsInstance(PatientNumber("/data/P07_Upper.vtk"), str)
+
+    def test_a_name_holding_no_digit_is_still_answered(self):
+        """The int version raised or returned None here; this one does not."""
+        self.assertEqual(PatientNumber("/data/Dupont_Upper.vtk"), "Dupont")
 
 
 if __name__ == "__main__":

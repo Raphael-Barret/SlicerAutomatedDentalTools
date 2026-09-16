@@ -12,7 +12,6 @@ import qt
 import platform
 import re
 
-import sys
 import logging
 
 # ===== Logging Configuration =====

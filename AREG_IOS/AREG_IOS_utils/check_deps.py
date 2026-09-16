@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 
 import logging
-import sys
 # ===== Logging Configuration =====
 logger = logging.getLogger("AREG_IOS_checkdeps")
 logger.setLevel(logging.INFO)
@@ -192,7 +191,6 @@ def fix_torchvision_auto():
 
 def get_conda_env():
     """Get current conda environment name"""
-    import os
     return os.environ.get('CONDA_DEFAULT_ENV', 'base')
 
 

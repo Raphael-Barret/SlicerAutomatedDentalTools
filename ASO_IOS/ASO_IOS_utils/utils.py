@@ -286,15 +286,6 @@ def search(path, *args):
     }
 
 
-def PatientNumber(filename):
-    number = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
-    for i in range(len(filename)):
-        if filename[i] in number:
-            for y in range(i, len(filename)):
-                if not filename[y] in number:
-                    return int(filename[i:y])
-
-
 def WriteJsonLandmarks(
     landmarks, output_file, input_file_json, add_innamefile, output_folder
 ):

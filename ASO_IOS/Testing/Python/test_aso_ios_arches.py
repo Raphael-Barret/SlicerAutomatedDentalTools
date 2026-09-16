@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(ASO_IOS, "PRE_ASO_IOS"))
 from ASO_IOS_utils.utils import (  # noqa: E402
     JawFromFileName, PatientNumber, StripJawFromFileName, UpperOrLower)
 from ASO_IOS_utils.data_file import Files_vtk_link  # noqa: E402
+from ASO_IOS_utils.icp import npSameNumberPoint  # noqa: E402
 import PRE_ASO_IOS  # noqa: E402
 
 
@@ -282,6 +283,37 @@ class PatientNumberTest(unittest.TestCase):
     def test_a_name_holding_no_digit_is_still_answered(self):
         """The int version raised or returned None here; this one does not."""
         self.assertEqual(PatientNumber("/data/Dupont_Upper.vtk"), "Dupont")
+
+
+class SameNumberOfPointsTest(unittest.TestCase):
+    """Both clouds come back the same length, whichever one was larger.
+
+    The branch that trims the target read a name that was never bound, so it
+    raised NameError as soon as the source held fewer points than the target --
+    half the calls, and the three call sites in icp.py all go through here. The
+    branch that trims the source, right above it, shows what was meant.
+    """
+
+    def test_a_larger_source_is_trimmed(self):
+        source, target = npSameNumberPoint(np.zeros((50, 3)), np.ones((20, 3)))
+        self.assertEqual(source.shape, (20, 3))
+        self.assertEqual(target.shape, (20, 3))
+
+    def test_a_larger_target_is_trimmed(self):
+        """The case that used to raise."""
+        source, target = npSameNumberPoint(np.zeros((20, 3)), np.ones((50, 3)))
+        self.assertEqual(source.shape, (20, 3))
+        self.assertEqual(target.shape, (20, 3))
+
+    def test_the_trimmed_cloud_keeps_its_own_points(self):
+        """Trimming picks rows from the right array, not from the other one."""
+        _, target = npSameNumberPoint(np.zeros((3, 3)), np.ones((9, 3)))
+        self.assertTrue((target == 1).all())
+
+    def test_equal_sizes_are_left_alone(self):
+        source, target = npSameNumberPoint(np.zeros((7, 3)), np.ones((7, 3)))
+        self.assertEqual(source.shape, (7, 3))
+        self.assertEqual(target.shape, (7, 3))
 
 
 if __name__ == "__main__":

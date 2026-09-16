@@ -78,7 +78,6 @@ def set_migraine_data(df):
     headache_pct = (headache_count.sum() / len(df)) * 100 if len(df) > 0 else 0
 
     return migraine_pct, headache_pct
-    return no_migraine_headache_pct, headache_only_pct, migraine_only_pct, migraine_and_headache_pct, unknown_pct
 
 def set_left_stick_data(df):
     metrics = ["headache_intensity", "average_daily_pain_intensity", 

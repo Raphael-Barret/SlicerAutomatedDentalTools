@@ -37,7 +37,7 @@ class OFFReader:
                 if t[0] == 1:
                     vertex = vtk.vtkVertex()
                     vertex.GetPointIds().SetId(0, t[1])
-                    cells.InsertNextCell(line)
+                    cells.InsertNextCell(vertex)
                 elif t[0] == 2:
                     line = vtk.vtkLine()
                     line.GetPointIds().SetId(0, t[1])

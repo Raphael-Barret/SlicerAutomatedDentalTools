@@ -20,10 +20,10 @@ select = [
   "B018",   # expression sans effet : le « f.close » sans parenthèses
   "PLE",    # erreurs pylint : arguments de logging, caractères invalides
   "F811",   # redéfinition silencieuse : la seconde écrase la première
+  "F821",   # nom non défini : NameError garanti si la ligne est atteinte
 ]
 
 # BACKLOG, dans l'ordre où il sera traité. Le compte date du 2026-09-16.
-#   F821  (12) nom non défini, plantage à l'exécution -> branche adt/x5
 #   B006  (18) valeur par défaut mutable
 #   B023   (4) fermeture capturant la variable de boucle -- change la sémantique, à traiter cas par cas
 #   E722  (95) except nu
@@ -32,3 +32,10 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "*/Testing/*" = ["E501"]
+
+# Trois noms non définis restent, tous parce que le module appelle du code qui
+# vit dans la copie voisine du même fichier. Les corriger ici demanderait une
+# quatrième copie ; ils tombent avec le partage de transformation.py et de
+# ReadSurf dans ADTLib (P1-6 de l'audit), pas avant.
+"ALI_IOS/ALI_IOS_utils/surface.py" = ["F821"]        # OFFReader, qui n'existe que dans ASO_IOS_utils
+"FlexReg_CLI/FlexReg_Method/transformation.py" = ["F821"]  # TransformDict et TransformList, qui n'existent que dans AREG_IOS_utils

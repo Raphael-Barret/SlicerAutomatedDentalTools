@@ -1,6 +1,7 @@
 #!/usr/bin/env python-real
 import json
 import os
+import shutil
 import argparse
 from urllib import request
 import requests

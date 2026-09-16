@@ -593,7 +593,7 @@ def npSameNumberPoint(source, target):
         save = np.random.choice(
             np.arange(0, target.shape[0]), source.shape[0], replace=False
         )
-        target_points = target_points[save]
+        target = target[save]
 
     return source, target
 

@@ -6,6 +6,13 @@
 # so `import ADTLib` works from any module, from a scripted CLI, and from the
 # Conda environment once the search paths are published into it.
 #
+# The directory holding this file is named ADT, not ADTLib, on purpose. A
+# directory carrying the package's own name shadows it as a namespace package
+# the moment its parent lands on sys.path, and the package then imports with an
+# empty __file__ and no submodules. Every other package in this repository is
+# built the same way -- AREG_IOS/AREG_IOS_utils, ALI_IOS/ALI_IOS_utils -- with
+# a holder directory whose name differs from the package it carries.
+#
 # Declared before its consumers in the top-level CMakeLists.txt.
 #-----------------------------------------------------------------------------
 set(MODULE_NAME ADTLib)

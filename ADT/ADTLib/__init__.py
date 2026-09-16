@@ -13,3 +13,20 @@ environment too, which has neither vtk, nor qt, nor slicer; a single import of
 one of those would break every submodule import there. Submodules that need
 them import them themselves.
 """
+
+
+def package_root():
+    """Directory that has to be on PYTHONPATH for `import ADTLib` to work.
+
+    The modules publish Slicer's module search paths into the Conda environment
+    so that the tools they run there can import what ships with the extension.
+    This package is not on those paths: a search path is a directory Slicer
+    found a module in, and this one holds no module, only a package -- passing
+    it with --additional-module-path does not put it there either. An installed
+    build hides that, because the package then sits in qt-scripted-modules
+    beside the modules themselves, and that directory is a search path.
+
+    So the package says where it is, rather than relying on being found.
+    """
+    import os
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

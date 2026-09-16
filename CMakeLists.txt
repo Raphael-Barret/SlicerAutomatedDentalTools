@@ -23,7 +23,7 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 # Shared code, declared before the modules that import it.
-add_subdirectory(ADTLib)
+add_subdirectory(ADT)
 add_subdirectory(AMASSS)
 add_subdirectory(AMASSS_CLI)
 add_subdirectory(ALI)

@@ -41,6 +41,7 @@ from ALI_Method.Method import Method
 from ALI_Method.Progress import Display
 
 from ADTLib.format import format_elapsed, elapsed_since
+from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 
 
 def check_lib_installed(lib_name, required_version=None):
@@ -1859,70 +1860,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._updateMRMLNodeComboBoxColor(child)
 
   def _updateLineEditAndComboBoxDarkMode(self, parent):
-    """
-    Recursively apply dark mode styles to QLineEdit, QComboBox, and QLabel widgets.
-    """
-    # Update QLabel
-    if isinstance(parent, qt.QLabel):
-      try:
-        parent.setStyleSheet("""
-          QLabel {
-            color: #ffffff;
-            font-weight: 500;
-          }
-        """)
-      except:
-        pass
-    
-    # Update QLineEdit
-    if isinstance(parent, qt.QLineEdit):
-      try:
-        parent.setStyleSheet("""
-          QLineEdit {
-            background-color: #3c3c3c;
-            border: 1px solid #555555;
-            border-radius: 4px;
-            padding: 6px;
-            color: #ffffff;
-          }
-          QLineEdit:focus {
-            border: 2px solid #5dade2;
-          }
-        """)
-      except:
-        pass
-    
-    # Update QComboBox
-    if isinstance(parent, qt.QComboBox):
-      try:
-        parent.setStyleSheet("""
-          QComboBox {
-            background-color: #3c3c3c;
-            border: 1px solid #555555;
-            border-radius: 4px;
-            padding: 4px 6px;
-            color: #ffffff;
-          }
-          QComboBox:focus {
-            border: 2px solid #5dade2;
-          }
-          QComboBox::drop-down {
-            width: 20px;
-            border: none;
-          }
-          QComboBox QAbstractItemView {
-            background-color: #3c3c3c;
-            color: #ffffff;
-            selection-background-color: #5dade2;
-          }
-        """)
-      except:
-        pass
-    
-    # Recursively update all children
-    if hasattr(parent, 'children'):
-      for child in parent.children():
-        self._updateLineEditAndComboBoxDarkMode(child)
+    """Shared recursive pass, kept as a method for the existing call sites."""
+    update_line_edit_and_combo_box(parent)
 
 class LMTab:
     def __init__(self) -> None:

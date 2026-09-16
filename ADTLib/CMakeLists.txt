@@ -18,6 +18,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}/__init__.py
   ${MODULE_NAME}/env/__init__.py
   ${MODULE_NAME}/env/install_pytorch.py
+  ${MODULE_NAME}/format.py
 )
 
 #-----------------------------------------------------------------------------

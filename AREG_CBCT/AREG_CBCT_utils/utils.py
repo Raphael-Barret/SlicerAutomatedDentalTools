@@ -19,6 +19,7 @@ import SimpleITK as sitk
 
 import dicom2nifti
 import itk
+from ADTLib.naming import patient_id as read_patient_id
 
 # --- LOGGING CONFIGURATION ---
 logger = logging.getLogger("AREG_CBCT_utils")
@@ -79,11 +80,12 @@ def GetListFiles(folder_path, file_extension):
 # in the way.
 #
 # Accepting any _T<digit> means replacing the split chain with
-# re.sub(r"_[Tt]\d+$", "", ...) here AND in every other copy of it: grep for
-# TIMEPOINT-SUFFIX to get the 10 sites, spread over AREG, AREG_CBCT, AREG_IOS,
-# AREG_IOSCBCT, ASO, MRI2CBCT and VFACE. Watch the order of the splits while
-# doing it - several chains rely on a longer marker being cut before a shorter
-# one that would otherwise match inside it.
+# re.sub(r"_[Tt]\d+$", "", ...) in ADTLib.naming.patient_id, which the six
+# identical chains now share, AND in the four sites that still carry a chain of
+# their own with a different marker list: ASO_Method/CBCT.py,
+# ASO_CBCT_utils/utils.py, AREG_Method/IOSCBCT.py and MRI2CBCT_CLI_utils/
+# TMJ_crop.py. The order of the markers is load-bearing and is now a property
+# of ADTLib.naming, checked by its test.
 #
 # Left as is deliberately: the supported answer today is to rename the inputs
 # to _T1/_T2, and a rewrite touches two modules (ASO, MRI2CBCT) that nothing
@@ -98,22 +100,7 @@ def GetPatients(folder_path, time_point="T1", segmentationType=None, mask_folder
 
     for file in file_list:
         basename = os.path.basename(file)
-        patient = (
-            basename.split("_Scan")[0]
-            .split("_scan")[0]
-            .split("_Or")[0]
-            .split("_OR")[0]
-            .split("_MAND")[0]
-            .split("_MD")[0]
-            .split("_MAX")[0]
-            .split("_MX")[0]
-            .split("_CB")[0]
-            .split("_lm")[0]
-            .split("_T2")[0]
-            .split("_T1")[0]
-            .split("_Cl")[0]
-            .split(".")[0]
-        )
+        patient = read_patient_id(basename)
 
         if patient not in patients:
             patients[patient] = {}
@@ -136,27 +123,11 @@ def GetPatients(folder_path, time_point="T1", segmentationType=None, mask_folder
         search_folder = mask_folder if mask_folder else folder_path
         mask_files = GetListFiles(search_folder, file_extension)
 
-        # TIMEPOINT-SUFFIX: only _T1/_T2 are stripped here, so _T3/_T4 inputs break
-        # patient pairing. See the full note above GetPatients in
-        # AREG_CBCT/AREG_CBCT_utils/utils.py before changing this.
+        # TIMEPOINT-SUFFIX: the chain that builds this id now lives in
+        # ADTLib.naming, together with the note on what it would take.
         for file in mask_files:
             basename = os.path.basename(file)
-            patient = (
-                basename.split("_Scan")[0]
-                .split("_scan")[0]
-                .split("_Or")[0]
-                .split("_OR")[0]
-                .split("_MAND")[0]
-                .split("_MD")[0]
-                .split("_MAX")[0]
-                .split("_MX")[0]
-                .split("_CB")[0]
-                .split("_lm")[0]
-                .split("_T2")[0]
-                .split("_T1")[0]
-                .split("_Cl")[0]
-                .split(".")[0]
-            )
+            patient = read_patient_id(basename)
             if True in [kw in basename.lower() for kw in target_keywords]:
                 if patient not in patients:
                     patients[patient] = {}

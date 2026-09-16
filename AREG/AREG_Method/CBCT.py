@@ -18,6 +18,7 @@ import qt
 import platform
 import logging
 import sys
+from ADTLib.naming import patient_id as read_patient_id
 # ===== Logging Configuration =====
 logger = logging.getLogger("AREG_Method_CBCT")
 logger.setLevel(logging.INFO)
@@ -1006,27 +1007,11 @@ def GetPatients(folder_path, time_point="T1", segmentationType=None, folder_mask
     
     patients = {}
 
-    # TIMEPOINT-SUFFIX: only _T1/_T2 are stripped here, so _T3/_T4 inputs break
-    # patient pairing. See the full note above GetPatients in
-    # AREG_CBCT/AREG_CBCT_utils/utils.py before changing this.
+    # TIMEPOINT-SUFFIX: the chain that builds this id now lives in
+    # ADTLib.naming, together with the note on what it would take.
     for file in all_files:
         basename = os.path.basename(file)
-        patient = (
-            basename.split("_Scan")[0]
-            .split("_scan")[0]
-            .split("_Or")[0]
-            .split("_OR")[0]
-            .split("_MAND")[0]
-            .split("_MD")[0]
-            .split("_MAX")[0]
-            .split("_MX")[0]
-            .split("_CB")[0]
-            .split("_lm")[0]
-            .split("_T2")[0]
-            .split("_T1")[0]
-            .split("_Cl")[0]
-            .split(".")[0]
-        )
+        patient = read_patient_id(basename)
 
         if patient not in patients:
             patients[patient] = {}

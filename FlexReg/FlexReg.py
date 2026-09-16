@@ -1102,7 +1102,12 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         '''
         take the pythonpath of Slicer and give it to the environment name_env in wsl.
         '''
-        paths = slicer.app.moduleManager().factoryManager().searchPaths
+        paths = list(slicer.app.moduleManager().factoryManager().searchPaths)
+        # ADTLib holds no module, so its directory is never a Slicer search path
+        # and would not reach the environment. It says where it is instead.
+        import ADTLib
+        if ADTLib.package_root() not in paths:
+            paths.append(ADTLib.package_root())
         mnt_paths = []
         for path in paths :
             # Quoted only where a shell will strip the quotes again. They used to be

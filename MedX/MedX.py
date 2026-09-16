@@ -36,6 +36,8 @@ import io
 import sys
 import logging
 
+from ADTLib.format import format_elapsed, elapsed_since
+
 # ===== Logging Configuration =====
 logger = logging.getLogger("MedX")
 logger.setLevel(logging.INFO)
@@ -998,21 +1000,21 @@ QSlider::handle:horizontal:hover {
         # Fit the image to view
         redLogic.FitSliceToAll()
             
-    def format_time(self,seconds):
-        """ Convert seconds to H:M:S format. """
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02}:{minutes:02}:{secs:02}"
+    def format_time(self, seconds):
+        """Seconds as HH:MM:SS."""
+        return format_elapsed(seconds)
     
     def update_ui_time(self, start_time, previous_time):
-        current_time = time.time()
-        gap=current_time-previous_time
-        if gap>0.3:
-            previous_time = current_time
-            self.elapsed_time = current_time - start_time
-            formatted_time = self.format_time(self.elapsed_time)
-            return formatted_time
+        """Elapsed time since `start_time`, formatted for the installation label.
+
+        `previous_time` is kept for signature parity with the call sites, which
+        pass it but never update their own copy. It used to throttle this to one
+        update every 0.3s and return None in between, which is what wrote
+        "time: None" into the label. Formatting unconditionally is both simpler
+        and correct.
+        """
+        self.elapsed_time = elapsed_since(start_time)
+        return self.format_time(self.elapsed_time)
             
     def onCheckRequirements(self, list_libs:list) -> bool:
         if not self.logic.isCondaSetUp:

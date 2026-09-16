@@ -64,6 +64,8 @@ def _get_installed_version(lib_name):
         raise importlib_metadata.PackageNotFoundError
 
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
+
+from ADTLib.format import format_elapsed, elapsed_since
 from FlexReg_utils.orientation import orientation_f
 from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
 from FlexReg_utils.mgl_patch import (
@@ -1034,10 +1036,10 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         Returns whether it could be started : the caller waits on
         self.process, so it must not wait on a thread that never ran.
         '''
-        result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
+        result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
         if not result_pythonpath :
             self.give_pythonpath_windows()
-            result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
+            result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
 
         if not result_pythonpath :
             # Nothing to run. Falling through to run_conda_command here used to
@@ -1045,14 +1047,14 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
             # failure -- usually that the environment cannot import the module.
             logger.error(
                 f"The conda environment '{self.name_env}' cannot import "
-                "FlexReg_utils.install_pytorch. Run that import by hand in the "
+                "ADTLib.env.install_pytorch. Run that import by hand in the "
                 "environment to see why."
             )
             return False
 
         conda_exe = self.conda.getCondaExecutable()
         path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
-        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"FlexReg_utils.install_pytorch",path_pip]
+        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
 
         self.run_conda_command(target=self.conda.condaRunCommand, command=(command,))
         return True
@@ -3928,7 +3930,7 @@ class WidgetParameter:
             slicer.util.errorDisplay(
                 "The pytorch3d installation could not be started : the conda "
                 f"environment '{self.logic.name_env}' cannot import "
-                "FlexReg_utils.install_pytorch.\n\n"
+                "ADTLib.env.install_pytorch.\n\n"
                 "See the Python console for the underlying import error."
             )
             return False
@@ -3947,21 +3949,21 @@ class WidgetParameter:
         self.all_installed = True   
         return True
             
-    def format_time(self,seconds):
-        """ Convert seconds to H:M:S format. """
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02}:{minutes:02}:{secs:02}"
-    
+    def format_time(self, seconds):
+        """Seconds as HH:MM:SS."""
+        return format_elapsed(seconds)
+
     def update_ui_time(self, start_time, previous_time):
-        current_time = time.time()
-        gap=current_time-previous_time
-        if gap>0.3:
-            previous_time = current_time
-            self.elapsed_time = current_time - start_time
-            formatted_time = self.format_time(self.elapsed_time)
-            return formatted_time
+        """Elapsed time since `start_time`, formatted for the installation label.
+
+        `previous_time` is kept for signature parity with the call sites, which
+        pass it but never update their own copy. It used to throttle this to one
+        update every 0.3s and return None in between, which is what wrote
+        "time: None" into the label. Formatting unconditionally is both simpler
+        and correct.
+        """
+        self.elapsed_time = elapsed_since(start_time)
+        return self.format_time(self.elapsed_time)
 
     def shapeaxi(self):
         '''

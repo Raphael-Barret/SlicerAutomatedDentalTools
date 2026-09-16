@@ -89,7 +89,7 @@ SHAPEAXI_TORCH_RANGE = ((2, 8), (2, 13))
 EXTRA_REQUIREMENTS = ["ocnn==2.2.1"]
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("DOCShapeAXI_install_pytorch")
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 if logger.handlers:

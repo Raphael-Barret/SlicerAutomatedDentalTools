@@ -55,6 +55,13 @@ from ASO_Method.CBCT import Semi_CBCT, Auto_CBCT
 from ASO_Method.Method import Method
 from ASO_Method.Progress import Display
 
+from ADTLib.format import format_elapsed, elapsed_since
+from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.env.conda import (
+    check_pythonpath, conda_quote, give_pythonpath,
+    init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
+    windows_to_linux_path as windows_to_linux_path_shared)
+
 def check_lib_installed(lib_name, required_version=None):
     try:
         installed_version = _get_installed_version(lib_name)
@@ -148,29 +155,8 @@ def install_function(self):
         return False
 
 def condaQuote(conda, value):
-    """Quote `value` only if this SlicerConda joins the command into a shell line.
-
-    Two SlicerConda versions are in circulation and they want the opposite of
-    each other. The older one builds a bash line, where a path holding a space -
-    and the ';' inside a `python -c` body - has to be quoted or the line falls
-    apart. The newer one hands conda an argv list, where nothing ever strips
-    those quotes: they reach PYTHONPATH and argv literally and break exactly what
-    they were meant to protect. Reading the installed source tests the property
-    that decides it, rather than guessing from a version number.
-
-    Only commands going to SlicerConda come through here. The copies of
-    condaRunCommand this extension carries of its own always build a shell line,
-    so what they are given keeps its quotes unconditionally.
-    """
-    try:
-        import inspect
-
-        shell = "shell=True" in inspect.getsource(conda.condaRunCommand)
-    except Exception:
-        # Source unreadable: assume the argv contract, which is the one shipping
-        # now, rather than emitting quotes that would land literally.
-        shell = False
-    return f'"{value}"' if shell else str(value)
+    """Delegated to ADTLib; kept as a module function for the call sites."""
+    return conda_quote(conda, value)
 
 
 class ASO(ScriptedLoadableModule):
@@ -1600,28 +1586,19 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.LabelTimer.setVisible(run)
 
     def format_time(self, seconds):
-        """Convert seconds to H:M:S format."""
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02}:{minutes:02}:{secs:02}"
+        """Seconds as HH:MM:SS."""
+        return format_elapsed(seconds)
 
     def update_ui_time(self, start_time, previous_time):
-        """Elapsed time since start_time, for the installation label.
+        """Elapsed time since `start_time`, formatted for the installation label.
 
-        onCheckRequirements has always called this and format_time, but neither
-        was ever defined on this widget - every other module has them, ASO was
-        missed. The call sites sit inside the two installation wait loops, so
-        the AttributeError only fires on a machine that actually has something
-        to install, and Run silently does nothing from there on.
-
-        `previous_time` is kept for signature parity with the other modules.
-        They use it to throttle to one update every 0.3s and return None in
-        between, which is what writes "time: None" into the label; the caller
-        never updates its own previous_time either, so the throttle never
-        fires. Formatting unconditionally is both simpler and correct.
+        `previous_time` is kept for signature parity with the call sites, which
+        pass it but never update their own copy. It used to throttle this to one
+        update every 0.3s and return None in between, which is what wrote
+        "time: None" into the label. Formatting unconditionally is both simpler
+        and correct.
         """
-        self.elapsed_time = time.time() - start_time
+        self.elapsed_time = elapsed_since(start_time)
         return self.format_time(self.elapsed_time)
 
     def initCheckboxIOS(
@@ -2318,70 +2295,8 @@ qMRMLNodeComboBox:focus {
             self._updateDynamicCheckboxesDarkMode()
 
     def _updateLineEditAndComboBoxDarkMode(self, parent):
-      """
-      Recursively apply dark mode styles to QLineEdit, QComboBox, and QLabel widgets.
-      """
-      # Update QLabel
-      if isinstance(parent, qt.QLabel):
-        try:
-          parent.setStyleSheet("""
-            QLabel {
-              color: #ffffff;
-              font-weight: 500;
-            }
-          """)
-        except:
-          pass
-      
-      # Update QLineEdit
-      if isinstance(parent, qt.QLineEdit):
-        try:
-          parent.setStyleSheet("""
-            QLineEdit {
-              background-color: #3c3c3c;
-              border: 1px solid #555555;
-              border-radius: 4px;
-              padding: 6px;
-              color: #ffffff;
-            }
-            QLineEdit:focus {
-              border: 2px solid #5dade2;
-            }
-          """)
-        except:
-          pass
-      
-      # Update QComboBox
-      if isinstance(parent, qt.QComboBox):
-        try:
-          parent.setStyleSheet("""
-            QComboBox {
-              background-color: #3c3c3c;
-              border: 1px solid #555555;
-              border-radius: 4px;
-              padding: 4px 6px;
-              color: #ffffff;
-            }
-            QComboBox:focus {
-              border: 2px solid #5dade2;
-            }
-            QComboBox::drop-down {
-              width: 20px;
-              border: none;
-            }
-            QComboBox QAbstractItemView {
-              background-color: #3c3c3c;
-              color: #ffffff;
-              selection-background-color: #5dade2;
-            }
-          """)
-        except:
-          pass
-      
-      # Recursively update all children
-      if hasattr(parent, 'children'):
-        for child in parent.children():
-          self._updateLineEditAndComboBoxDarkMode(child)
+        """Shared recursive pass, kept as a method for the existing call sites."""
+        update_line_edit_and_combo_box(parent)
     
     def _updateDynamicCheckboxesDarkMode(self):
       """
@@ -2468,20 +2383,10 @@ class ASOLogic(ScriptedLoadableModuleLogic):
         self.python_version = "3.12"
         
     def init_conda(self):
-        # check if CondaSetUp exists
-        try:
-            import CondaSetUp
-        except:
-            return False
-        self.isCondaSetUp = True
-        
-        # set up conda on windows with WSL
-        if platform.system() == "Windows":
-            from CondaSetUp import CondaSetUpCallWsl
-            return CondaSetUpCallWsl()
-        else:
-            from CondaSetUp import CondaSetUpCall
-            return CondaSetUpCall()
+        """The SlicerConda entry point for this platform, or False without it."""
+        call = init_conda_call()
+        self.isCondaSetUp = bool(call)
+        return call
         
     def run_conda_command(self, target, command):
         self.process = threading.Thread(target=target, args=command) #run in parallel to not block slicer
@@ -2506,78 +2411,33 @@ class ASOLogic(ScriptedLoadableModuleLogic):
         return self.conda.condaRunCommand(command)
     
     def install_pytorch3d(self):
-        result_pythonpath = self.check_pythonpath_windows("ASO_Method.install_pytorch")
+        result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
         if not result_pythonpath :
             self.give_pythonpath_windows()
-            result_pythonpath = self.check_pythonpath_windows("ASO_Method.install_pytorch")
+            result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
         
         if result_pythonpath : 
             conda_exe = self.conda.getCondaExecutable()
             path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
-            command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ASO_Method.install_pytorch",path_pip]
+            command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
 
         self.run_conda_command(target=self.conda.condaRunCommand, command=(command,))
         
     def check_lib_wsl(self) -> bool:
-        # Ubuntu versions < 24.04
-        required_libs_old = ["libxrender1", "libgl1-mesa-glx"]
-        # Ubuntu versions >= 24.04
-        required_libs_new = ["libxrender1", "libgl1", "libglx-mesa0"]
-
-
-        all_installed = lambda libs: all(
-            subprocess.run(
-                f"wsl -- bash -c \"dpkg -l | grep {lib}\"", capture_output=True, text=True
-            ).stdout.encode("utf-16-le").decode("utf-8").replace("\x00", "").find(lib) >= 0
-            for lib in libs
-        )
-
-        return all_installed(required_libs_old) or all_installed(required_libs_new)
+        """Whether WSL carries the system libraries the tools need."""
+        return wsl_libraries_present()
     
-    def check_pythonpath_windows(self,file):
-        '''
-        Check if the environment env_name in wsl know the path to a specific file (ex : Crownsegmentationcli.py)
-        return : bool
-        '''
-        conda_exe = self.conda.getCondaExecutable()
-        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-c", condaQuote(self.conda, f"import {file} as check;import os; print(os.path.isfile(check.__file__))")]
-        result = self.conda.condaRunCommand(command)
-        logger.debug(f"Output CHECK python path: {result}")
-        if "True" in result :
-            return True
-        return False
+    def check_pythonpath_windows(self, file):
+        """Whether `file` is importable by the Python of this module's environment."""
+        return check_pythonpath(self.conda, self.name_env, file)
     
     def give_pythonpath_windows(self):
-        '''
-        take the pythonpath of Slicer and give it to the environment name_env in wsl.
-        '''
-        paths = slicer.app.moduleManager().factoryManager().searchPaths
-        mnt_paths = []
-        for path in paths :
-            # Quoted only where a shell will strip the quotes again. They used to be
-            # unconditional: under the argv-passing SlicerConda they survived into
-            # PYTHONPATH, Python read each entry as a relative path and prefixed the
-            # cwd, and every sys.path entry pointed nowhere.
-            mnt_paths.append(condaQuote(self.conda, self.windows_to_linux_path(path)))
-        pythonpath_arg = 'PYTHONPATH=' + ':'.join(mnt_paths)
-        conda_exe = self.conda.getCondaExecutable()
-        argument = [conda_exe, 'env', 'config', 'vars', 'set', '-n', self.name_env, pythonpath_arg]
-        results = self.conda.condaRunCommand(argument)
-        logger.debug(f"Output GIVE python path: {results}")
+        """Publish Slicer's module search paths into this module's environment."""
+        give_pythonpath(self.conda, self.name_env)
         
-    def windows_to_linux_path(self,windows_path):
-        '''
-        convert a windows path to a wsl path
-        '''
-        windows_path = windows_path.strip()
-
-        path = windows_path.replace('\\', '/')
-
-        if ':' in path:
-            drive, path_without_drive = path.split(':', 1)
-            path = "/mnt/" + drive.lower() + path_without_drive
-
-        return path
+    def windows_to_linux_path(self, windows_path):
+        """A Windows path as WSL sees it."""
+        return windows_to_linux_path_shared(windows_path)
     
     def cancel_process(self):
         if platform.system() == 'Windows':

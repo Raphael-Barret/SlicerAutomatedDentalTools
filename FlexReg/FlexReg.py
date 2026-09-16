@@ -63,6 +63,13 @@ def _get_installed_version(lib_name):
         raise importlib_metadata.PackageNotFoundError
 
 from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
+
+from ADTLib.format import format_elapsed, elapsed_since
+from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.env.conda import (
+    check_pythonpath, conda_quote, give_pythonpath,
+    init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
+    windows_to_linux_path as windows_to_linux_path_shared)
 from FlexReg_utils.orientation import orientation_f
 from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
 from FlexReg_utils.mgl_patch import (
@@ -227,29 +234,8 @@ def ensureBooted(widget):
 #
 
 def condaQuote(conda, value):
-    """Quote `value` only if this SlicerConda joins the command into a shell line.
-
-    Two SlicerConda versions are in circulation and they want the opposite of
-    each other. The older one builds a bash line, where a path holding a space -
-    and the ';' inside a `python -c` body - has to be quoted or the line falls
-    apart. The newer one hands conda an argv list, where nothing ever strips
-    those quotes: they reach PYTHONPATH and argv literally and break exactly what
-    they were meant to protect. Reading the installed source tests the property
-    that decides it, rather than guessing from a version number.
-
-    Only commands going to SlicerConda come through here. The copies of
-    condaRunCommand this extension carries of its own always build a shell line,
-    so what they are given keeps its quotes unconditionally.
-    """
-    try:
-        import inspect
-
-        shell = "shell=True" in inspect.getsource(conda.condaRunCommand)
-    except Exception:
-        # Source unreadable: assume the argv contract, which is the one shipping
-        # now, rather than emitting quotes that would land literally.
-        shell = False
-    return f'"{value}"' if shell else str(value)
+    """Delegated to ADTLib; kept as a module function for the call sites."""
+    return conda_quote(conda, value)
 
 
 class FlexReg(ScriptedLoadableModule):
@@ -521,201 +507,12 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditLowerArch.setText(path_file)
 
     def applyDarkModeStyles(self):
-        """Apply dark mode styling to the widget if needed"""
-        app = qt.QApplication.instance()
-        palette = app.palette()
-        bg_color = palette.color(qt.QPalette.Window)
-        if bg_color.lightness() < 128:
-            # Complete dark mode stylesheet
-            dark_stylesheet = """
-QLineEdit, QTextEdit {
-  background-color: #3c3c3c;
-  border: 1px solid #555555;
-  border-radius: 4px;
-  padding: 6px;
-  color: #ffffff;
-  selection-background-color: #5dade2;
-}
-QLineEdit:focus, QTextEdit:focus {
-  border: 2px solid #5dade2;
-}
-QComboBox {
-  background-color: #3c3c3c;
-  border: 1px solid #555555;
-  border-radius: 4px;
-  padding: 4px 6px;
-  color: #ffffff;
-}
-QComboBox:focus {
-  border: 2px solid #5dade2;
-}
-QComboBox::drop-down {
-  width: 20px;
-  border: none;
-}
-QComboBox QAbstractItemView {
-  background-color: #3c3c3c;
-  color: #ffffff;
-  selection-background-color: #5dade2;
-}
-QLabel {
-  color: #ffffff;
-  font-weight: 500;
-  background-color: transparent;
-}
-QPushButton {
-  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5dade2, stop:1 #3498db);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 10pt;
-  padding: 8px;
-  margin-top: 4px;
-}
-QPushButton:hover:!pressed {
-  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7bbcef, stop:1 #5dade2);
-}
-QPushButton:pressed {
-  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2980b9, stop:1 #1e638d);
-}
-QPushButton:disabled {
-  background-color: #555555;
-  color: #888888;
-}
-QCheckBox {
-  color: #ffffff;
-  font-weight: 500;
-  spacing: 6px;
-  background-color: transparent;
-}
-QCheckBox::indicator {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #555555;
-  border-radius: 3px;
-  background-color: #3c3c3c;
-}
-QCheckBox::indicator:hover {
-  border: 1px solid #5dade2;
-}
-QCheckBox::indicator:checked {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #5dade2;
-  border-radius: 3px;
-  background-color: #5dade2;
-  image: url(:/Icons/SmallCheckMark.png);
-}
-QCheckBox::indicator:checked:hover {
-  border: 1px solid #7bbcef;
-  background-color: #7bbcef;
-}
-QProgressBar {
-  border: 1px solid #555555;
-  border-radius: 4px;
-  background-color: #3c3c3c;
-  padding: 2px;
-  color: #ffffff;
-}
-QProgressBar::chunk {
-  background-color: #5dade2;
-  border-radius: 3px;
-}
-QSpinBox, QDoubleSpinBox {
-  background-color: #3c3c3c;
-  border: 1px solid #555555;
-  border-radius: 4px;
-  padding: 4px 6px;
-  color: #ffffff;
-}
-QSpinBox:focus, QDoubleSpinBox:focus {
-  border: 2px solid #5dade2;
-}
-QSlider::groove:horizontal {
-  background-color: #555555;
-  border-radius: 4px;
-}
-QSlider::handle:horizontal {
-  background-color: #5dade2;
-  width: 12px;
-  margin: -4px 0;
-  border-radius: 6px;
-}
-QSlider::handle:horizontal:hover {
-  background-color: #7bbcef;
-}
-            """
-            self.uiWidget.setStyleSheet(dark_stylesheet)
-            
-            # Update QLineEdit, QComboBox, and QLabel for dark mode
-            self._updateLineEditAndComboBoxDarkMode(self.uiWidget)
+        """Give this module's widget the palette shared by the extension."""
+        apply_dark_mode(self.uiWidget)
 
     def _updateLineEditAndComboBoxDarkMode(self, parent):
-        """
-        Recursively apply dark mode styles to QLineEdit, QComboBox, and QLabel widgets.
-        """
-        # Update QLabel
-        if isinstance(parent, qt.QLabel):
-            try:
-                parent.setStyleSheet("""
-                    QLabel {
-                      color: #ffffff;
-                      font-weight: 500;
-                    }
-                """)
-            except:
-                pass
-        
-        # Update QLineEdit
-        if isinstance(parent, qt.QLineEdit):
-            try:
-                parent.setStyleSheet("""
-                    QLineEdit {
-                      background-color: #3c3c3c;
-                      border: 1px solid #555555;
-                      border-radius: 4px;
-                      padding: 6px;
-                      color: #ffffff;
-                    }
-                    QLineEdit:focus {
-                      border: 2px solid #5dade2;
-                    }
-                """)
-            except:
-                pass
-        
-        # Update QComboBox
-        if isinstance(parent, qt.QComboBox):
-            try:
-                parent.setStyleSheet("""
-                    QComboBox {
-                      background-color: #3c3c3c;
-                      border: 1px solid #555555;
-                      border-radius: 4px;
-                      padding: 4px 6px;
-                      color: #ffffff;
-                    }
-                    QComboBox:focus {
-                      border: 2px solid #5dade2;
-                    }
-                    QComboBox::drop-down {
-                      width: 20px;
-                      border: none;
-                    }
-                    QComboBox QAbstractItemView {
-                      background-color: #3c3c3c;
-                      color: #ffffff;
-                      selection-background-color: #5dade2;
-                    }
-                """)
-            except:
-                pass
-        
-        # Recursively update all children
-        if hasattr(parent, 'children'):
-            for child in parent.children():
-                self._updateLineEditAndComboBoxDarkMode(child)
+        """Shared recursive pass, kept as a method for the existing call sites."""
+        update_line_edit_and_combo_box(parent)
 
     def cleanup(self):
         """
@@ -990,20 +787,10 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
                 logger.error("---------------------\n")
     
     def init_conda(self):
-        # check if CondaSetUp exists
-        try:
-            import CondaSetUp
-        except:
-            return False
-        self.isCondaSetUp = True
-        
-        # set up conda on windows with WSL
-        if platform.system() == "Windows":
-            from CondaSetUp import CondaSetUpCallWsl
-            return CondaSetUpCallWsl()
-        else:
-            from CondaSetUp import CondaSetUpCall
-            return CondaSetUpCall()
+        """The SlicerConda entry point for this platform, or False without it."""
+        call = init_conda_call()
+        self.isCondaSetUp = bool(call)
+        return call
         
     def run_conda_command(self, target, command):
         self.process = threading.Thread(target=target, args=command) #run in parallel to not block slicer
@@ -1033,10 +820,10 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         Returns whether it could be started : the caller waits on
         self.process, so it must not wait on a thread that never ran.
         '''
-        result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
+        result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
         if not result_pythonpath :
             self.give_pythonpath_windows()
-            result_pythonpath = self.check_pythonpath_windows("FlexReg_utils.install_pytorch")
+            result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
 
         if not result_pythonpath :
             # Nothing to run. Falling through to run_conda_command here used to
@@ -1044,14 +831,14 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
             # failure -- usually that the environment cannot import the module.
             logger.error(
                 f"The conda environment '{self.name_env}' cannot import "
-                "FlexReg_utils.install_pytorch. Run that import by hand in the "
+                "ADTLib.env.install_pytorch. Run that import by hand in the "
                 "environment to see why."
             )
             return False
 
         conda_exe = self.conda.getCondaExecutable()
         path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
-        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"FlexReg_utils.install_pytorch",path_pip]
+        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
 
         self.run_conda_command(target=self.conda.condaRunCommand, command=(command,))
         return True
@@ -1066,65 +853,20 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         self.run_conda_command(target=self.condaRunCommand, command=(command,))
         
     def check_lib_wsl(self) -> bool:
-        # Ubuntu versions < 24.04
-        required_libs_old = ["libxrender1", "libgl1-mesa-glx"]
-        # Ubuntu versions >= 24.04
-        required_libs_new = ["libxrender1", "libgl1", "libglx-mesa0"]
-
-
-        all_installed = lambda libs: all(
-            subprocess.run(
-                f"wsl -- bash -c \"dpkg -l | grep {lib}\"", capture_output=True, text=True
-            ).stdout.encode("utf-16-le").decode("utf-8").replace("\x00", "").find(lib) >= 0
-            for lib in libs
-        )
-
-        return all_installed(required_libs_old) or all_installed(required_libs_new)
-
-        return "libxrender1" in clean_output1 and "libgl1-mesa-glx" in clean_output2
+        """Whether WSL carries the system libraries the tools need."""
+        return wsl_libraries_present()
     
-    def check_pythonpath_windows(self,file):
-        '''
-        Check if the environment env_name in wsl know the path to a specific file (ex : Crownsegmentationcli.py)
-        return : bool
-        '''
-        conda_exe = self.conda.getCondaExecutable()
-        command = [conda_exe, "run", "-n", self.name_env, "python" ,"-c", condaQuote(self.conda, f"import {file} as check;import os; print(os.path.isfile(check.__file__))")]
-        result = self.conda.condaRunCommand(command)
-        if "True" in result :
-            return True
-        return False
+    def check_pythonpath_windows(self, file):
+        """Whether `file` is importable by the Python of this module's environment."""
+        return check_pythonpath(self.conda, self.name_env, file)
     
     def give_pythonpath_windows(self):
-        '''
-        take the pythonpath of Slicer and give it to the environment name_env in wsl.
-        '''
-        paths = slicer.app.moduleManager().factoryManager().searchPaths
-        mnt_paths = []
-        for path in paths :
-            # Quoted only where a shell will strip the quotes again. They used to be
-            # unconditional: under the argv-passing SlicerConda they survived into
-            # PYTHONPATH, Python read each entry as a relative path and prefixed the
-            # cwd, and every sys.path entry pointed nowhere.
-            mnt_paths.append(condaQuote(self.conda, self.windows_to_linux_path(path)))
-        pythonpath_arg = 'PYTHONPATH=' + ':'.join(mnt_paths)
-        conda_exe = self.conda.getCondaExecutable()
-        argument = [conda_exe, 'env', 'config', 'vars', 'set', '-n', self.name_env, pythonpath_arg]
-        results = self.conda.condaRunCommand(argument)
+        """Publish Slicer's module search paths into this module's environment."""
+        give_pythonpath(self.conda, self.name_env)
         
-    def windows_to_linux_path(self,windows_path):
-        '''
-        convert a windows path to a wsl path
-        '''
-        windows_path = windows_path.strip()
-
-        path = windows_path.replace('\\', '/')
-
-        if ':' in path:
-            drive, path_without_drive = path.split(':', 1)
-            path = "/mnt/" + drive.lower() + path_without_drive
-
-        return path
+    def windows_to_linux_path(self, windows_path):
+        """A Windows path as WSL sees it."""
+        return windows_to_linux_path_shared(windows_path)
     
     def check_cli_script(self):
         if not self.check_pythonpath_windows("FlexReg_CLI"): 
@@ -3738,20 +3480,8 @@ class WidgetParameter:
             return False
         
     def check_lib_wsl(self) -> bool:
-        # Ubuntu versions under 24.04
-        required_libs_old = ["libxrender1", "libgl1-mesa-glx"]
-        # Ubuntu versions after 24.04
-        required_libs_new = ["libxrender1", "libgl1", "libglx-mesa0"]
-
-
-        all_installed = lambda libs: all(
-            subprocess.run(
-                f"wsl -- bash -c \"dpkg -l | grep {lib}\"", capture_output=True, text=True
-            ).stdout.encode("utf-16-le").decode("utf-8").replace("\x00", "").find(lib) >= 0
-            for lib in libs
-        )
-
-        return all_installed(required_libs_old) or all_installed(required_libs_new)
+        """Whether WSL carries the system libraries the tools need."""
+        return wsl_libraries_present()
             
     def shapeaxi_conda(self):
         slicer.app.processEvents()
@@ -3927,7 +3657,7 @@ class WidgetParameter:
             slicer.util.errorDisplay(
                 "The pytorch3d installation could not be started : the conda "
                 f"environment '{self.logic.name_env}' cannot import "
-                "FlexReg_utils.install_pytorch.\n\n"
+                "ADTLib.env.install_pytorch.\n\n"
                 "See the Python console for the underlying import error."
             )
             return False
@@ -3946,21 +3676,21 @@ class WidgetParameter:
         self.all_installed = True   
         return True
             
-    def format_time(self,seconds):
-        """ Convert seconds to H:M:S format. """
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02}:{minutes:02}:{secs:02}"
-    
+    def format_time(self, seconds):
+        """Seconds as HH:MM:SS."""
+        return format_elapsed(seconds)
+
     def update_ui_time(self, start_time, previous_time):
-        current_time = time.time()
-        gap=current_time-previous_time
-        if gap>0.3:
-            previous_time = current_time
-            self.elapsed_time = current_time - start_time
-            formatted_time = self.format_time(self.elapsed_time)
-            return formatted_time
+        """Elapsed time since `start_time`, formatted for the installation label.
+
+        `previous_time` is kept for signature parity with the call sites, which
+        pass it but never update their own copy. It used to throttle this to one
+        update every 0.3s and return None in between, which is what wrote
+        "time: None" into the label. Formatting unconditionally is both simpler
+        and correct.
+        """
+        self.elapsed_time = elapsed_since(start_time)
+        return self.format_time(self.elapsed_time)
 
     def shapeaxi(self):
         '''

@@ -67,8 +67,8 @@ def invert_mri_intensity(path_folder, folder_output, suffix):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Invert the intensity of MRI images while keeping the background at 0.")
-    parser.add_argument("--path_folder", type=str, help="The path to the folder containing the MRI files", default="/home/lucia/Documents/Gaelle/Data/MultimodelReg/Segmentation/a3_Registration_closer_all/a0_MRI")
-    parser.add_argument("--folder_output", type=str, help="The path to the output folder for the inverted files",default="/home/lucia/Documents/Gaelle/Data/MultimodelReg/Segmentation/a3_Registration_closer_all/a1_MRI_inv")
+    parser.add_argument("--path_folder", type=str, help="The path to the folder containing the MRI files", required=True)
+    parser.add_argument("--folder_output", type=str, help="The path to the output folder for the inverted files", required=True)
     parser.add_argument("--suffix", type=str, help="The suffix to add to the output filenames",default="inv")
 
     args = parser.parse_args()

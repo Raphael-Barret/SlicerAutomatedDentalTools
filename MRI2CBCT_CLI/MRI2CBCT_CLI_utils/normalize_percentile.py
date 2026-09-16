@@ -88,8 +88,8 @@ def normalize(input_folder, output_folder,upper_percentile,lower_percentile,min_
 
 def main():
     parser = argparse.ArgumentParser(description='Enhance contrast of NIfTI images and save with a new suffix.')
-    parser.add_argument('--input_folder', type=str, help='Path to the input folder containing .nii.gz images.', default="/home/lucia/Documents/Gaelle/Data/MultimodelReg/Segmentation/a3_Registration_closer_all/b0_CBCT")
-    parser.add_argument('--output_folder', type=str, help='Path to the output folder to save normalized images.', default="/home/lucia/Documents/Gaelle/Data/MultimodelReg/Segmentation/a3_Registration_closer_all/b2_CBCT_norm")
+    parser.add_argument('--input_folder', type=str, help='Path to the input folder containing .nii.gz images.', required=True)
+    parser.add_argument('--output_folder', type=str, help='Path to the output folder to save normalized images.', required=True)
     parser.add_argument('--upper_percentile', type=int, help='upper percentile to apply, choose between 0 and 100',default=95)
     parser.add_argument('--lower_percentile', type=int, help='lower percentile to apply, choose between 0 and 100',default=10)
     parser.add_argument('--max_norm', type=int, help='max value after normalization',default=75)

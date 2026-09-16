@@ -61,10 +61,14 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         VTKObservationMixin.__init__(self)
         self.conda = CondaSetUpCall()
         
-        # Patch: Fix conda executable path (remove duplicate /bin/bin) or use system conda
+        # Workaround for the SlicerConda shipped with the 5.13 nightly, which keeps
+        # one conda path for the whole machine and hands it out without checking it
+        # is still on disk: another Slicer overwrites it, and this module then runs
+        # a conda that is not there. The branch already in the 5.12 release keys the
+        # path per installation and guards it with executableExists(), which makes
+        # this dead weight - drop it once the nightly carries that version.
         original_getCondaExecutable = self.conda.getCondaExecutable
-        original_getCondaPath = self.conda.getCondaPath
-        
+
         def fixed_getCondaExecutable():
             path = original_getCondaExecutable()
             logger.debug(f"[DEBUG] original getCondaExecutable returned: {path!r}")
@@ -86,30 +90,10 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 logger.debug(f"[DEBUG] Using system conda from PATH: {conda_in_path}")
                 return conda_in_path
             
-            # Last resort: try common anaconda location
-            common_conda = "/home/luciacev/anaconda3/bin/conda"
-            if os.path.exists(common_conda):
-                logger.debug(f"[DEBUG] Using anaconda conda: {common_conda}")
-                return common_conda
-            
             logger.warning(f"[WARNING] Could not find working conda, falling back to: {path}")
             return path
         
-        def fixed_getCondaPath():
-            """Return conda base directory - patch Slicer bug and use system conda"""
-            path = original_getCondaPath()
-            logger.debug(f"[DEBUG] original getCondaPath returned: {path!r}")
-            
-            # If we found anaconda, use its path
-            common_conda_path = "/home/luciacev/anaconda3"
-            if os.path.exists(common_conda_path):
-                logger.debug(f"[DEBUG] Using anaconda conda path: {common_conda_path}")
-                return common_conda_path
-            
-            return path
-        
         self.conda.getCondaExecutable = fixed_getCondaExecutable
-        self.conda.getCondaPath = fixed_getCondaPath
         
         self.ui_q          = queue.Queue()
         self.input_path    = None

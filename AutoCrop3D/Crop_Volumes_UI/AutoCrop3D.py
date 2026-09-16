@@ -165,7 +165,6 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.SearchPathButtonF.connect("clicked(bool)", partial(self.SearchPath,"Folder_file"))
         self.ui.SearchPathButtonV.connect("clicked(bool)", partial(self.SearchPath,"ROI"))
         self.ui.SearchPathButtonOut.connect("clicked(bool)", partial(self.SearchPath,"Output"))
-        #self.ui.TestFiles.connect("clicked(bool)",self.Autofill)
         #self.ui.chooseType.connect("clicked(bool)", self.SearchPath)
 
         self.ui.checkBoxCV.toggled.connect(self.optionCheckBox)
@@ -395,13 +394,6 @@ QSlider::handle:horizontal:hover {
         # Recursively process children
         for child in parent.children():
             self._updateLineEditAndComboBoxDarkMode(child)
-
-    def Autofill(self):
-        self.ui.editPathF.setText("/home/luciacev/Desktop/Jeanne/DJD_Data/Input")
-        self.ui.editPathVolume.setText("/home/luciacev/Desktop/Jeanne/DJD_Data/Volume/Crop_Volume_ROI_1.mrk.json")
-        self.ui.editPathOutput.setText("/home/luciacev/Desktop/Jeanne/DJD_Data/Output")
-        self.ui.chooseType.setCurrentIndex(1)
-        self.ui.chooseType_ROI.setCurrentIndex(0)
 
     def cleanup(self):
         """

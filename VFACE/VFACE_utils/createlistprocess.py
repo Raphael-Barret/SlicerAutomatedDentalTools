@@ -38,6 +38,7 @@ except ImportError:
     psutil = None
     logger.warning("Warning: psutil not available - memory monitoring disabled")
 import gc
+from ADTLib.naming import patient_id as read_patient_id
 
 def check_memory_usage(threshold_percent=80):
     if psutil is None:
@@ -2199,27 +2200,11 @@ def GetPatients(folder_path, time_point="T1", segmentationType=None, folder_mask
     
     patients = {}
 
-    # TIMEPOINT-SUFFIX: only _T1/_T2 are stripped here, so _T3/_T4 inputs break
-    # patient pairing. See the full note above GetPatients in
-    # AREG_CBCT/AREG_CBCT_utils/utils.py before changing this.
+    # TIMEPOINT-SUFFIX: the chain that builds this id now lives in
+    # ADTLib.naming, together with the note on what it would take.
     for file in all_files:
         basename = os.path.basename(file)
-        patient = (
-            basename.split("_Scan")[0]
-            .split("_scan")[0]
-            .split("_Or")[0]
-            .split("_OR")[0]
-            .split("_MAND")[0]
-            .split("_MD")[0]
-            .split("_MAX")[0]
-            .split("_MX")[0]
-            .split("_CB")[0]
-            .split("_lm")[0]
-            .split("_T2")[0]
-            .split("_T1")[0]
-            .split("_Cl")[0]
-            .split(".")[0]
-        )
+        patient = read_patient_id(basename)
 
         if patient not in patients:
             patients[patient] = {}
@@ -2387,26 +2372,11 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
                     return True
         return False
 
-    # TIMEPOINT-SUFFIX: only _T1/_T2 are stripped here, so _T3/_T4 inputs break
-    # patient pairing. See the full note above GetPatients in
-    # AREG_CBCT/AREG_CBCT_utils/utils.py before changing this.
+    # TIMEPOINT-SUFFIX: the chain that builds this id now lives in
+    # ADTLib.naming, together with the note on what it would take.
     def clean_patient_id(patient_id):
         return (
-            patient_id.split("_Scan")[0]
-            .split("_scan")[0]
-            .split("_Or")[0]
-            .split("_OR")[0]
-            .split("_MAND")[0]
-            .split("_MD")[0]
-            .split("_MAX")[0]
-            .split("_MX")[0]
-            .split("_CB")[0]
-            .split("_lm")[0]
-            .split("_T2")[0]
-            .split("_T1")[0]
-            .split("_Cl")[0]
-            .split(".")[0]
-        )
+            read_patient_id(patient_id))
 
     t2_files = {}
     for file2 in input_dir2.iterdir():

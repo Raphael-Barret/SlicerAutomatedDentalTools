@@ -27,6 +27,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}/env/conda.py
   ${MODULE_NAME}/env/install_pytorch.py
   ${MODULE_NAME}/format.py
+  ${MODULE_NAME}/naming.py
   ${MODULE_NAME}/theming.py
 )
 
@@ -35,3 +36,8 @@ slicerMacroBuildScriptedModule(
   NAME ${MODULE_NAME}
   SCRIPTS ${MODULE_PYTHON_SCRIPTS}
 )
+
+#-----------------------------------------------------------------------------
+if(BUILD_TESTING)
+  add_subdirectory(Testing)
+endif()

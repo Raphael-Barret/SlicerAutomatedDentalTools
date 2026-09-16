@@ -274,7 +274,7 @@ class RegistrationTest(unittest.TestCase):
         collinear = np.array([[-8, -18, 0], [0, -18, 0], [8, -18, 0]], dtype=float)
         truth = Rigid([0.3, 1, 0.2], 12, [15, -8, 4])
 
-        _, matrix, _ = areg.align_by_landmarks(
+        _, matrix, _, _ = areg.align_by_landmarks(
             pv.Sphere(radius=5), collinear, Apply(truth, collinear),
             "Upper", "collinear")
 
@@ -290,10 +290,33 @@ class RegistrationTest(unittest.TestCase):
         truth = Rigid([0.3, 1, 0.2], 12, [15, -8, 4])
         target = Apply(truth, source)
 
-        _, matrix, _ = areg.align_by_landmarks(
+        _, matrix, _, _ = areg.align_by_landmarks(
             pv.Sphere(radius=5), source, target, "Upper", "flagged")
 
         self.assertLess(areg._alignment_residual(source, target, matrix), 0.01)
+
+
+    def test_align_by_landmarks_returns_four_values(self):
+        """The shape of the return, pinned so a fifth value is caught here.
+
+        Adding a value to this tuple broke both callers above and neither said
+        so: the suite is not run on a change, so `ValueError: too many values
+        to unpack` sat in the repository from ad5d96f until an audit ran it by
+        hand. One assertion on the contract fails with a readable message at a
+        single place, instead of at every call site.
+        """
+        source = np.array([[-8, -18, 0], [8, -18, 0], [0, -6, 4], [0, -22, -5]],
+                          dtype=float)
+        result = areg.align_by_landmarks(
+            pv.Sphere(radius=5), source,
+            Apply(Rigid([0.3, 1, 0.2], 12, [15, -8, 4]), source),
+            "Upper", "contract")
+
+        self.assertEqual(
+            len(result), 4,
+            "align_by_landmarks returns %d values; the callers in this suite "
+            "and in AREG_IOSCBCT.py unpack 4 (mesh, matrix, landmarks, kept)."
+            % len(result))
 
 
 if __name__ == "__main__":

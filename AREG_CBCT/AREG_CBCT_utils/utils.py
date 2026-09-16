@@ -378,7 +378,6 @@ def WriteJson(landmarks, out_path):
                 "display": {
                     "visibility": false,
                     "opacity": 1.0,
-                    "color": [0.4, 1.0, 0.0],
                     "color": [0.5, 0.5, 0.5],
                     "selectedColor": [
                         0.26666666666666669,
@@ -411,7 +410,6 @@ def WriteJson(landmarks, out_path):
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(file, f, ensure_ascii=False, indent=4)
 
-    f.close
 
 
 def LoadOnlyLandmarks(ldmk_path, ldmk_list=None):

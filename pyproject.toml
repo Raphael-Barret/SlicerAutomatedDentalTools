@@ -1,0 +1,34 @@
+# Outillage qualité du dépôt. Aucune dépendance de build : Slicer construit
+# l'extension par CMake, ce fichier ne sert qu'aux outils de développement.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"          # la version embarquée par Slicer 5.13
+extend-exclude = ["**/__pycache__"]
+
+# CLIQUET : on n'active que les règles que le dépôt passe aujourd'hui, pour que
+# la CI soit verte dès le premier jour et le reste. Chaque règle du backlog
+# ci-dessous s'active dans la branche qui corrige ses violations -- jamais en
+# bloc, sinon la CI devient un bruit de fond qu'on apprend à ignorer.
+[tool.ruff.lint]
+select = [
+  "E9",     # erreurs de syntaxe et d'exécution
+  "F6",     # littéraux fautifs : clé de dictionnaire répétée, etc.
+  "F7",     # break/continue/return hors de leur bloc
+  "B002",   # ++x, qui ne fait rien
+  "B012",   # break/return dans un finally, qui avale l'exception
+  "B018",   # expression sans effet : le « f.close » sans parenthèses
+  "PLE",    # erreurs pylint : arguments de logging, caractères invalides
+]
+
+# BACKLOG, dans l'ordre où il sera traité. Le compte date du 2026-09-16.
+#   F811  (30) redéfinition silencieuse d'un nom -> branche adt/x3
+#   F821  (12) nom non défini, plantage à l'exécution -> branche adt/x5
+#   B006  (18) valeur par défaut mutable
+#   B023   (4) fermeture capturant la variable de boucle -- change la sémantique, à traiter cas par cas
+#   E722  (95) except nu
+#   F401 (406) import inutilisé
+#   E501 (3540) ligne trop longue -- à traiter par une passe de formatage, pas à la main
+
+[tool.ruff.lint.per-file-ignores]
+"*/Testing/*" = ["E501"]

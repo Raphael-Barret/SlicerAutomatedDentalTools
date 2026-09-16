@@ -1,0 +1,42 @@
+name: CI
+
+# Le harnais existe depuis longtemps -- 141 tests synthétiques, ni scan, ni
+# modèle, ni GPU, en quelques secondes -- mais rien ne le lançait : deux d'entre
+# eux sont restés cassés sur main du commit ad5d96f jusqu'à ce qu'un audit les
+# exécute à la main. C'est ce que ce fichier corrige.
+
+on:
+  push:
+    branches: ["main", "adt/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check --output-format github
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Les suites sont synthétiques mais s'appuient sur les bibliothèques de
+      # maillage ; elles n'ont besoin ni de Slicer, ni de GPU, ni de données.
+      - run: python -m pip install --upgrade pip numpy vtk pyvista SimpleITK
+      - name: unittest
+        run: |
+          status=0
+          for d in ALI_IOS AREG_IOS AREG_IOSCBCT ASO_IOS FlexReg; do
+            [ -d "$d/Testing/Python" ] || continue
+            echo "::group::$d"
+            ( cd "$d/Testing/Python" && python -m unittest discover -v . ) || status=1
+            echo "::endgroup::"
+          done
+          exit $status

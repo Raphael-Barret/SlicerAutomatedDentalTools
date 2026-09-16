@@ -1769,7 +1769,6 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
         with open(os.path.join(folder, f"{file_name}"), "w", encoding="utf-8") as f:
             json.dump(file, f, ensure_ascii=False, indent=4)
-        f.close
 
     def computeMidPoint(self, p1, p2):
         mp = (p1 + p2) / 2

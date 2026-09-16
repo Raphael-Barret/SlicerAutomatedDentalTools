@@ -1477,7 +1477,7 @@ class SegmentationWidget(qt.QWidget):
         segIds_sorted    = list(correctedSeg.GetSegmentation().GetSegmentIDs())
 
         if len(finalValues) != len(segIds_sorted):
-            self.onProgressInfo("[WARN] Number of values ​​≠ number of segments — check import.")
+            self.onProgressInfo("[WARN] Number of values \u200b\u200b≠ number of segments — check import.")
 
         for val, segId in zip(finalValues, segIds_sorted):
             segment = correctedSeg.GetSegmentation().GetSegment(segId)

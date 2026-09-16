@@ -256,10 +256,10 @@ def get_transformation(cbct_folder, mean_folder, output_folder):
                         nmi_loss_function_rigid = NMI(intensity_range=None, nbins=64, sigma=params['sigma_rigid'], use_mask=False)
 
                         # Initialize AffineRegistration for Rigid registration
-                        reg_rigid = AffineRegistration(scales=(4, 2), iterations=(100, 30), is_3d=True, 
-                                                       learning_rate=params['learning_rate_rigid'], verbose=True, 
-                                                       dissimilarity_function=nmi_loss_function_rigid.metric, optimizer=torch.optim.Adam, 
-                                                       with_translation=True, with_rotation=True, with_zoom=False, with_shear=False, 
+                        reg_rigid = AffineRegistration(scales=(4, 2), iterations=(100, 30), is_3d=True,
+                                                       learning_rate=params['learning_rate_rigid'], verbose=True,
+                                                       dissimilarity_function=nmi_loss_function_rigid.metric, optimizer=torch.optim.Adam,
+                                                       with_translation=True, with_rotation=True, with_zoom=False, with_shear=False,
                                                        align_corners=True, interp_mode="trilinear", padding_mode='zeros')
 
                         # Perform rigid registration
@@ -354,7 +354,7 @@ def main():
     
     args = parser.parse_args()
 
-    get_transformation(args.cbct_folder, args.mean_folder, args.output_folder) 
+    get_transformation(args.cbct_folder, args.mean_folder, args.output_folder)
     
 if __name__ == "__main__":
     main()

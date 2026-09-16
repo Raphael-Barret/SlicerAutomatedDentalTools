@@ -50,37 +50,37 @@ class DOCShapeAXI(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "DOCShapeAXI" 
+    self.parent.title = "DOCShapeAXI"
     self.parent.categories = ["Automated Dental Tools"]
-    self.parent.dependencies = ["CondaSetUp"] 
+    self.parent.dependencies = ["CondaSetUp"]
     
-    self.parent.contributors = ["Lucie Dole (University of North Carolina)", 
+    self.parent.contributors = ["Lucie Dole (University of North Carolina)",
     "Gaelle Leroux (University of Michigan)",
     "Lucia Cevidanes (University of Michigan)",
-    "Juan Carlos Prieto (University of North Carolina)"] 
+    "Juan Carlos Prieto (University of North Carolina)"]
     
     self.parent.helpText = textwrap.dedent("""
-    This extension provides a Graphical User Interface (GUI) 
-    for a deep learning automated classification of Alveolar Bone Defect in Cleft, 
+    This extension provides a Graphical User Interface (GUI)
+    for a deep learning automated classification of Alveolar Bone Defect in Cleft,
     Nasopharynx Airway Obstruction and Mandibular Condyles.<br>
 
     - The input file must be a folder containing a list of vtk files.<br>
 
-    - data type for classification: Mandibular Condyle, Nasopharynx Airway 
+    - data type for classification: Mandibular Condyle, Nasopharynx Airway
     Obstruction and Alveolar Bone Defect in Cleft.<br>
 
-    - output directory: a folder that will contain all the outputs 
+    - output directory: a folder that will contain all the outputs
     (models, prediction and explainability results)<br>
 
-    When prediction is over, you can open the output csv file which will containing 
+    When prediction is over, you can open the output csv file which will containing
     the path of each .vtk file as well as the predicted class. <br><br>
 
-    More help can be found on the <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools">Github repository</a> 
+    More help can be found on the <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools">Github repository</a>
     for the extension.
     """).strip()
 
     self.parent.acknowledgementText = """
-    This file was developed by Lucie Dole, (University of North Carolina) and 
+    This file was developed by Lucie Dole, (University of North Carolina) and
     Gaelle Leroux (University of Michigan), and was supported by R01-DE024450.
     """
 
@@ -115,7 +115,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     ScriptedLoadableModuleWidget.setup(self)
 
     # Load widget from .ui file (created by Qt Designer).
-    # Additional widgets can be instantiated manually and added to self.layout. 
+    # Additional widgets can be instantiated manually and added to self.layout.
     uiWidget = slicer.util.loadUI(self.resourcePath("UI/DOCShapeAXI.ui"))
     self.layout.addWidget(uiWidget)
     self.uiWidget = uiWidget  # Store reference for styling
@@ -133,7 +133,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
-    # UI elements 
+    # UI elements
 
     self.ui.browseDirectoryButton.connect('clicked(bool)',self.onBrowseOutputButton)
     self.ui.browseMountPointButton.connect('clicked(bool)',self.onBrowseMountPointButton)
@@ -255,7 +255,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.EndModify(wasModified)
 
 
-  ## 
+  ##
   ## Inputs
   ##
 
@@ -289,7 +289,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   ##
   ##  Process
   ##
-  def check_input_parameters(self): 
+  def check_input_parameters(self):
     msg = qt.QMessageBox()
     if not(os.path.isdir(self.logic.output_dir)):
       if not(os.path.isdir(self.logic.output_dir)):
@@ -323,7 +323,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.timeLabel.setText(f"Checking if SlicerConda is installed")
       messageBox = qt.QMessageBox()
       text = textwrap.dedent("""
-      SlicerConda is not set up, please click 
+      SlicerConda is not set up, please click
       <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
       """).strip()
       messageBox.information(None, "Information", text)
@@ -342,9 +342,9 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           messageBox = qt.QMessageBox()
           # text = "Code can't be launch. \nWSL doen't have all the necessary libraries, please download the installer and follow the instructin here : https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip may be blocked by Chrome, this is normal, just authorize it."
           text = textwrap.dedent("""
-            WSL doesn't have all the necessary libraries, please download the installer 
-            nd follow the instructions 
-            <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
+            WSL doesn't have all the necessary libraries, please download the installer
+            nd follow the instructions
+            <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
             for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
           messageBox.information(None, "Information", text)
@@ -353,9 +353,9 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         messageBox = qt.QMessageBox()
         # text = "Code can't be launch. \nWSL is not installed, please download the installer and follow the instructin here : https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip may be blocked by Chrome, this is normal, just authorize it."
         text = textwrap.dedent("""
-          WSL is not installed, please download the installer and follow the instructions 
-          <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
-          for installation. The link may be blocked by Chrome, just authorize it.""").strip()        
+          WSL is not installed, please download the installer and follow the instructions
+          <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
+          for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
         messageBox.information(None, "Information", text)
         return False
@@ -367,7 +367,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
       messageBox = qt.QMessageBox()
       text = textwrap.dedent("""
-      Code can't be launch. \nConda is not setup. 
+      Code can't be launch. \nConda is not setup.
       Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
       messageBox.information(None, "Information", text)
       return False
@@ -393,7 +393,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         previous_time = start_time
         formatted_time = self.format_time(0)
         text = textwrap.dedent(f"""
-        Installation of librairies into the new environnement. 
+        Installation of librairies into the new environnement.
         This task may take a few minutes.\ntime: {formatted_time}""").strip()
         self.ui.timeLabel.setText(text)
       else:
@@ -404,7 +404,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     ## pytorch3d
 
     self.ui.timeLabel.setText(f"Checking if pytorch3d is installed")
-    if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed 
+    if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed
       process = self.logic.install_pytorch3d()
       start_time = time.time()
       previous_time = start_time
@@ -413,7 +413,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.app.processEvents()
         formatted_time = self.update_ui_time(start_time, previous_time)
         text = textwrap.dedent(f"""
-        Installation of pytorch into the new environnement. 
+        Installation of pytorch into the new environnement.
         This task may take a few minutes.\ntime: {formatted_time}
         """).strip()
         self.ui.timeLabel.setText(text)
@@ -528,7 +528,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.ui.labelBar.setText(f'Loading {self.task} model...')
         else:
           self.progress = int(progress)
-          if self.logic.previous_saxi_task != current_saxi_task: 
+          if self.logic.previous_saxi_task != current_saxi_task:
             self.progress = 0
             self.logic.previous_saxi_task = current_saxi_task
             self.ui.progressBar.setValue(0)
@@ -559,7 +559,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.applyChangesButton.setEnabled(True)
     self.ui.resetButton.setEnabled(True)
-    self.ui.progressLabel.setHidden(False)     
+    self.ui.progressLabel.setHidden(False)
     self.ui.cancelButton.setHidden(True)
     self.resetProgressBar()
     self.ui.doneLabel.setHidden(False)
@@ -586,7 +586,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.timeLabel.setText(f"time : {formatted_time}")
     self.ui.progressBar.setEnabled(False)
     self.ui.progressBar.setRange(0,100)
-    self.removeObservers()  
+    self.removeObservers()
     self.ui.cancelButton.setEnabled(True)
 
   def onCancel(self):
@@ -595,7 +595,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic.cancel_process()
 
     self.ui.cancelButton.setEnabled(False)
-    self.removeObservers()  
+    self.removeObservers()
     self.onReset()
 
   def format_time(self, seconds):
@@ -672,7 +672,7 @@ class DOCShapeAXILogic(ScriptedLoadableModuleLogic):
       self.give_pythonpath_windows()
       result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
       
-    if result_pythonpath : 
+    if result_pythonpath :
       conda_exe = self.conda.getCondaExecutable()
       path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
       command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
@@ -706,7 +706,7 @@ class DOCShapeAXILogic(ScriptedLoadableModuleLogic):
     return windows_to_linux_path_shared(windows_path)
   
   def check_cli_script(self):
-    if not self.check_pythonpath_windows("DOCShapeAXI_CLI") : 
+    if not self.check_pythonpath_windows("DOCShapeAXI_CLI") :
       self.give_pythonpath_windows()
       results = self.check_pythonpath_windows("DOCShapeAXI_CLI")
 
@@ -715,7 +715,7 @@ class DOCShapeAXILogic(ScriptedLoadableModuleLogic):
     '''
     Runs a command in a specified Conda environment, handling different operating systems.
     
-    copy paste from SlicerConda and change the process line to be able to get the stderr/stdout 
+    copy paste from SlicerConda and change the process line to be able to get the stderr/stdout
     and cancel the process without blocking slicer
     '''
     path_activate = self.conda.getActivateExecutable()
@@ -733,7 +733,7 @@ class DOCShapeAXILogic(ScriptedLoadableModuleLogic):
       command_to_execute = ["wsl", "--user", user,"--","bash","-c", command_execute]
       logger.info(f"command_to_execute in condaRunCommand : {command_to_execute}")
 
-      self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+      self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, encoding='utf-8', errors='replace', env=slicer.util.startupEnvironment(),
                               creationflags=subprocess.CREATE_NEW_PROCESS_GROUP  # For Windows
                               )
@@ -777,13 +777,13 @@ class DOCShapeAXILogic(ScriptedLoadableModuleLogic):
     self.nn_type = self.find_nn_type()
     self.model, self.num_classes = self.find_model_name()
 
-    parameters = [self.input_dir, 
-                  self.output_dir, 
-                  self.data_type, 
-                  self.task, 
-                  self.model, 
-                  self.nn_type, 
-                  str(self.num_classes), 
+    parameters = [self.input_dir,
+                  self.output_dir,
+                  self.data_type,
+                  self.task,
+                  self.model,
+                  self.nn_type,
+                  str(self.num_classes),
                   self.log_path]
     
     return parameters

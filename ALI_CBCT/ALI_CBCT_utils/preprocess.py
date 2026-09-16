@@ -207,7 +207,7 @@ def convertdicom2nifti(input_folder, output_folder=None):
         logger.info(f"Starting DICOM to NIFTI conversion from {input_folder}")
         
         patients_folders = [
-            folder for folder in os.listdir(input_folder) 
+            folder for folder in os.listdir(input_folder)
             if os.path.isdir(os.path.join(input_folder, folder)) and folder != 'NIFTI'
         ]
 

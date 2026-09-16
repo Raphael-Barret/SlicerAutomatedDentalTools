@@ -53,7 +53,7 @@ class LR_CROP_MRI2CBCT(Method):
             if any(found_files[ext] for ext in extensions):
                 return True, ""
             else:
-                return False, "No files to run has been found in the "    
+                return False, "No files to run has been found in the "
         return True,""
         
     def TestProcess(self, **kwargs) -> str:

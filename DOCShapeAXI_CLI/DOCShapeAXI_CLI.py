@@ -17,7 +17,7 @@ from tqdm import tqdm
 from shapeaxi.saxi_dataset import SaxiDataset
 from shapeaxi.saxi_transforms import EvalTransform
 
-from shapeaxi.saxi_gradcam import gradcam_process 
+from shapeaxi.saxi_gradcam import gradcam_process
 
 import vtk
 
@@ -53,7 +53,7 @@ def scale_cam_image(cam, target_size=None):
         new_min = np.percentile(img.flatten(),q=1)
         img = np.clip(img,new_min,new_max)
 
-        img =  2*((img - np.min(img)) / (np.max(img) -np.min(img))) -1 
+        img =  2*((img - np.min(img)) / (np.max(img) -np.min(img))) -1
 
       result.append(img)
     result = np.float32(result)
@@ -64,7 +64,7 @@ def gradcam_save(args, gradcam_path, surf_path, surf):
     '''
     Function to save the GradCAM on the surface
 
-    Args : 
+    Args :
         gradcam_path : path to save the GradCAM
         surf_path : path to the surface
         surf : surface read by utils.ReadSurf
@@ -129,7 +129,7 @@ def saxi_gradcam(args, out_model_path):
   with open(args.log_path,'w+') as log_f :
     log_f.write(f"{args.task},explainability,NaN,{args.num_classes}")
 
-  NN = getattr(saxi_nets_lightning, args.nn)    
+  NN = getattr(saxi_nets_lightning, args.nn)
   model = NN.load_from_checkpoint(out_model_path, strict=False)
 
   model.eval()
@@ -139,8 +139,8 @@ def saxi_gradcam(args, out_model_path):
   predicted_csv = os.path.join(args.output_dir, fname.replace('.csv', "_prediction.csv"))
   df_test = pd.read_csv(predicted_csv)
     
-  test_ds = SaxiDataset(df_test, transform=EvalTransform(), CN=True, 
-                          surf_column=model.hparams.surf_column, mount_point = args.input_dir, 
+  test_ds = SaxiDataset(df_test, transform=EvalTransform(), CN=True,
+                          surf_column=model.hparams.surf_column, mount_point = args.input_dir,
                           class_column=None, scalar_column=None, **vars(args))
   test_loader = DataLoader(test_ds, batch_size=1, num_workers=4, pin_memory=False)
 
@@ -204,8 +204,8 @@ def saxi_predict(args,out_model_path):
     if hasattr(model.hparams, 'scale_factor'):
         scale_factor = model.hparams.scale_factor
     
-    test_ds = SaxiDataset(df, transform=EvalTransform(scale_factor), CN=True, 
-                          surf_column=model.hparams.surf_column, mount_point = args.input_dir, 
+    test_ds = SaxiDataset(df, transform=EvalTransform(scale_factor), CN=True,
+                          surf_column=model.hparams.surf_column, mount_point = args.input_dir,
                           class_column=None, scalar_column=None, **vars(args))
     
     test_loader = DataLoader(test_ds, batch_size=1, pin_memory=False)

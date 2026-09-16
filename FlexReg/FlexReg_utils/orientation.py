@@ -104,7 +104,7 @@ def orientation_matrix(source,target,landmarks):
 
     matrix = np.matmul(matrix_direction, matrix_normal)
 
-    left_source = np.matmul(matrix,left_source)   
+    left_source = np.matmul(matrix,left_source)
     middle_source = np.matmul(matrix,middle_source)
     right_source = np.matmul(matrix,right_source)
 

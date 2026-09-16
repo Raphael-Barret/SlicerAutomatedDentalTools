@@ -31,7 +31,7 @@ def get_nifti_info(file_path,output_resample):
 
     # Get information
     info = {
-        "in": file_path, 
+        "in": file_path,
         "out" : file_path.replace(os.path.dirname(file_path),output_resample),
         "size": image.GetSize(),
         "Spacing": image.GetSpacing(),

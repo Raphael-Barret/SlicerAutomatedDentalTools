@@ -245,16 +245,16 @@ class FlexReg(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "FlexReg"  # TODO: make this more human readable by adding spaces
-        self.parent.categories = ["Automated Dental Tools"]  # TODO: set categories (folders where the module shows up in the module selector)
-        self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["John Doe (AnyWare Corp.)"]  # TODO: replace with "Firstname Lastname (Organization)"
-        # TODO: update with short description of the module and a link to online module documentation
+        self.parent.title = "FlexReg"
+        self.parent.categories = ["Automated Dental Tools"]
+        self.parent.dependencies = []
+        self.parent.contributors = ["Raphael Barret (UoM), Alexandre Buisson (UoM), Jules Grivot Pelisson (UoM), Lucie Dole (UoNC)"]
+        
         self.parent.helpText = """
 This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#FlexReg">module documentation</a>.
+See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#FlexReg">module documentation</a>.
 """
-        # TODO: replace with organization, grant and thanks
+        
         self.parent.acknowledgementText = """
 This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
 and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -492,10 +492,10 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             WidgetParameter(self.ui.verticalLayout_2,self.parent,title,self.list_widget_scan))
         self.list_widget_scan[-1].setArch(self.isLowerArch())
 
-    def openFinder(self,nom : str,_) -> None : 
+    def openFinder(self,nom : str,_) -> None :
         """
          Open finder to let the user choose is folder
-        """ 
+        """
 
 
         if nom=="Output":
@@ -759,7 +759,7 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
 
         flybyProcess = slicer.modules.flexreg_cli
         self.cliNode = slicer.cli.run(flybyProcess,None, parameters)
-        self.cliNode.AddObserver(slicer.vtkMRMLCommandLineModuleNode.StatusModifiedEvent, self.onCliModified)  
+        self.cliNode.AddObserver(slicer.vtkMRMLCommandLineModuleNode.StatusModifiedEvent, self.onCliModified)
         return flybyProcess
     
     def onCliModified(self, caller, event):
@@ -869,7 +869,7 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         return windows_to_linux_path_shared(windows_path)
     
     def check_cli_script(self):
-        if not self.check_pythonpath_windows("FlexReg_CLI"): 
+        if not self.check_pythonpath_windows("FlexReg_CLI"):
             self.give_pythonpath_windows()
             results = self.check_pythonpath_windows("FlexReg_CLI")
             
@@ -900,7 +900,7 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         '''
         Runs a command in a specified Conda environment, handling different operating systems.
         
-        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout 
+        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout
         and cancel the process without blocking slicer
         '''
         path_activate = self.conda.getActivateExecutable()
@@ -917,7 +917,7 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
             command_to_execute = ["wsl", "--user", user,"--","bash","-c", command_execute]
             logger.info(f"command_to_execute in condaRunCommand : {command_to_execute}")
 
-            self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+            self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True, encoding='utf-8', errors='replace', env=slicer.util.startupEnvironment(),
                                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP  # For Windows
                                     )
@@ -1079,7 +1079,7 @@ class Reg:
                 self.suffix=suffix
                 self.lower_arch=lower_arch
                 self._processed = False # To allow onProcessUpdateICP to display the time and launch endProcess
-                # CLI 
+                # CLI
                 self.logic = FlexRegLogic(self.T2.getPath(),
                                 int(0),
                             int(0),
@@ -1762,16 +1762,16 @@ class WidgetParameter:
 
         self.button_curvepoint = QPushButton('Point Curve')
         self.button_curvepoint.pressed.connect(self.curvePoint)
-        self.layout_outline.addWidget(self.button_curvepoint,1,0,1,2)  
+        self.layout_outline.addWidget(self.button_curvepoint,1,0,1,2)
 
         self.add_points = QPushButton('Resample points')
         self.add_points.pressed.connect(self.addPoints)
-        self.layout_outline.addWidget(self.add_points,2,0) 
+        self.layout_outline.addWidget(self.add_points,2,0)
 
         self.spin_add_points = QSpinBox()
         self.spin_add_points.setMinimum(4)
         self.spin_add_points.setValue(4)
-        self.layout_outline.addWidget(self.spin_add_points,2,1) 
+        self.layout_outline.addWidget(self.spin_add_points,2,1)
 
         self.button_placepoint = QPushButton('Middle point')
         self.button_placepoint.pressed.connect(self.placeMiddlePoint)
@@ -2696,7 +2696,7 @@ class WidgetParameter:
                         out_file.write(buffer)
                         progress.setValue(read * 100.0 / length)
                         QApplication.processEvents()
-                shutil.copyfileobj(response, out_file) 
+                shutil.copyfileobj(response, out_file)
 
             # Unzip the file
             with zipfile.ZipFile(temp_path, "r") as zip:
@@ -3310,7 +3310,7 @@ class WidgetParameter:
                 # Get the focal point of the camera
                 render_view = slicer.app.layoutManager().threeDWidget(0).threeDView()
                 camera = render_view.renderWindow().GetRenderers().GetFirstRenderer().GetActiveCamera()
-                focal_point = camera.GetFocalPoint() 
+                focal_point = camera.GetFocalPoint()
                 center[0]-=focal_point[0]
                 center[1]-=focal_point[1]
                 center[2]-=focal_point[2]
@@ -3318,10 +3318,10 @@ class WidgetParameter:
 
                 # Create matrix to center the vtk
                 matrix = vtk.vtkMatrix4x4()
-                matrix.Identity()  
-                matrix.SetElement(0, 3, -center[0])  
-                matrix.SetElement(1, 3, -center[1])  
-                matrix.SetElement(2, 3, -center[2])  
+                matrix.Identity()
+                matrix.SetElement(0, 3, -center[0])
+                matrix.SetElement(1, 3, -center[1])
+                matrix.SetElement(2, 3, -center[2])
 
                 self.matrix = matrix
 
@@ -3386,7 +3386,7 @@ class WidgetParameter:
                     self.label_addpatch.setVisible(True)
                     self.add_patch.setVisible(True)
                 
-                else : 
+                else :
                     self.combobox_patch.addItem(str(index))
 
                 
@@ -3516,7 +3516,7 @@ class WidgetParameter:
                 "0",                                #crownsegmentation
                 "Universal_ID",                     #array_name
                 "0",                                #fdi
-                "None",                             #suffix 
+                "None",                             #suffix
                 os.path.dirname(self.lineedit.text),#vtk_folder
                 dentalmodelseg_path_clean]          #dentalmodelseg_path
 
@@ -3571,7 +3571,7 @@ class WidgetParameter:
         if not self.logic.isCondaSetUp:
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            SlicerConda is not set up, please click 
+            SlicerConda is not set up, please click
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
             """).strip()
             messageBox.information(None, "Information", text)
@@ -3586,9 +3586,9 @@ class WidgetParameter:
                     self.label_time.setText(f"Checking if the required librairies are installed, this task may take a moments")
                     messageBox = qt.QMessageBox()
                     text = textwrap.dedent("""
-                        WSL doesn't have all the necessary libraries, please download the installer 
-                        and follow the instructions 
-                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
+                        WSL doesn't have all the necessary libraries, please download the installer
+                        and follow the instructions
+                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                         for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                     messageBox.information(None, "Information", text)
@@ -3597,9 +3597,9 @@ class WidgetParameter:
             else : # if wsl not install, ask user to install it ans stop process
                 messageBox = qt.QMessageBox()
                 text = textwrap.dedent("""
-                    WSL is not installed, please download the installer and follow the instructions 
-                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
-                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()        
+                    WSL is not installed, please download the installer and follow the instructions
+                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
+                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                 messageBox.information(None, "Information", text)
                 return False
@@ -3612,7 +3612,7 @@ class WidgetParameter:
         if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            Code can't be launch. \nConda is not setup. 
+            Code can't be launch. \nConda is not setup.
             Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
             messageBox.information(None, "Information", text)
             return False
@@ -3640,7 +3640,7 @@ class WidgetParameter:
                 previous_time = start_time
                 formatted_time = self.format_time(0)
                 text = textwrap.dedent(f"""
-                Installation of librairies into the new environnement. 
+                Installation of librairies into the new environnement.
                 This task may take a few minutes.\ntime: {formatted_time}""").strip()
                 self.label_time.setText(text)
             else:
@@ -3668,12 +3668,12 @@ class WidgetParameter:
             slicer.app.processEvents()
             formatted_time = self.update_ui_time(start_time, previous_time)
             text = textwrap.dedent(f"""
-            Installation of pytorch into the new environnement. 
+            Installation of pytorch into the new environnement.
             This task may take a few minutes.\ntime: {formatted_time}
             """).strip()
             self.label_time.setText(text)
 
-        self.all_installed = True   
+        self.all_installed = True
         return True
             
     def format_time(self, seconds):
@@ -3702,7 +3702,7 @@ class WidgetParameter:
         moduleName = "CrownSegmentation"
         moduleAvailable = moduleName in slicer.app.moduleManager().modulesNames()
         self._processed2 = False
-        if moduleAvailable : 
+        if moduleAvailable :
             parameters = {
                 "surf" :self.lineedit.text,
                 "input_csv":"None",
@@ -3725,7 +3725,7 @@ class WidgetParameter:
                 pass
             self.timer.timeout.connect(self.onProcessUpdateSeg)
             self.timer.start(500)
-            self.seg_clinode = slicer.cli.run(flybyProcess,None, parameters)    
+            self.seg_clinode = slicer.cli.run(flybyProcess,None, parameters)
             
             self._segmentationCompleted = False
             while not self._segmentationCompleted:
@@ -3750,7 +3750,7 @@ class WidgetParameter:
         if self.seg_clinode.GetStatus() & self.seg_clinode.Completed:
             self._processed2 = True
             self.timer.stop()
-            self.viewScan() 
+            self.viewScan()
             self._segmentationCompleted = True
             
 
@@ -3832,7 +3832,7 @@ class WidgetParameter:
                 number_to_add = self.addItemsCombobox()
                 self.combobox_patch.addItem(number_to_add)
                 self.add_patch.setChecked(False)
-                index = self.combobox_patch.findText(number_to_add)  
+                index = self.combobox_patch.findText(number_to_add)
                 if index >= 0:  # -1 signify that the value hasn't been found
                     self.combobox_patch.setCurrentIndex(index)
             if not self.combobox_patch.isVisible():
@@ -3913,7 +3913,7 @@ class WidgetParameter:
 
     def curvePoint(self)->None:
         '''
-        Match the points with the load model 
+        Match the points with the load model
         '''
 
         self.curve.SetAndObserveSurfaceConstraintNode(self.surf)
@@ -3967,7 +3967,7 @@ class WidgetParameter:
 
     def placeMiddlePoint(self)->None:
         '''
-        Place the middle point for the curve patch 
+        Place the middle point for the curve patch
         '''
 
         bounding_box = [0, 0, 0, 0, 0, 0]
@@ -3999,7 +3999,7 @@ class WidgetParameter:
         self.curve.SetAndObserveTransformNodeID(transform_node.GetID())
         self.curve.HardenTransform()
         self.middle_point.SetAndObserveTransformNodeID(transform_node.GetID())
-        self.middle_point.HardenTransform() 
+        self.middle_point.HardenTransform()
 
 
     def draw(self)->None:
@@ -4015,7 +4015,7 @@ class WidgetParameter:
             inverse_matrix = vtk.vtkMatrix4x4()
 
             # Calculate invert matrix to reg curve and middle point with model not center in front of the camera
-            inverse_matrix.DeepCopy(self.getMatrix()) 
+            inverse_matrix.DeepCopy(self.getMatrix())
             inverse_matrix.Invert()
 
             self.moveCurve(inverse_matrix)
@@ -4028,7 +4028,7 @@ class WidgetParameter:
             # put the data in str type
             vector_middle = ','.join([str(middle_point_vector3D.GetX()), str(middle_point_vector3D.GetY()), str(middle_point_vector3D.GetZ())])
             list_curve = list(vtk_to_numpy(self.curve.GetCurvePointsWorld().GetData()))
-            list_curve_str = ','.join(map(str, list_curve))   
+            list_curve_str = ','.join(map(str, list_curve))
             vector_middle="["+vector_middle+"]"
 
             if self.add_patch.isChecked():
@@ -4036,7 +4036,7 @@ class WidgetParameter:
             else:
                 index=int(self.combobox_patch.currentText)
 
-            # CLI 
+            # CLI
             self.logic = FlexRegLogic(str(self.lineedit.text),
                             int(self.lineedit_teeth_left_top.text),
                         int(self.lineedit_teeth_right_top.text),
@@ -4088,12 +4088,12 @@ class WidgetParameter:
         self.label_time.setText(f"Creation of the patch, time : {round(float(elapsed_time),2)}s")
 
         if self.logic.cliNode.GetStatus() & self.logic.cliNode.Completed:
-            #PLACE BACK THE CURVE AND THE MIDDLE POINT ON THE CENTER MODEL 
+            #PLACE BACK THE CURVE AND THE MIDDLE POINT ON THE CENTER MODEL
             self.label_time.setText(f"Patch created, time : {round(float(elapsed_time),2)}s")
             self.camera=True
             self.viewScan()
             self.moveCurve(self.matrix)
-            # Load the new model and display the patch 
+            # Load the new model and display the patch
             self.curve.SetAndObserveSurfaceConstraintNode(self.surf)
             self.displaySegmentation(self.surf)
             self._processed = True  # set the flag to prevent reprocessing

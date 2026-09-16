@@ -7,7 +7,7 @@ from FlexReg_Method.make_butterfly import butterflyPatch
 from FlexReg_Method.draw import drawPatch
 from FlexReg_Method.ICP import vtkICP,ICP
 from FlexReg_Method.vtkSegTeeth import vtkMeshTeeth
-import os 
+import os
 import numpy as np
 import torch
 from vtk.util.numpy_support import vtk_to_numpy,numpy_to_vtk
@@ -76,7 +76,7 @@ def main(args):
             ratio_posterior_left=args.lineedit_ratio_left_bot,
             ratio_posterior_right=args.lineedit_ratio_right_bot,
             
-            adjust_anterior_right=args.lineedit_adjust_right_top, 
+            adjust_anterior_right=args.lineedit_adjust_right_top,
             adjust_anterior_left=args.lineedit_adjust_left_top,
             
             adjust_posterior_right=args.lineedit_adjust_right_bot,

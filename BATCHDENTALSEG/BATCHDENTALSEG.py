@@ -26,7 +26,7 @@ class BATCHDENTALSEG(ScriptedLoadableModule):
         self.parent.title = tr("BatchDentalSegmentator")
         self.parent.categories = [translate("qSlicerAbstractCoreModule", "Automated Dental Tools")]
         self.parent.dependencies = []
-        self.parent.icon = icon("DentalSegmentator_full_icon_2.png")  
+        self.parent.icon = icon("DentalSegmentator_full_icon_2.png")
         self.parent.contributors = [
             "Enzo Tulissi (UoM)",
             "Gauthier DOT (AP-HP)",

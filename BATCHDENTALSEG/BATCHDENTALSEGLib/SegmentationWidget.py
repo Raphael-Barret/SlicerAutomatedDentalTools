@@ -76,7 +76,7 @@ class ExportFormat(Flag):
     NIFTI = auto()
     GLTF = auto()
     VTK = auto()
-    VTK_MERGED = auto() 
+    VTK_MERGED = auto()
 
 # ─── Segmentation Widget Class ────────────────────────────────────────────────
 
@@ -1878,7 +1878,7 @@ class SegmentationWidget(qt.QWidget):
             return {
                 "Upper Skull": 1,
                 "Mandible": 2,
-                "Maxilla": 3,              
+                "Maxilla": 3,
                 "Upper Teeth": 4,
                 "Lower Teeth": 5,
                 "Mandibular canal": 6,

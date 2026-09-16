@@ -240,7 +240,7 @@ def extract_key_value_pairs(text):
     
     for key, value in matches:
         key = key.strip()
-        # TODO: Change the key check to the ones who needs integer 
+        # TODO: Change the key check to the ones who needs integer
         int_keys = ["Age", "Weight", "Height"]
         if key in int_keys:
             value = int(value)

@@ -158,7 +158,7 @@ def process_summaries(summaries: dict) -> pd.DataFrame:
     df = pd.DataFrame(patient_data)
 
     # Convert numeric fields by extracting numbers and computing means
-    numeric_fields = ["patient_age", "headache_intensity", "average_daily_pain_intensity", 
+    numeric_fields = ["patient_age", "headache_intensity", "average_daily_pain_intensity",
                       "diet_score", "tmj_pain_rating", "disability_rating"]
 
     for field in numeric_fields:
@@ -214,8 +214,8 @@ def generate_dashboard_figure(df: pd.DataFrame, output_folder: str = None) -> pl
     fig.text(0.5, 0.93, f"Evaluation done using {len(df)} cases", fontsize=16, ha='center', va='center')
     
     # Main grid layout (2 rows, 2 columns)
-    gs = fig.add_gridspec(2, 2, 
-                         width_ratios=[3, 1.5], 
+    gs = fig.add_gridspec(2, 2,
+                         width_ratios=[3, 1.5],
                          height_ratios=[1, 1.5],
                          hspace=0.2, wspace=0.1)
 
@@ -306,17 +306,17 @@ def generate_dashboard_figure(df: pd.DataFrame, output_folder: str = None) -> pl
     ax_scores.set_ylim(0, 10)
     ax_scores.tick_params(axis='x', rotation=22.5, labelsize=10)
     ax_scores.grid(axis='y', linestyle='--', alpha=0.5)
-    ax_scores.set_title("Clinical Scores with Standard Deviation", 
+    ax_scores.set_title("Clinical Scores with Standard Deviation",
                        fontsize=16, pad=15, fontweight='semibold')
     
     # Add value labels with SD
     for bar, mean, sd in zip(bars, means, std_devs):
         yval = bar.get_height()
-        ax_scores.text(bar.get_x() + bar.get_width()/2., 
+        ax_scores.text(bar.get_x() + bar.get_width()/2.,
                     yval + sd + 0.3,  # Add SD value + small offset
                     f'{mean:.1f} ± {sd:.1f}',
-                    ha='center', 
-                    va='bottom', 
+                    ha='center',
+                    va='bottom',
                     fontsize=12,
                     color='#2d3436')
 
@@ -338,11 +338,11 @@ def generate_dashboard_figure(df: pd.DataFrame, output_folder: str = None) -> pl
     # Add value labels with SD
     for bar, mean, sd in zip(bars, max_opening_means, max_opening_stds):
         yval = bar.get_height()
-        ax_max_opening.text(bar.get_x() + bar.get_width()/2., 
+        ax_max_opening.text(bar.get_x() + bar.get_width()/2.,
                           yval + sd + 0.3,  # Add SD value + small offset
                           f'{mean:.1f} ± {sd:.1f}',
-                          ha='center', 
-                          va='bottom', 
+                          ha='center',
+                          va='bottom',
                           fontsize=12,
                           color='#2d3436')
 
@@ -502,17 +502,17 @@ def generate_dashboard_figure(df: pd.DataFrame, output_folder: str = None) -> pl
         true_pct = donut_percentages[metric]
         
         # Create enhanced donut chart
-        ax_pie.pie([true_pct, 100 - true_pct], 
+        ax_pie.pie([true_pct, 100 - true_pct],
                 wedgeprops={'width': 0.55, 'edgecolor': 'white', 'linewidth': 1},
                 colors=['#ff6b6b', '#f0f0f0'])
         
         # Central text with percentage
-        ax_pie.text(0, 0.0, f'{true_pct:.1f}%', 
-                    ha='center', va='center', 
+        ax_pie.text(0, 0.0, f'{true_pct:.1f}%',
+                    ha='center', va='center',
                     fontsize=11, fontweight='bold', color='#2d3436')
         
         # Metric title below chart
-        ax_pie.set_title(donut_titles[metric], 
+        ax_pie.set_title(donut_titles[metric],
                         fontsize=11, pad=1, loc='center', color='#2d3436')
         
         ax_pie.set_aspect('equal')

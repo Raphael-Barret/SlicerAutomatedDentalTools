@@ -56,7 +56,7 @@ class vtkTeeth:
 class ToothNoExist(Exception):
     def __init__(self, tooth ) -> None:
         dic = {1: 'UR8', 2: 'UR7', 3: 'UR6', 4: 'UR5', 5: 'UR4', 6: 'UR3', 7: 'UR2', 8: 'UR1', 9: 'UL1', 10: 'UL2', 11: 'UL3',
-         12: 'UL4', 13: 'UL5', 14: 'UL6', 15: 'UL7', 16: 'UL8', 17: 'LL8', 18: 'LL7', 19: 'LL6', 20: 'LL5', 21: 'LL4', 22: 'LL3', 
+         12: 'UL4', 13: 'UL5', 14: 'UL6', 15: 'UL7', 16: 'UL8', 17: 'LL8', 18: 'LL7', 19: 'LL6', 20: 'LL5', 21: 'LL4', 22: 'LL3',
          23: 'LL2', 24: 'LL1', 25: 'LR1', 26: 'LR2', 27: 'LR3', 28: 'LR4', 29: 'LR5', 30: 'LR6', 31: 'LR7', 32: 'LR8'}
         if isinstance(tooth,int):
             tooth = dic[tooth]

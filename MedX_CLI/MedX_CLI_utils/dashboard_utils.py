@@ -80,7 +80,7 @@ def set_migraine_data(df):
     return migraine_pct, headache_pct
 
 def set_left_stick_data(df):
-    metrics = ["headache_intensity", "average_daily_pain_intensity", 
+    metrics = ["headache_intensity", "average_daily_pain_intensity",
               "diet_score", "tmj_pain_rating", "disability_rating"]
     
     metrics_titles = ["Headache\nIntensity", "Daily Pain\nIntensity", "Diet\nScore", "TMJ pain\nRating", "Disability\nRating"]
@@ -137,7 +137,7 @@ def set_right_stick_data(df):
                     location_counts[key] += 1
 
     total_patients = len(df)
-    location_percentages = {location: (count / total_patients) * 100 
+    location_percentages = {location: (count / total_patients) * 100
                             for location, count in location_counts.items()}
     
     return location_percentages
@@ -164,17 +164,17 @@ def set_joint_pain_data(df):
                         joint_pain_counts[area] += 1
 
     total_patients = len(df)
-    joint_pain_percentages = {area: (count / total_patients) * 100 
+    joint_pain_percentages = {area: (count / total_patients) * 100
                               for area, count in joint_pain_counts.items()}
     
     return joint_pain_percentages
 
 def set_upper_donuts_data(df):
-    bool_metrics = ["earache_present", "tinnitus_present", "vertigo_present", 
+    bool_metrics = ["earache_present", "tinnitus_present", "vertigo_present",
                 "hearing_loss_present", "jaw_crepitus", "jaw_clicking"]
 
     # Calculate percentages for boolean metrics
-    bool_percentages = {metric: (df[metric] == "true").mean() * 100 
+    bool_percentages = {metric: (df[metric] == "true").mean() * 100
                         for metric in bool_metrics}
 
     # Calculate percentage for jaw issues (crepitus or clicking) where value is 'true'

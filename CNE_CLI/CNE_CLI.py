@@ -159,7 +159,7 @@ def main(args):
         llm = Llama(
             model_path=modelPath,
             n_gpu_layers=-1,    # Use GPU if available
-            n_ctx=max_seq_length,      
+            n_ctx=max_seq_length,
             verbose=False       # Keep logs clean
         )
 
@@ -202,13 +202,13 @@ def main(args):
                 ai_response = output['choices'][0]['message']['content'].strip()
 
                 formatted_response = ""
-                try: 
+                try:
                     start_idx = ai_response.find('{')
                     end_idx = ai_response.rfind('}') + 1
                     
                     if start_idx != -1 and end_idx != 0:
                         json_str = ai_response[start_idx:end_idx]
-                        data = json.loads(json_str) 
+                        data = json.loads(json_str)
                         
                         if "extraction" in data:
                             data = data["extraction"]

@@ -146,18 +146,18 @@ class MRI2CBCT(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = _("MRI2CBCT")  # TODO: make this more human readable by adding spaces
-        # TODO: set categories (folders where the module shows up in the module selector)
+        self.parent.title = _("MRI2CBCT")
+      
         self.parent.categories = ["Automated Dental Tools"]
-        self.parent.dependencies = ["SlicerNNUNet"]  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["John Doe (AnyWare Corp.)"]  # TODO: replace with "Firstname Lastname (Organization)"
-        # TODO: update with short description of the module and a link to online module documentation
+        self.parent.dependencies = ["SlicerNNUNet"]
+        self.parent.contributors = ["Gaelle Leroux (UoM), Alexandre Buisson (UoM), Raphael Barret (UoM)"]
+        
         # _() function marks text as translatable to other languages
         self.parent.helpText = _("""
 This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#MRI2CBCT">module documentation</a>.
+See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#MRI2CBCT">module documentation</a>.
 """)
-        # TODO: replace with organization, grant and thanks
+        
         self.parent.acknowledgementText = _("""
 This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
 and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -255,7 +255,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ScriptedLoadableModuleWidget.__init__(self, parent)
         VTKObservationMixin.__init__(self)  # needed for parameter node observation
         self.logic = None
-        self.checked_cells = set() 
+        self.checked_cells = set()
         self.minus_checked_rows = set()
         self._parameterNode = None
         self._parameterNodeGuiTag = None
@@ -404,7 +404,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self.ui.pushButtonCancelProcess.connect("clicked(bool)", self.onCancel)
 
-        # Make sure parameter node is initialized (needed for module reload) 
+        # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
         self.ui.ComboBoxMRI.setCurrentIndex(1)
         self.ui.ComboBoxMRI.setEnabled(False)
@@ -465,7 +465,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         header.setSectionResizeMode(QHeaderView.Stretch)
         
         # Set a fixed height for the table to avoid stretching
-        self.tableWidgetOrient.setFixedHeight(self.tableWidgetOrient.horizontalHeader().height + 
+        self.tableWidgetOrient.setFixedHeight(self.tableWidgetOrient.horizontalHeader().height +
                                             self.tableWidgetOrient.verticalHeader().sectionSize(0) * self.tableWidgetOrient.rowCount)
 
         # Add widgets for each cell
@@ -495,7 +495,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         header.setSectionResizeMode(QHeaderView.Stretch)
         
         # Set a fixed height for the table to avoid stretching
-        self.tableWidgetNorm.setFixedHeight(self.tableWidgetNorm.horizontalHeader().height + 
+        self.tableWidgetNorm.setFixedHeight(self.tableWidgetNorm.horizontalHeader().height +
                                             self.tableWidgetNorm.verticalHeader().sectionSize(0) * self.tableWidgetNorm.rowCount)
 
         # Set the headers
@@ -531,7 +531,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Set a fixed height for the table to avoid stretching
         self.tableWidgetResample.setFixedHeight(
-            self.tableWidgetResample.horizontalHeader().height + 
+            self.tableWidgetResample.horizontalHeader().height +
             self.tableWidgetResample.verticalHeader().sectionSize(0) * self.tableWidgetResample.rowCount
         )
 
@@ -648,10 +648,10 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Retrieves the resample values (X, Y, Z) from the QTableWidget.
 
-        :return: A tuple of two lists representing the resample values for the two rows. 
+        :return: A tuple of two lists representing the resample values for the two rows.
                 Each list contains three values (X, Y, Z) or None if the "Keep File" checkbox is checked.
                 First output : number of slices.
-                Second output : spacing 
+                Second output : spacing
         """
         resample_values_row1 = []
         resample_values_row2 = []
@@ -776,7 +776,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     checkBox = self.tableWidgetOrient.cellWidget(row, c)
                     if checkBox.text=="-1":
                         checkBox.setText('1')
-        else :   
+        else :
             if state == 2:  # Checkbox is checked
                 # Set the clicked checkbox to '1' and uncheck all others in the same row
                 for c in range(3):
@@ -826,7 +826,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                             else :
                                 checkBox.setText('1')
                             self.checked_cells.add((unchecked_row, c))
-                        else : 
+                        else :
                             checkBox.setText('0')
                             checkBox.setChecked(False)
                             self.checked_cells.discard((row, c))
@@ -1074,7 +1074,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # If everything exists, return True
         return basePath, (checkpoint_path.exists() and dataset_json_path.exists() and plans_json_path.exists())
 
-    def openFinder(self,nom : str,_) -> None : 
+    def openFinder(self,nom : str,_) -> None :
         """
          Open finder to let the user choose is files or folder
         """
@@ -1455,12 +1455,12 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "acquisition_z_spacing": z_spacing,
         }
         
-        ok,mess = self.preprocess_mri.TestProcess(**param) 
-        if not ok : 
+        ok,mess = self.preprocess_mri.TestProcess(**param)
+        if not ok :
             self.showMessage(mess)
             return
         ok,mess = self.preprocess_mri.TestScan(param["input_folder"])
-        if not ok : 
+        if not ok :
             self.showMessage(mess)
             return
         
@@ -1526,13 +1526,13 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "center": str(self.ui.checkBoxCenterImage.isChecked()),
         }
             
-        ok,mess = self.preprocess_mri_cbct.TestProcess(**param) 
-        if not ok : 
+        ok,mess = self.preprocess_mri_cbct.TestProcess(**param)
+        if not ok :
             self.showMessage(mess)
             return
         
         ok,mess = self.preprocess_mri_cbct.TestScan(param["input_folder_MRI"])
-        if not ok : 
+        if not ok :
             if self.ui.CheckBoxT2MRI.isChecked():
                 mess = mess + "MRI T1 folder"
             else:
@@ -1547,7 +1547,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         
         ok,mess = self.preprocess_mri_cbct.TestScan(param["input_folder_CBCT"])
-        if not ok : 
+        if not ok :
             if self.ui.CheckBoxT2CBCT.isChecked():
                 mess = mess + "CBCT T1 folder"
             else:
@@ -1565,7 +1565,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not ok :
             if self.ui.CheckBoxT2Seg.isChecked():
                 mess = mess + "Seg T1 folder"
-            else: 
+            else:
                 mess = mess + "Seg folder"
             self.showMessage(mess)
             return
@@ -1711,8 +1711,8 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "normalization" : [self.getNormalization()],
             "tempo_fold" : self.ui.checkBoxTompraryFold.isChecked()}
         
-        ok,mess = self.registration_mri2cbct.TestProcess(**param) 
-        if not ok : 
+        ok,mess = self.registration_mri2cbct.TestProcess(**param)
+        if not ok :
             self.showMessage(mess)
             return
         
@@ -1735,9 +1735,9 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         
         ok,mess = self.registration_mri2cbct.CheckNormalization(param["normalization"])
-        if not ok : 
+        if not ok :
             self.showMessage(mess)
-            return 
+            return
         
         self.list_Processes_Parameters = self.registration_mri2cbct.Process(**param)
         
@@ -1854,7 +1854,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "use_scene_volumes": useSceneVolumes}
 
         ok,mess = self.approximate_mri2cbct.TestProcess(**param)
-        if not ok : 
+        if not ok :
             self.showMessage(mess)
             return
         
@@ -1892,7 +1892,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "ModifiedEvent", self.onProcessUpdate
         )
 
-        del self.list_Processes_Parameters[0]   
+        del self.list_Processes_Parameters[0]
         
     def onProcessStarted(self):
         """

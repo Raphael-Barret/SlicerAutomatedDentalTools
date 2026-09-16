@@ -228,10 +228,10 @@ class SurgMovPred(ScriptedLoadableModule):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = _("SurgMovPred")
         self.parent.categories = ["Automated Dental Tools" ]
-        self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["Paul Dumont, University of North Carolina, Chapell Hill"]  
+        self.parent.dependencies = []
+        self.parent.contributors = ["Paul Dumont, University of North Carolina, Chapell Hill"]
         self.parent.helpText = _("""
-        This tool helps to create summaries of clinical notes. 
+        This tool helps to create summaries of clinical notes.
         See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools">documentation</a>.
         """)
         self.parent.acknowledgementText = _("""

@@ -477,7 +477,7 @@ class Auto_IOS(Method):
                 for file in files:
                     if file.endswith(".vtk") or file.endswith(".stl"):
                         # Write full path in .csv
-                        if platform.system() != "Windows" and not self.is_wsl():    
+                        if platform.system() != "Windows" and not self.is_wsl():
                             writer.writerow([os.path.join(root, file)])
                         else:
                             file_path = os.path.join(root, file)

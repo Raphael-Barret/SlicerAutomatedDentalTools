@@ -31,7 +31,7 @@ class Segment2D :
         self.b = point2[1] - point1[1]
 
         self.x0 = point1[0]
-        self.y0 = point1[1] 
+        self.y0 = point1[1]
 
         self.name_point1 = name_point1
         self.name_point2 = name_point2

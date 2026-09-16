@@ -195,7 +195,7 @@ def process_images(mri_path, cbct_mask_path, output_folder, patient_id, mri_path
     - Saves the transformed image and transformation matrix in the output folder.
     """
     
-    try : 
+    try :
         mri_image = itk.imread(mri_path, itk.F)
         cbct_mask_image = itk.imread(cbct_mask_path, itk.F)
     except Exception as e:
@@ -208,7 +208,7 @@ def process_images(mri_path, cbct_mask_path, output_folder, patient_id, mri_path
 
     Transforms = []
   
-    try : 
+    try :
         TransformObj_Fine = ElastixReg(cbct_mask_image, mri_image, initial_transform=None)
     except Exception as e:
         logger.error("=" * 62)

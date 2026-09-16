@@ -75,7 +75,7 @@ class VFACE(ScriptedLoadableModule):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = _("V FACE")
         self.parent.categories = ["Automated Dental Tools"]
-        self.parent.contributors = ["Alexandre Buisson (University of North Carolina at Chapel Hill)"] 
+        self.parent.contributors = ["Alexandre Buisson (University of North Carolina at Chapel Hill)"]
         self.parent.helpText = _("""
         VFACE - Vertical Facial Asymmetry Classification Engine
         
@@ -965,8 +965,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         # Case 1: Visualization with pre-registered files
         if viz_mode == "Visualization (Heatmaps)" and file_mode == "File already Registered":
-            if (self._parameterNode.InputFolder != "" and 
-                self._parameterNode.OutputFolder != "" and 
+            if (self._parameterNode.InputFolder != "" and
+                self._parameterNode.OutputFolder != "" and
                 t2_path != ""):
                 self.ui.applyButton.toolTip = _("Click to classify patient facial asymmetry")
                 self.ui.applyButton.enabled = True
@@ -976,9 +976,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Case 2: Pre-registered files with measurements
         elif file_mode == "File already Registered":
-            if (self._parameterNode.InputFolder != "" and 
-                self._parameterNode.OutputFolder != "" and 
-                self._parameterNode.MeasurementsFolder != "" and 
+            if (self._parameterNode.InputFolder != "" and
+                self._parameterNode.OutputFolder != "" and
+                self._parameterNode.MeasurementsFolder != "" and
                 t2_path != ""):
                 self.ui.applyButton.toolTip = _("Click to classify patient facial asymmetry")
                 self.ui.applyButton.enabled = True
@@ -988,7 +988,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Case 3: Visualization only
         elif viz_mode == "Visualization (Heatmaps)":
-            if (self._parameterNode.InputFolder != "" and 
+            if (self._parameterNode.InputFolder != "" and
                 self._parameterNode.OutputFolder != ""):
                 self.ui.applyButton.toolTip = _("Click to classify patient facial asymmetry")
                 self.ui.applyButton.enabled = True
@@ -998,8 +998,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Case 4: Full processing pipeline
         else:
-            if (self._parameterNode.InputFolder != "" and 
-                self._parameterNode.OutputFolder != "" and 
+            if (self._parameterNode.InputFolder != "" and
+                self._parameterNode.OutputFolder != "" and
                 self._parameterNode.MeasurementsFolder != ""):
                 self.ui.applyButton.toolTip = _("Click to classify patient facial asymmetry")
                 self.ui.applyButton.enabled = True
@@ -1009,7 +1009,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def DownloadAllFiles(self) -> None:
 
-        dic_url = {   
+        dic_url = {
             "Mirror_matrix": "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror/Mirror.zip",
 
             "ASO/ASO_CBCT/Reference": {

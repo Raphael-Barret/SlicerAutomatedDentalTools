@@ -56,7 +56,7 @@ def generate_combined_summary(model, tokenizer, text, max_chunk_size=3500, model
             logger.warning(f"WARNING: Chunk exceeded {model_max_tokens} tokens, truncating.")
             
         summary_ids = model.generate(
-            inputs["input_ids"], 
+            inputs["input_ids"],
             generation_config=generation_config
         )
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)

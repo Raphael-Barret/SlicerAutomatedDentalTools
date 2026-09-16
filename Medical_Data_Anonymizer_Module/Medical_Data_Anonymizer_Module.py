@@ -592,9 +592,9 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                 
                 # Anonymize using Presidio
                 anonymized_text = self.anonymize_text_presidio(
-                    full_text, 
-                    analyzer, 
-                    anonymizer, 
+                    full_text,
+                    analyzer,
+                    anonymizer,
                     selected_entities,
                     anonymization_method,
                     score_threshold

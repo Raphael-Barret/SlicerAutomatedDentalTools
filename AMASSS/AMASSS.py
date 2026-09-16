@@ -287,10 +287,10 @@ class AMASSS(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "AMASSS"  # TODO: make this more human readable by adding spaces
+    self.parent.title = "AMASSS"
     self.parent.categories = ["Automated Dental Tools"]  # set categories (folders where the module shows up in the module selector)
-    self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-    self.parent.contributors = ["Maxime Gillot (CPE Lyon & UoM), Baptiste Baquero (CPE Lyon & UoM), Lucia Cevidanes (UoM), Juan Carlos Prieto (UoNC)"]  # TODO: replace with "Firstname Lastname (Organization)"
+    self.parent.dependencies = []
+    self.parent.contributors = ["Maxime Gillot (CPE Lyon & UoM), Baptiste Baquero (CPE Lyon & UoM), Lucia Cevidanes (UoM), Juan Carlos Prieto (UoNC)"]
     self.parent.helpText = """
       This is a module that will allow you to automatically perform segmentation of skull structures in your CBCT scans.
       """
@@ -810,7 +810,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         if not libs_installation:
           logger.error('User cancelled library installation or installation failed')
-          qt.QMessageBox.warning(self.parent, 'Warning', 
+          qt.QMessageBox.warning(self.parent, 'Warning',
             'The module will not work properly without the required libraries.\nPlease install them and try again.')
           return
       except Exception as e:
@@ -981,7 +981,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if progress > 1:
           progress /= 100.0
 
-      # Number of ready scan 
+      # Number of ready scan
       done_scans = int(round(progress * self.scan_count))
       self.ui.PredScanLabel.setText(
           f"Scan ready for segmentation : {done_scans} / {self.scan_count}"

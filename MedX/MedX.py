@@ -176,16 +176,16 @@ class MedX(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "MedX"  # TODO: make this more human readable by adding spaces
-        self.parent.categories = ["Automated Dental Tools"]  # TODO: set categories (folders where the module shows up in the module selector)
-        self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["Gaydamour Alban"]  # TODO: replace with "Firstname Lastname (Organization)"
-        # TODO: update with short description of the module and a link to online module documentation
+        self.parent.title = "MedX"
+        self.parent.categories = ["Automated Dental Tools"]
+        self.parent.dependencies = []
+        self.parent.contributors = ["Gaydamour Alban"]
+        
         self.parent.helpText = """
 This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#MedX">module documentation</a>.
+See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#MedX">module documentation</a>.
 """
-        # TODO: replace with organization, grant and thanks
+        
         self.parent.acknowledgementText = """
 This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
 and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -813,7 +813,7 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self.logic.isCondaSetUp:
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            SlicerConda is not set up, please click 
+            SlicerConda is not set up, please click
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
             """).strip()
             messageBox.information(None, "Information", text)
@@ -830,9 +830,9 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
                     messageBox = qt.QMessageBox()
                     text = textwrap.dedent("""
-                        WSL doesn't have all the necessary libraries, please download the installer 
-                        and follow the instructions 
-                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
+                        WSL doesn't have all the necessary libraries, please download the installer
+                        and follow the instructions
+                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                         for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                     messageBox.information(None, "Information", text)
@@ -841,9 +841,9 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             else : # if wsl not install, ask user to install it ans stop process
                 messageBox = qt.QMessageBox()
                 text = textwrap.dedent("""
-                    WSL is not installed, please download the installer and follow the instructions 
-                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
-                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()        
+                    WSL is not installed, please download the installer and follow the instructions
+                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
+                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                 messageBox.information(None, "Information", text)
                 return False
@@ -856,7 +856,7 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            Code can't be launch. \nConda is not setup. 
+            Code can't be launch. \nConda is not setup.
             Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
             messageBox.information(None, "Information", text)
             return False
@@ -885,7 +885,7 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 previous_time = start_time
                 formatted_time = self.format_time(0)
                 text = textwrap.dedent(f"""
-                Installation of librairies into the new environnement. 
+                Installation of librairies into the new environnement.
                 This task may take a few minutes.\ntime: {formatted_time}""").strip()
                 self.ui.label_LibsInstallation.setText(text)
             else:
@@ -1233,7 +1233,7 @@ class MedXLogic(ScriptedLoadableModuleLogic):
         '''
         Runs a command in a specified Conda environment, handling different operating systems.
         
-        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout 
+        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout
         and cancel the process without blocking slicer
         '''
         path_activate = self.conda.getActivateExecutable()
@@ -1250,7 +1250,7 @@ class MedXLogic(ScriptedLoadableModuleLogic):
             command_to_execute = ["wsl", "--user", user,"--","bash","-c", command_execute]
             logger.info(f"command_to_execute in condaRunCommand : {command_to_execute}")
 
-            self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+            self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, encoding='utf-8', errors='replace', env=slicer.util.startupEnvironment(),
                               creationflags=subprocess.CREATE_NEW_PROCESS_GROUP  # For Windows
                               )

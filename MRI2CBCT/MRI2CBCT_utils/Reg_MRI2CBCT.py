@@ -74,7 +74,7 @@ class Registration_MRI2CBCT(Method):
         
         message = "\n".join(messages)
         
-        return ok, message 
+        return ok, message
         
     def TestProcess(self, **kwargs) -> str:
         out = ""

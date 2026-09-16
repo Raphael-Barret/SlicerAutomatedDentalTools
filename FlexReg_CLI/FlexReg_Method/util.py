@@ -76,7 +76,7 @@ class vtkIterTeeth(vtkTeeth):
         if len(verts_crown)== 0 :
             raise ToothNoExist(self.list_teeth[self.iter])
 
-        self.iter += 1 
+        self.iter += 1
         return np.array(self.verts[verts_crown]) , self.list_teeth[self.iter-1]
 
 
@@ -97,7 +97,7 @@ class vtkMiddleTeeth(vtkTeeth):
         super().__init__(list_teeth, property)
 
     def __call__(self,surf):
-        dic ={} 
+        dic ={}
         for points, tooth in vtkIterTeeth(self.list_teeth,surf,property=self.property):
             dic[str(tooth)]= ((np.amax(points,axis=0)+np.amin(points,axis = 0))/2).squeeze(0)
         return dic
@@ -122,7 +122,7 @@ class vtkMeshTeeth(vtkTeeth):
         labels = vtk.vtkStringArray()
         labels.SetNumberOfValues(size)
         labels.SetName("labels")
-        index = 0 
+        index = 0
         for  points in list_points:
             for i in range(points.shape[0]):
                 sp_id = Points.InsertNextPoint(points[i,:].squeeze(0))
@@ -143,7 +143,7 @@ class vtkMeshTeeth(vtkTeeth):
 class ToothNoExist(Exception):
     def __init__(self, tooth ) -> None:
         dic = {1: 'UR8', 2: 'UR7', 3: 'UR6', 4: 'UR5', 5: 'UR4', 6: 'UR3', 7: 'UR2', 8: 'UR1', 9: 'UL1', 10: 'UL2', 11: 'UL3',
-         12: 'UL4', 13: 'UL5', 14: 'UL6', 15: 'UL7', 16: 'UL8', 17: 'LL8', 18: 'LL7', 19: 'LL6', 20: 'LL5', 21: 'LL4', 22: 'LL3', 
+         12: 'UL4', 13: 'UL5', 14: 'UL6', 15: 'UL7', 16: 'UL8', 17: 'LL8', 18: 'LL7', 19: 'LL6', 20: 'LL5', 21: 'LL4', 22: 'LL3',
          23: 'LL2', 24: 'LL1', 25: 'LR1', 26: 'LR2', 27: 'LR3', 28: 'LR4', 29: 'LR5', 30: 'LR6', 31: 'LR7', 32: 'LR8'}
         if isinstance(tooth,int):
             tooth = dic[tooth]

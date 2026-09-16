@@ -142,10 +142,10 @@ class CNE(ScriptedLoadableModule):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = _("CNE")
         self.parent.categories = ["Automated Dental Tools" ]
-        self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["Paul Dumont, University of North Carolina, Chapell Hill"]  
+        self.parent.dependencies = []
+        self.parent.contributors = ["Paul Dumont, University of North Carolina, Chapell Hill"]
         self.parent.helpText = _("""
-        This tool helps to create summaries of clinical notes. 
+        This tool helps to create summaries of clinical notes.
         See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools">documentation</a>.
         """)
         self.parent.acknowledgementText = _("""
@@ -481,7 +481,7 @@ class CNELogic(ScriptedLoadableModuleLogic):
         # 1. Configuration of the model based on UI selection
         if notesType == "Ortho":
                 repo_id = "dcbia/Meta-Llama-3.1-8B-Instruct-Ortho"
-                fileName = "model-q4_0.gguf" 
+                fileName = "model-q4_0.gguf"
                 localModelName = "Meta-Llama-3.1-8B-Ortho.gguf"
                 dialogText = "Downloading Max Ortho AI model (approx. 4.7 GB)..."
 
@@ -516,7 +516,7 @@ class CNELogic(ScriptedLoadableModuleLogic):
             # --- Create the popup (QProgressDialog) ---
             progressDialog = qt.QProgressDialog(dialogText, "Cancel", 0, 100)
             progressDialog.setWindowTitle(f"CNE - Preparing AI Model")
-            progressDialog.setWindowModality(qt.Qt.WindowModal) 
+            progressDialog.setWindowModality(qt.Qt.WindowModal)
             progressDialog.setMinimumDuration(0)
             progressDialog.show()
 
@@ -544,7 +544,7 @@ class CNELogic(ScriptedLoadableModuleLogic):
                     os.remove(destPath)
                 slicer.util.errorDisplay(f"Download failed or was cancelled: {e}")
                 progressDialog.close()
-                raise e 
+                raise e
                 
             finally:
                 progressDialog.close()

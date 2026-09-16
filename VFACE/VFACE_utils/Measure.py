@@ -39,7 +39,7 @@ class Measure:
 
     Explanation how compute measurement :
         - give the position of the landmark to the Measure class
-The position of the point have to be give by a dictionnary like this 
+The position of the point have to be give by a dictionnary like this
         position = {"T1":{"A":[0,3,1],"B":[0,3,5],...},
                   "T2":{"A":[8,3,5],"B":[9,2,5],...}}
 

@@ -484,7 +484,7 @@ def CreateListProcess(**kwargs):
         parameter_amasss_mask = {
             "inputVolume": orientation_max_folder_path,
             "modelDirectory": os.path.join(kwargs["model_folder"], "AMASSS_Models"),
-            "skullStructure": TranslateModels(["Maxilla"], True),       
+            "skullStructure": TranslateModels(["Maxilla"], True),
             "merge": "SEPARATE",
             "genVtk": False,
             "save_in_folder": False,
@@ -854,7 +854,7 @@ def CreateListProcess(**kwargs):
             mirrored_landmarks_max_folder_path = os.path.join(mirrored_landmarks_folder_path,"MAX")
             os.makedirs(mirrored_landmarks_max_folder_path, exist_ok=True)
 
-            parameter_automatrix_ldm = {        
+            parameter_automatrix_ldm = {
                 "input_patient": landmarks_cb_folder_path,
                 "input_matrix": kwargs["mirror_matrix"],
                 "reference_file": "None",
@@ -877,7 +877,7 @@ def CreateListProcess(**kwargs):
                 },
             )
 
-            parameter_automatrix_ldm_max = {        
+            parameter_automatrix_ldm_max = {
                 "input_patient": landmarks_max_folder_path,
                 "input_matrix": kwargs["mirror_matrix"],
                 "reference_file": "None",
@@ -1859,7 +1859,7 @@ def SplitMeasurements(measurements_folder,mode2):
     measurements_folder = Path(measurements_folder)
     
     cb_path = None
-    mand_path = None 
+    mand_path = None
     max_path = None
     features_path = None
     

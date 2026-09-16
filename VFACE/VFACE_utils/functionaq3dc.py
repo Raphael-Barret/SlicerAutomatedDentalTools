@@ -49,7 +49,7 @@ try:
 
 except:
     slicer.util.pip_install("pandas")
-    import pandas as pd  # news users will not need to refresh the AQ3DC for the first 
+    import pandas as pd  # news users will not need to refresh the AQ3DC for the first
 
 
 try:
@@ -104,23 +104,23 @@ class AQ3DC(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = (
-            "AQ3DC"  # TODO: make this more human readable by adding spaces
+            "AQ3DC"
         )
         self.parent.categories = [
             "Quantification"
-        ]  # TODO: set categories (folders where the module shows up in the module selector)
+        ]
         self.parent.dependencies = (
             []
-        )  # TODO: add here list of module names that this module requires
+        )
         self.parent.contributors = [
             "Baptiste Baquero (University of Michigan)"
-        ]  # TODO: replace with "Firstname Lastname (Organization)"
-        # TODO: update with short description of the module and a link to online module documentation
+        ]
+        
         self.parent.helpText = """
   This is an example of scripted loadable module bundled in an extension.
-  See more information in <a href="https://github.com/organization/projectname#AQ3DC">module documentation</a>.
+  See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#AQ3DC">module documentation</a>.
   """
-        # TODO: replace with organization, grant and thanks
+        
         self.parent.acknowledgementText = """
   This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
   and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -366,7 +366,7 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def saveComputationMeasuement(self):
         """
-    Compute measurement 
+    Compute measurement
 
     Call by ButtonCompute
     """

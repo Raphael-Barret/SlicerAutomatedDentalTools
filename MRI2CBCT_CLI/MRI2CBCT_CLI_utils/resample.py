@@ -43,7 +43,7 @@ def resample_fn(img, args):
         - rightSide (bool): Flag to shift the image to the right side.
         - mri (bool): Flag to indicate if the image is an MRI.
     '''
-    output_size = args['size'] 
+    output_size = args['size']
     fit_spacing = args['fit_spacing']
     iso_spacing = args['iso_spacing']
     pixel_dimension = args['pixel_dimension']
@@ -62,7 +62,7 @@ def resample_fn(img, args):
     else:
         InterpolatorType = sitk.sitkNearestNeighbor
 
-    spacing = img.GetSpacing()  
+    spacing = img.GetSpacing()
     size = img.GetSize()
 
     output_origin = img.GetOrigin()
@@ -105,7 +105,7 @@ def resample_fn(img, args):
     min_pixel_value = float(np.min(img_array))
 
     resampleImageFilter = sitk.ResampleImageFilter()
-    resampleImageFilter.SetInterpolator(InterpolatorType)   
+    resampleImageFilter.SetInterpolator(InterpolatorType)
     resampleImageFilter.SetOutputSpacing(output_spacing)
     resampleImageFilter.SetSize(output_size)
     resampleImageFilter.SetOutputDirection(img.GetDirection())

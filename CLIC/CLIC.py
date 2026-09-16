@@ -353,7 +353,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for i in range(ids.GetNumberOfValues()):
             seg.GetSegment(ids.GetValue(i)).SetColor(*cols.get(i+1,(1,1,1)))
         lm = slicer.app.layoutManager()
-        for vn in ("Red","Yellow","Green"):  
+        for vn in ("Red","Yellow","Green"):
             try:
                 view = lm.sliceWidget(vn).sliceView()
                 ren  = view.renderWindow().GetRenderers().GetFirstRenderer()

@@ -97,7 +97,7 @@ class Auto_IOS(Method):
             for root, dirs, files in os.walk(input_dir):
                 for file in files:
                     if file.endswith(".vtk") or file.endswith(".stl"):
-                        if platform.system() != "Windows" and not self.is_wsl():    
+                        if platform.system() != "Windows" and not self.is_wsl():
                             writer.writerow([os.path.join(root, file)])
                         else :
                             file_path = os.path.join(root, file)

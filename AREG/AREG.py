@@ -204,23 +204,23 @@ class AREG(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = (
-            "AREG"  # TODO: make this more human readable by adding spaces
+            "AREG"
         )
         self.parent.categories = [
             "Automated Dental Tools"
         ]  # set categories (folders where the module shows up in the module selector)
         self.parent.dependencies = (
             ["CondaSetUp"]
-        )  # TODO: add here list of module names that this module requires
+        )
         self.parent.contributors = [
             "Nathan Hutin (UoM), Luc Anchling (UoM)"
-        ]  # TODO: replace with "Firstname Lastname (Organization)"
-        # TODO: update with short description of the module and a link to online module documentation
+        ]
+        
         self.parent.helpText = """
         This is an example of scripted loadable module bundled in an extension.
-        See more information in <a href="https://github.com/organization/projectname#AREG">module documentation</a>.
+        See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#AREG">module documentation</a>.
         """
-        # TODO: replace with organization, grant and thanks
+        
         self.parent.acknowledgementText = """
         This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
         and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -1485,7 +1485,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     ('pandas', None, None),
                     ('numpy', '<2.0.0', None),
                     ('torch', torch_version, None),
-                    ('torchvision', "==0.17.0",None),('blosc2', None,None), 
+                    ('torchvision', "==0.17.0",None),('blosc2', None,None),
                     ('torchaudio',torch_version,None),('nnunetv2','>=2.8.0',None),
                     ('monai', monai_version, None)
                 ]
@@ -2900,7 +2900,7 @@ qMRMLNodeComboBox:focus {
         if not self.logic.isCondaSetUp:
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            SlicerConda is not set up, please click 
+            SlicerConda is not set up, please click
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
             """).strip()
             messageBox.information(None, "Information", text)
@@ -2916,9 +2916,9 @@ qMRMLNodeComboBox:focus {
                     self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
                     messageBox = qt.QMessageBox()
                     text = textwrap.dedent("""
-                        WSL doesn't have all the necessary libraries, please download the installer 
-                        and follow the instructions 
-                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
+                        WSL doesn't have all the necessary libraries, please download the installer
+                        and follow the instructions
+                        <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                         for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                     messageBox.information(None, "Information", text)
@@ -2927,9 +2927,9 @@ qMRMLNodeComboBox:focus {
             else : # if wsl not install, ask user to install it ans stop process
                 messageBox = qt.QMessageBox()
                 text = textwrap.dedent("""
-                    WSL is not installed, please download the installer and follow the instructions 
-                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
-                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()        
+                    WSL is not installed, please download the installer and follow the instructions
+                    <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
+                    for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
                 messageBox.information(None, "Information", text)
                 return False
@@ -2942,7 +2942,7 @@ qMRMLNodeComboBox:focus {
         if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
             messageBox = qt.QMessageBox()
             text = textwrap.dedent("""
-            Code can't be launch. \nConda is not setup. 
+            Code can't be launch. \nConda is not setup.
             Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
             messageBox.information(None, "Information", text)
             return False
@@ -2970,7 +2970,7 @@ qMRMLNodeComboBox:focus {
                 previous_time = start_time
                 formatted_time = self.format_time(0)
                 text = textwrap.dedent(f"""
-                Installation of librairies into the new environnement. 
+                Installation of librairies into the new environnement.
                 This task may take a few minutes.\ntime: {formatted_time}""").strip()
                 self.ui.label_LibsInstallation.setText(text)
             else:
@@ -2983,7 +2983,7 @@ qMRMLNodeComboBox:focus {
 
 
         self.ui.label_LibsInstallation.setText(f"Checking if pytorch3d is installed")
-        if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed 
+        if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed
             process = self.logic.install_pytorch3d()
             start_time = time.time()
             previous_time = start_time
@@ -2992,7 +2992,7 @@ qMRMLNodeComboBox:focus {
                 slicer.app.processEvents()
                 formatted_time = self.update_ui_time(start_time, previous_time)
                 text = textwrap.dedent(f"""
-                Installation of pytorch into the new environnement. 
+                Installation of pytorch into the new environnement.
                 This task may take a few minutes.\ntime: {formatted_time}
                 """).strip()
                 self.ui.label_LibsInstallation.setText(text)
@@ -3000,7 +3000,7 @@ qMRMLNodeComboBox:focus {
             self.ui.label_LibsInstallation.setText(f"pytorch3d is already installed")
             logger.info("pytorch3d already installed")
 
-        self.all_installed = True   
+        self.all_installed = True
         return True
 
     def cleanup(self):
@@ -3204,7 +3204,7 @@ class AREGLogic(ScriptedLoadableModuleLogic):
             self.give_pythonpath_windows()
             result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
         
-        if result_pythonpath : 
+        if result_pythonpath :
             conda_exe = self.conda.getCondaExecutable()
             path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
             command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
@@ -3247,7 +3247,7 @@ class AREGLogic(ScriptedLoadableModuleLogic):
         self.cancel = True
     
     def check_cli_script(self):
-        if not self.check_pythonpath_windows("AREG_IOS"): 
+        if not self.check_pythonpath_windows("AREG_IOS"):
             self.give_pythonpath_windows()
             results = self.check_pythonpath_windows("AREG_IOS")
             
@@ -3259,7 +3259,7 @@ class AREGLogic(ScriptedLoadableModuleLogic):
         '''
         Runs a command in a specified Conda environment, handling different operating systems.
         
-        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout 
+        copy paste from SlicerConda and change the process line to be able to get the stderr/stdout
         and cancel the process without blocking slicer
         '''
         path_activate = self.conda.getActivateExecutable()

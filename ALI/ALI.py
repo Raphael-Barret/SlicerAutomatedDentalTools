@@ -161,16 +161,16 @@ class ALI(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "ALI"  # TODO: make this more human readable by adding spaces
+    self.parent.title = "ALI"
     self.parent.categories = ["Automated Dental Tools"]  # set categories (folders where the module shows up in the module selector)
-    self.parent.dependencies = ["CondaSetUp"]  # TODO: add here list of module names that this module requires
-    self.parent.contributors = ["Maxime Gillot (UoM), Baptiste Baquero (UoM)"]  # TODO: replace with "Firstname Lastname (Organization)"
-    # TODO: update with short description of the module and a link to online module documentation
+    self.parent.dependencies = ["CondaSetUp"]
+    self.parent.contributors = ["Maxime Gillot (UoM), Baptiste Baquero (UoM)"]
+    
     self.parent.helpText = """
 This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#ALI">module documentation</a>.
+See more information in <a href="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools#ALI">module documentation</a>.
 """
-    # TODO: replace with organization, grant and thanks
+    
     self.parent.acknowledgementText = """
 This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc., Andras Lasso, PerkLab,
 and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
@@ -892,7 +892,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       
       is_installed = install_function(self,list_libs_CBCT)
 
-    else:  
+    else:
       is_installed = False
       check_env = self.onCheckRequirements()
       logger.debug(f"Environment check result: {check_env}")
@@ -1007,7 +1007,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.run_conda_tool("ali")
       self.OnEndProcess()
      
-    else: 
+    else:
       self.process = slicer.cli.run(
         self.list_Processes_Parameters[0]["Process"],
         None,
@@ -1296,7 +1296,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if not self.logic.isCondaSetUp:
       messageBox = qt.QMessageBox()
       text = textwrap.dedent("""
-      SlicerConda is not set up, please click 
+      SlicerConda is not set up, please click
       <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
       """).strip()
       messageBox.information(None, "Information", text)
@@ -1312,9 +1312,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
           messageBox = qt.QMessageBox()
           text = textwrap.dedent("""
-              WSL doesn't have all the necessary libraries, please download the installer 
-              and follow the instructions 
-              <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
+              WSL doesn't have all the necessary libraries, please download the installer
+              and follow the instructions
+              <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
               for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
           messageBox.information(None, "Information", text)
@@ -1323,9 +1323,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       else : # if wsl not install, ask user to install it ans stop process
         messageBox = qt.QMessageBox()
         text = textwrap.dedent("""
-            WSL is not installed, please download the installer and follow the instructions 
-            <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a> 
-            for installation. The link may be blocked by Chrome, just authorize it.""").strip()        
+            WSL is not installed, please download the installer and follow the instructions
+            <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
+            for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
         messageBox.information(None, "Information", text)
         return False
@@ -1338,7 +1338,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
       messageBox = qt.QMessageBox()
       text = textwrap.dedent("""
-      Code can't be launch. \nConda is not setup. 
+      Code can't be launch. \nConda is not setup.
       Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
       messageBox.information(None, "Information", text)
       return False
@@ -1366,7 +1366,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         previous_time = start_time
         formatted_time = self.format_time(0)
         text = textwrap.dedent(f"""
-        Installation of librairies into the new environnement. 
+        Installation of librairies into the new environnement.
         This task may take a few minutes.\ntime: {formatted_time}""").strip()
         self.ui.label_LibsInstallation.setText(text)
       else:
@@ -1379,7 +1379,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     self.ui.label_LibsInstallation.setText(f"Checking if pytorch3d is installed")
-    if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed 
+    if "Error" in self.logic.check_if_pytorch3d() : # pytorch3d not installed or badly installed
       process = self.logic.install_pytorch3d()
       start_time = time.time()
       previous_time = start_time
@@ -1388,7 +1388,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.app.processEvents()
         formatted_time = self.update_ui_time(start_time, previous_time)
         text = textwrap.dedent(f"""
-        Installation of pytorch into the new environnement. 
+        Installation of pytorch into the new environnement.
         This task may take a few minutes.\ntime: {formatted_time}
         """).strip()
         self.ui.label_LibsInstallation.setText(text)
@@ -1396,7 +1396,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.label_LibsInstallation.setText(f"pytorch3d is already installed")
       logger.info("pytorch3d already installed")
 
-    self.all_installed = True   
+    self.all_installed = True
     return True
 
   def _applyDarkModeStylesheet(self, uiWidget) -> None:
@@ -1660,7 +1660,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self._parameterNode is not None:
       self.removeObserver(
         self._parameterNode,
-        vtk.vtkCommand.ModifiedEvent, 
+        vtk.vtkCommand.ModifiedEvent,
         self.updateGUIFromParameterNode
       )
     self._parameterNode = inputParameterNode
@@ -2093,7 +2093,7 @@ class ALILogic(ScriptedLoadableModuleLogic):
       self.give_pythonpath_windows()
       result_pythonpath = self.check_pythonpath_windows("ADTLib.env.install_pytorch")
     
-    if result_pythonpath : 
+    if result_pythonpath :
       conda_exe = self.conda.getCondaExecutable()
       path_pip = self.conda.getCondaPath()+f"/envs/{self.name_env}/bin/pip"
       command = [conda_exe, "run", "-n", self.name_env, "python" ,"-m", f"ADTLib.env.install_pytorch",path_pip]
@@ -2136,7 +2136,7 @@ class ALILogic(ScriptedLoadableModuleLogic):
     self.cancel = True
 
   def check_cli_script(self):
-    if not self.check_pythonpath_windows("ALI_IOS"): 
+    if not self.check_pythonpath_windows("ALI_IOS"):
       self.give_pythonpath_windows()
       results = self.check_pythonpath_windows("ALI_IOS")
         
@@ -2148,7 +2148,7 @@ class ALILogic(ScriptedLoadableModuleLogic):
     '''
     Runs a command in a specified Conda environment, handling different operating systems.
     
-    copy paste from SlicerConda and change the process line to be able to get the stderr/stdout 
+    copy paste from SlicerConda and change the process line to be able to get the stderr/stdout
     and cancel the process without blocking slicer
     '''
     path_activate = self.conda.getActivateExecutable()
@@ -2165,7 +2165,7 @@ class ALILogic(ScriptedLoadableModuleLogic):
       command_to_execute = ["wsl", "--user", user,"--","bash","-c", command_execute]
       logger.info(f"command_to_execute in condaRunCommand : {command_to_execute}")
 
-      self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+      self.subpro = subprocess.Popen(command_to_execute, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, encoding='utf-8', errors='replace', env=slicer.util.startupEnvironment(),
                               creationflags=subprocess.CREATE_NEW_PROCESS_GROUP  # For Windows
                               )

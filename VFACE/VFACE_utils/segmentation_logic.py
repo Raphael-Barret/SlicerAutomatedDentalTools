@@ -1003,7 +1003,7 @@ def stop_active_segmentation():
     return True
 
 
-def run_dental_segmentation(input_folder, output_folder, model_name="DentalSegmentator", 
+def run_dental_segmentation(input_folder, output_folder, model_name="DentalSegmentator",
                            device="cuda", export_formats=None):
     """
     Main function to run dental segmentation

@@ -25,6 +25,17 @@ logger.addHandler(console_handler)
 # the link, whose parent holds no MRI2CBCT_CLI_utils. Resolving first lands in
 # MRI2CBCT_CLI either way; a built install has the package on sys.path already.
 fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
+# ADTLib sits next to the modules in an installed build, in the directory Slicer
+# already has on sys.path. A source tree has no such entry -- a module search
+# path only gets there once Slicer finds a module in it, and ADT holds none --
+# so the entry points walk up to the holder directory and add it themselves.
+_adt_root = os.path.dirname(os.path.realpath(__file__))
+while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
+        and _adt_root != os.path.dirname(_adt_root):
+    _adt_root = os.path.dirname(_adt_root)
+if os.path.join(_adt_root, "ADT") not in sys.path:
+    sys.path.append(os.path.join(_adt_root, "ADT"))
+
 sys.path.append(fpath)
 
 from MRI2CBCT_CLI_utils import crop_mri, crop_cbct

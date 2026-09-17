@@ -48,6 +48,98 @@ def update_slicer_progress(value):
     print(f"<filter-progress>{value}</filter-progress>", flush=True)
     time.sleep(0.05)
 
+def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size):
+    """Deplace les agents sur un scan jusqu a ce qu ils se posent."""
+    logger.info(f"Processing patient: {environment.patient_id}")
+
+    for agent in agent_lst:
+        try:
+            # Initialize Brain for the specific landmark
+            brain = Brain(
+                network_type=DNet,
+                network_scales=scale_keys,
+                device=DEVICE,
+                in_channels=transition_layer_size,
+                out_channels=len(MOVEMENTS["id"]),
+                batch_size=1,
+                generate_tensorboard=False,
+                verbose=False
+            )
+
+            # Load weights
+            if agent.target in brain_weights:
+                try:
+                    brain.LoadModels(brain_weights[agent.target])
+                    agent.SetBrain(brain)
+                    agent.SetEnvironment(environment)
+
+                    # Execute Deep RL Search
+                    search_result = agent.Search()
+
+                    if search_result == -1:
+                        fails[agent.target] = fails.get(agent.target, 0) + 1
+                        logger.warning(f"Agent failed to find {agent.target}")
+                    else:
+                        tot_step += search_result
+                except Exception as e:
+                    logger.error(f"Error loading model weights for {agent.target}: {e}")
+                    fails[agent.target] = fails.get(agent.target, 0) + 1
+            else:
+                logger.error(f"No model found for landmark: {agent.target}")
+
+        except Exception as e:
+            logger.error(f"Error during agent search for {agent.target}: {e}")
+        finally:
+            # Cleanup to free GPU memory
+            agent.SetBrain(None)
+            if 'brain' in locals(): del brain
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
+
+    # Save results for this patient
+    try:
+        environment.SavePredictedLandmarks(scale_keys[-1], args.output_dir)
+    except Exception as e:
+        logger.error(f"Failed to save predictions for patient {environment.patient_id}: {e}")
+
+    # Update Slicer Progress
+    progress = 20 + int((env_idx + 1) / len(environment_lst) * 80)
+    update_slicer_progress(progress)
+    return tot_step
+
+def _prepare_one_patient(data, p_name, patients, scale_spacing, temp_fold):
+    """Corrige l histogramme et reechantillonne un scan a chaque echelle."""
+    try:
+        scan_path = data["scan"]
+        # Correct Histogram
+        temp_patient_path = temp_fold / p_name
+        if not temp_patient_path.exists():
+            logger.info(f"Correcting histogram for {p_name}")
+            try:
+                CorrectHisto(scan_path, str(temp_patient_path), 0.01, 0.99)
+            except Exception as e:
+                logger.error(f"Histogram correction failed for {p_name}: {e}")
+                return
+
+        # Resample for each scale
+        for sp in scale_spacing:
+            try:
+                spac_key = str(sp).replace(".", "-")
+                # Construct new filename: name_scan_sp1-0.nii.gz
+                resampled_name = f"{temp_patient_path.stem}_sp{spac_key}{''.join(temp_patient_path.suffixes)}"
+                out_resampled = temp_fold / resampled_name
+
+                if not out_resampled.exists():
+                    logger.debug(f"Setting spacing {sp} for {p_name}")
+                    SetSpacing(str(temp_patient_path), [sp, sp, sp], str(out_resampled))
+
+                patients[p_name]["scans"][spac_key] = str(out_resampled)
+            except Exception as e:
+                logger.error(f"Spacing resampling failed for {p_name} at scale {sp}: {e}")
+                continue
+    except Exception as e:
+        logger.error(f"Pre-processing failed for patient {p_name}: {e}")
+        return
+
 def main(args):
     # 1. PARAMETERS PARSING
     try:
@@ -106,37 +198,7 @@ def main(args):
     # 4. PRE-PROCESSING (HISTOGRAM & SPACING)
     update_slicer_progress(5)
     for p_name, data in patients.items():
-        try:
-            scan_path = data["scan"]
-            # Correct Histogram
-            temp_patient_path = temp_fold / p_name
-            if not temp_patient_path.exists():
-                logger.info(f"Correcting histogram for {p_name}")
-                try:
-                    CorrectHisto(scan_path, str(temp_patient_path), 0.01, 0.99)
-                except Exception as e:
-                    logger.error(f"Histogram correction failed for {p_name}: {e}")
-                    continue
-
-            # Resample for each scale
-            for sp in scale_spacing:
-                try:
-                    spac_key = str(sp).replace(".", "-")
-                    # Construct new filename: name_scan_sp1-0.nii.gz
-                    resampled_name = f"{temp_patient_path.stem}_sp{spac_key}{''.join(temp_patient_path.suffixes)}"
-                    out_resampled = temp_fold / resampled_name
-                    
-                    if not out_resampled.exists():
-                        logger.debug(f"Setting spacing {sp} for {p_name}")
-                        SetSpacing(str(temp_patient_path), [sp, sp, sp], str(out_resampled))
-                    
-                    patients[p_name]["scans"][spac_key] = str(out_resampled)
-                except Exception as e:
-                    logger.error(f"Spacing resampling failed for {p_name} at scale {sp}: {e}")
-                    continue
-        except Exception as e:
-            logger.error(f"Pre-processing failed for patient {p_name}: {e}")
-            continue
+        _prepare_one_patient(data, p_name, patients, scale_spacing, temp_fold)
 
     update_slicer_progress(20)
 
@@ -187,60 +249,7 @@ def main(args):
     fails = {}
 
     for env_idx, environment in enumerate(environment_lst):
-        logger.info(f"Processing patient: {environment.patient_id}")
-        
-        for agent in agent_lst:
-            try:
-                # Initialize Brain for the specific landmark
-                brain = Brain(
-                    network_type=DNet,
-                    network_scales=scale_keys,
-                    device=DEVICE,
-                    in_channels=transition_layer_size,
-                    out_channels=len(MOVEMENTS["id"]),
-                    batch_size=1,
-                    generate_tensorboard=False,
-                    verbose=False
-                )
-                
-                # Load weights
-                if agent.target in brain_weights:
-                    try:
-                        brain.LoadModels(brain_weights[agent.target])
-                        agent.SetBrain(brain)
-                        agent.SetEnvironment(environment)
-                        
-                        # Execute Deep RL Search
-                        search_result = agent.Search()
-                        
-                        if search_result == -1:
-                            fails[agent.target] = fails.get(agent.target, 0) + 1
-                            logger.warning(f"Agent failed to find {agent.target}")
-                        else:
-                            tot_step += search_result
-                    except Exception as e:
-                        logger.error(f"Error loading model weights for {agent.target}: {e}")
-                        fails[agent.target] = fails.get(agent.target, 0) + 1
-                else:
-                    logger.error(f"No model found for landmark: {agent.target}")
-
-            except Exception as e:
-                logger.error(f"Error during agent search for {agent.target}: {e}")
-            finally:
-                # Cleanup to free GPU memory
-                agent.SetBrain(None)
-                if 'brain' in locals(): del brain
-                if torch.cuda.is_available(): torch.cuda.empty_cache()
-
-        # Save results for this patient
-        try:
-            environment.SavePredictedLandmarks(scale_keys[-1], args.output_dir)
-        except Exception as e:
-            logger.error(f"Failed to save predictions for patient {environment.patient_id}: {e}")
-        
-        # Update Slicer Progress
-        progress = 20 + int((env_idx + 1) / len(environment_lst) * 80)
-        update_slicer_progress(progress)
+        tot_step = _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size)
 
     # 7. FINAL LOGS
     end_time = time.time()

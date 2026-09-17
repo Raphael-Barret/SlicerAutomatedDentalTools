@@ -196,7 +196,9 @@ class Auto_IOS(Method):
             else:
                 if extension != ".vtk" and extension != ".stl":
                     surf = ReadSurf(file)
-                    WriteSurf(surf, folder_toseg, file)
+                    # La conversion existe pour produire un .vtk : c est ici
+                    # qu on le dit, pas dans WriteSurf.
+                    WriteSurf(surf, folder_toseg, f"{name}.vtk")
                 else:
                     shutil.copy(file, os.path.join(folder_toseg, basename))
                 toseg += 1

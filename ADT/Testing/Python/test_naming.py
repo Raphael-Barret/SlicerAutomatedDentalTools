@@ -18,7 +18,9 @@ _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
 
-from ADTLib.naming import patient_id, PATIENT_ID_MARKERS  # noqa: E402
+from ADTLib.naming import (  # noqa: E402
+    patient_id, PATIENT_ID_MARKERS, ASO_CBCT_MARKERS, ASO_CBCT_CLI_MARKERS,
+    AREG_IOSCBCT_MARKERS, TMJ_CROP_MARKERS, LANDMARK_SUFFIX_MARKERS)
 
 
 def OLD_CHAIN(basename):
@@ -76,6 +78,86 @@ class PatientIdTest(unittest.TestCase):
         """Documents the known limit rather than pretending it is fixed."""
         self.assertNotEqual(patient_id("P001_T3.nii.gz"), patient_id("P001_T4.nii.gz"))
         self.assertEqual(patient_id("P001_T3.nii.gz"), "P001_T3")
+
+
+# Les quatre autres jeux de marqueurs du dépôt, transcrits depuis les chaînes
+# qu'ils remplacent. Ils ne donnent PAS le même identifiant que le jeu par
+# défaut sur le même nom -- c'est précisément pourquoi ils n'ont pas été fondus
+# avec lui, et ces cas le figent.
+
+def ASO_CBCT_CHAIN(name):
+    return (name.split("_scan")[0].split("_Scanreg")[0].split("_Scan")[0]
+                .split("_Or")[0].split("_OR")[0].split("_lm")[0]
+                .split("_T1")[0].split("_T2")[0].split(".")[0])
+
+
+def ASO_CBCT_CLI_CHAIN(name):
+    return (name.split("_Or")[0].split("_OR")[0].split("_scan")[0]
+                .split("_Scanreg")[0].split("_Scan")[0].split("_lm")[0].split(".")[0])
+
+
+def AREG_IOSCBCT_CHAIN(name):
+    return name.split("_scan")[0].split("_Scanreg")[0].split("_lm")[0]
+
+
+def TMJ_CROP_CHAIN(name):
+    for marker in ("_Scan", "_scan", "_Or", "_OR", "_MAND", "_MD", "_MAX", "_MX",
+                   "_CB", "_lm", "_T2", "_T1", "_Cl", "_seg", "_Seg", "_mask",
+                   "_Mask", "_pred", "_Pred", "_crop", "_Crop", "_Left", "_left",
+                   "_Right", "_right", "_approximate", "_Approximate", "_CBCT",
+                   "_MRI", "_MR", "."):
+        name = name.split(marker)[0]
+    return name
+
+
+def LANDMARK_SUFFIX_CHAIN(name):
+    return name.split("_lm")[0].split("_Or")[0].split(".")[0]
+
+
+WIDER_CORPUS = CORPUS + [
+    "P001_Scanreg.nii.gz", "P001_seg_T1.nii.gz", "P001_Left_crop.nii.gz",
+    "P001_MRI_T2.nii.gz", "P001_Mask.nrrd", "P001_approximate.nii.gz",
+    "P001_Or_lm.json", "P001_CBCT_Right.nii.gz", "sub_01_MR.nii.gz",
+]
+
+
+class OtherMarkerSetsTest(unittest.TestCase):
+    """Chaque jeu rend ce que rendait la chaîne qu'il remplace, nom par nom."""
+
+    def _same_as(self, markers, chain):
+        for name in WIDER_CORPUS:
+            with self.subTest(name=name):
+                self.assertEqual(patient_id(name, markers), chain(name))
+
+    def test_aso_cbct(self):
+        self._same_as(ASO_CBCT_MARKERS, ASO_CBCT_CHAIN)
+
+    def test_aso_cbct_cli(self):
+        self._same_as(ASO_CBCT_CLI_MARKERS, ASO_CBCT_CLI_CHAIN)
+
+    def test_areg_ioscbct(self):
+        self._same_as(AREG_IOSCBCT_MARKERS, AREG_IOSCBCT_CHAIN)
+
+    def test_tmj_crop(self):
+        self._same_as(TMJ_CROP_MARKERS, TMJ_CROP_CHAIN)
+
+    def test_landmark_suffix(self):
+        self._same_as(LANDMARK_SUFFIX_MARKERS, LANDMARK_SUFFIX_CHAIN)
+
+    def test_the_sets_really_do_disagree(self):
+        """Si deux jeux donnaient toujours la même réponse, il faudrait les fondre.
+
+        Ce test échouerait alors, et ce serait la bonne nouvelle : il dirait
+        qu'une des listes est devenue inutile.
+        """
+        answers = {
+            "défaut": patient_id("P001_MAND_T1.nii.gz"),
+            "ASO_CBCT": patient_id("P001_MAND_T1.nii.gz", ASO_CBCT_MARKERS),
+            "AREG_IOSCBCT": patient_id("P001_MAND_T1.nii.gz", AREG_IOSCBCT_MARKERS),
+        }
+        self.assertEqual(answers["défaut"], "P001")
+        self.assertEqual(answers["ASO_CBCT"], "P001_MAND")       # n'a pas _MAND
+        self.assertEqual(answers["AREG_IOSCBCT"], "P001_MAND_T1.nii.gz")
 
 
 if __name__ == "__main__":

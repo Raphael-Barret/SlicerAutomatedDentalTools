@@ -6,6 +6,7 @@ import time
 import qt
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_MARKERS, LANDMARK_SUFFIX_MARKERS
 
 logger = get_logger("ASO_Method_CBCT")
 
@@ -32,16 +33,7 @@ class CBCT(Method):
                 # patient pairing. See the full note above GetPatients in
                 # AREG_CBCT/AREG_CBCT_utils/utils.py before changing this.
                 patient = (
-                    file_name.split("_scan")[0]
-                    .split("_Scanreg")[0]
-                    .split("_Scan")[0]
-                    .split("_Or")[0]
-                    .split("_OR")[0]
-                    .split("_lm")[0]
-                    .split("_T1")[0]
-                    .split("_T2")[0]
-                    .split(".")[0]
-                )
+                    read_patient_id(file_name, ASO_CBCT_MARKERS))
 
                 if patient not in patients.keys():
                     patients[patient] = {"dir": os.path.dirname(file), "lmrk": []}
@@ -328,8 +320,7 @@ class Semi_CBCT(CBCT):
         out = ""
         lm_extension = [".json"]
         lm_patient = [
-            os.path.basename(i).split("_lm")[0].split("_Or")[0].split(".")[0]
-            for i in self.search(scan_folder, lm_extension)[".json"]
+            read_patient_id(os.path.basename(i), LANDMARK_SUFFIX_MARKERS) for i in self.search(scan_folder, lm_extension)[".json"]
         ]
 
         if self.NumberScanDCM(scan_folder) == 0:

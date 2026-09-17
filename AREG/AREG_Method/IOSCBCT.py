@@ -9,6 +9,7 @@ import platform
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 from ADTLib.model_registry import ADT_MODELS
+from ADTLib.naming import patient_id as read_patient_id, AREG_IOSCBCT_MARKERS
 
 logger = get_logger("AREG_Method_IOSCBCT")
 
@@ -32,8 +33,7 @@ class IOSCBCT(Method):
             for file in files:
                 file_name = os.path.basename(file).split(".")[0]
                 patient = (
-                    file_name.split("_scan")[0].split("_Scanreg")[0].split("_lm")[0]
-                )
+                    read_patient_id(file_name, AREG_IOSCBCT_MARKERS))
 
                 if patient not in patients.keys():
                     patients[patient] = {"dir": os.path.dirname(file), "lmrk": []}

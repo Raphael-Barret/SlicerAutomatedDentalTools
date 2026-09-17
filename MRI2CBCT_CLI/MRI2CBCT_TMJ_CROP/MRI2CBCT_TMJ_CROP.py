@@ -1,8 +1,7 @@
 #!/usr/bin/env python-real
 
 import os
-import argparse, shutil, itertools
-from nnunetv2.inference.predict_from_raw_data import predict_entry_point
+import argparse, itertools
 from typing import Optional
 from pathlib import Path
 import numpy as np

@@ -2,16 +2,8 @@ from AutoMatrix_Method.Method import Method
 from AutoMatrix_Method.Progress import DisplayAutomatrix
 from AutoMatrix_Method.General_tools import GetPatients
 import slicer
-import webbrowser
-import glob
 import os
-import vtk
-import shutil
-import platform
-import csv
 
-import logging
-import sys
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

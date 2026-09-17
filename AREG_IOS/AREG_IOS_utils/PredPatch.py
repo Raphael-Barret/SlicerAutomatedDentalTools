@@ -1,6 +1,6 @@
 from typing import Any
 import torch
-from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
+from vtk.util.numpy_support import numpy_to_vtk
 from AREG_IOS_utils.net import MonaiUNetHRes
 from AREG_IOS_utils.post_process import RemoveIslands, DilateLabel, ErodeLabel
 import logging

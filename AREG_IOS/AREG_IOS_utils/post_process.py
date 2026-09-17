@@ -1,8 +1,6 @@
 import vtk
 import numpy as np
-import argparse
 import sys
-import os
 import math
 
 import logging

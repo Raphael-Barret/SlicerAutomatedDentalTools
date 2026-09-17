@@ -7,11 +7,8 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
 import qt
-import glob
-import numpy as np
 from qt import QFileDialog,QMessageBox,QGridLayout,QWidget
 from functools import partial
-import SimpleITK as sitk
 
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
@@ -37,10 +34,8 @@ from AutoMatrix_Method.Progress import Display
 
 
 
-import threading
 import io
 
-import logging
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 

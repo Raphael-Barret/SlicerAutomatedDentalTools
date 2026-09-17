@@ -1,7 +1,6 @@
 import os
 import vtk
 import numpy as np
-import json
 
 import sys
 import logging

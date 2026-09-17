@@ -1,4 +1,4 @@
-import os, sys,logging, time, traceback, zipfile, urllib.request, shutil, glob
+import os, sys,time, traceback, zipfile, urllib.request, shutil
 import vtk, qt, slicer
 from qt import (
     QWidget,
@@ -13,7 +13,6 @@ from qt import (
 )
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
-from functools import partialmethod
 
 # ===== Logging Configuration =====
 
@@ -69,7 +68,6 @@ from AREG_Method.Progress import Display
 from AREG_Method import Review
 from AREG_Method.pip_install_window import PipInstallWindow
 
-from pathlib import Path
 import textwrap
 try:
     import importlib.metadata as importlib_metadata
@@ -83,7 +81,7 @@ import subprocess
 import re
 
 from ADTLib.format import format_elapsed, elapsed_since
-from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.theming import update_line_edit_and_combo_box
 from ADTLib.env.deps import check_lib_installed as lib_satisfies
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,

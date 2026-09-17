@@ -1,4 +1,4 @@
-import os, sys, re, time, logging, zipfile, urllib.request, shutil, glob
+import os, sys, re, time, zipfile, urllib.request, shutil
 import vtk, qt, slicer
 from qt import (
     QWidget,
@@ -6,14 +6,9 @@ from qt import (
     QScrollArea,
     QTabWidget,
     QCheckBox,
-    QPushButton,
     QPixmap,
-    QIcon,
-    QSize,
     QLabel,
-    QHBoxLayout,
     QGridLayout,
-    QMediaPlayer,
 )
 try:
     import importlib.metadata as importlib_metadata
@@ -58,7 +53,7 @@ from ASO_Method.Method import Method
 from ASO_Method.Progress import Display
 
 from ADTLib.format import format_elapsed, elapsed_since
-from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.theming import update_line_edit_and_combo_box
 from ADTLib.env.deps import check_lib_installed as lib_satisfies
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,

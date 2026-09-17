@@ -1,6 +1,5 @@
 import numpy as np
 import vtk
-from vtk.util.numpy_support import vtk_to_numpy
 from ASO_IOS_utils.icp import vtkMeanTeeth
 from ASO_IOS_utils.transformation import RotationMatrix, TransformSurf
 import logging

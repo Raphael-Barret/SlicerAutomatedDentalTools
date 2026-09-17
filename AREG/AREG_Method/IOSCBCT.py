@@ -1,17 +1,11 @@
 from AREG_Method.Method import Method, FindDentalModelSeg
 from AREG_Method import Review
 from AREG_Method.Progress import DisplayAREGIOSCBCT, DisplayALICBCT,DisplayASOIOS,DisplayASOCBCT,DisplayCrownSeg,DisplayALIIOS
-import webbrowser
 import os
 import slicer
-import json
-import time
-import qt
 import csv
 import platform
 
-import logging
-import sys
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 

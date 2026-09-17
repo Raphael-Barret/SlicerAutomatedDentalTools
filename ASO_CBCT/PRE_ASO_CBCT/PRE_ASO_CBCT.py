@@ -41,9 +41,6 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 from ASO_CBCT_utils import (
     ExtractFilesFromFolder,
-    AngleAndAxisVectors,
-    RotationMatrix,
-    PreASOResample,
     convertdicom2nifti,
 )
 

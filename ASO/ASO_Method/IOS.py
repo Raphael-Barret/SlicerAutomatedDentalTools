@@ -1,18 +1,13 @@
 from ASO_Method.Method import Method
-from ASO_Method.Progress import DisplayALIIOS, DisplayASOIOS, DisplayCrownSeg
+from ASO_Method.Progress import DisplayASOIOS, DisplayCrownSeg
 from ASO_Method.IOS_utils.Reader import ReadSurf, WriteSurf
 import slicer
-import webbrowser
-import glob
 import os
-import re
 import csv
 import platform
 import vtk
 import shutil
 from itertools import chain
-import logging
-import sys
 from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 
 # ===== Logging Configuration =====

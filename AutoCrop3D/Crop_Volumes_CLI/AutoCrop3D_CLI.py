@@ -1,7 +1,6 @@
 #!/usr/bin/env python-real
 
 import argparse
-import logging
 import SimpleITK as sitk
 
 
@@ -9,7 +8,7 @@ import SimpleITK as sitk
 from Crop_Volumes_utils.FilesType import Search, ChangeKeyDict
 from Crop_Volumes_utils.GenerateVTKfromSeg import convertNiftiToVTK
 import numpy as np
-import os,json,sys
+import os,json
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

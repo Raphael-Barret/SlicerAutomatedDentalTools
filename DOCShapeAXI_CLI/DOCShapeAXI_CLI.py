@@ -5,7 +5,6 @@ import shutil
 import argparse
 from urllib import request
 import requests
-import subprocess
 import pandas as pd
 
 import torch

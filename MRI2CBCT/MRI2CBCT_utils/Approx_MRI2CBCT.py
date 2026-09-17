@@ -1,20 +1,16 @@
 from .Method import Method
-from .utils_CBCT import GetDictPatients, GetPatients
-import os, sys
+from .utils_CBCT import GetDictPatients
+import os
 
 import glob
 import json
 import vtk
 import numpy as np
 
-from glob import iglob
 import slicer
-import time
 import qt
 import platform
-import re
 
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

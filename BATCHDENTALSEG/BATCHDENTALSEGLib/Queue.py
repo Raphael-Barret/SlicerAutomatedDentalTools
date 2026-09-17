@@ -7,7 +7,7 @@ can be stacked in a single session. The state is written to disk after every
 scan, which makes an interrupted run resumable.
 """
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
 import logging

@@ -17,7 +17,6 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from BATCHDENTALSEGLib import SegmentationWidget
 from BATCHDENTALSEGLib.IconPath import icon
 
-import logging
 import sys
 
 # ===== Logging Configuration =====
@@ -69,7 +68,7 @@ class BATCHDENTALSEGWidget(ScriptedLoadableModuleWidget):
 class DentalSegmentatorTest(ScriptedLoadableModuleTest):
     def runTest(self):
         try:
-            from SlicerPythonTestRunnerLib import RunnerLogic, RunnerWidget, RunSettings, isRunningInTestMode
+            from SlicerPythonTestRunnerLib import RunnerLogic, RunnerWidget, RunSettings, isRunningInTestMode  # noqa: F401  (sonde de disponibilite)
             from pathlib import Path
         except ImportError:
             slicer.util.warningDisplay("Please install SlicerPythonTestRunner extension to run the self tests.")

@@ -1,4 +1,4 @@
-import os,sys,time,zipfile,urllib.request,shutil
+import os,sys,time,zipfile,urllib.request
 
 import vtk
 
@@ -7,11 +7,8 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
 
 import qt
-import glob
-import numpy as np
-from qt import QFileDialog,QMessageBox,QGridLayout,QWidget,QPixmap
+from qt import QMessageBox,QGridLayout,QWidget
 from functools import partial
-import SimpleITK as sitk
 
 try:
     from importlib.metadata import version as _get_installed_version
@@ -36,8 +33,6 @@ from ADTLib.logging_setup import get_logger
 
 from MedX_Method.summarize import MedX_Summarize_Method
 from MedX_Method.dashboard import MedX_Dashboard_Method
-from MedX_Method.Method import Method
-from MedX_Method.Progress import Display
 
 
 import signal
@@ -47,7 +42,6 @@ import threading
 import subprocess
 import io
 
-import logging
 
 from ADTLib.format import format_elapsed, elapsed_since
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box

@@ -1,20 +1,15 @@
 import os
 import shutil
-from typing import Annotated
-import urllib.request
 import vtk
 import slicer
 import qt
 from slicer.i18n import tr as _
-from slicer.i18n import translate
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import parameterNodeWrapper
-from slicer import vtkMRMLScalarVolumeNode
 import importlib
 
 import sys
-import logging
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
 # path only gets there once Slicer finds a module in it, and ADT holds none --
@@ -28,7 +23,6 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 from ADTLib.logging_setup import get_logger
 
-from ADTLib.env.deps import check_lib_installed as lib_satisfies
 
 
 # ===== Logging Configuration =====

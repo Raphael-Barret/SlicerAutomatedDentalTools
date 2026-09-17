@@ -8,7 +8,6 @@ import qt
 import subprocess
 import sys
 import slicer
-import logging
 import os
 from .IconPath import icon, iconPath
 from .PythonDependencyChecker import PythonDependencyChecker, hasInternetConnection
@@ -2900,7 +2899,7 @@ class SegmentationWidget(qt.QWidget):
     @staticmethod
     def isNNUNetModuleInstalled():
         try:
-            import SlicerNNUNetLib
+            import SlicerNNUNetLib  # noqa: F401  (sonde de disponibilite)
             return True
         except ImportError:
             return False

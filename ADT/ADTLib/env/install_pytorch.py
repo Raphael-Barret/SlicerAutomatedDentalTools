@@ -26,7 +26,6 @@ The pin in ``TORCH_PINS`` is what a *new* environment gets. An existing torch is
 only replaced when the index publishes no wheel for it; one that is supported is
 kept, whatever the pin says. See ``install_torch``.
 """
-import logging
 import re
 import subprocess
 import sys

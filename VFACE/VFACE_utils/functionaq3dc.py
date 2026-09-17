@@ -5,8 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-import logging
-import vtk, qt, ctk, slicer
+import qt, ctk, slicer
 import glob
 import numpy as np
 
@@ -47,10 +46,9 @@ except Exception:
 
 try:
     # we need this package for pandas package
-    import openpyxl
+    pass
 except Exception:
     slicer.util.pip_install("openpyxl")
-    import openpyxl
 
 import importlib.util
 import sys
@@ -71,7 +69,7 @@ try:
         Point,
         Line,
         Group_landmark,
-        MyList,
+        MyList,  # noqa: F401  (sonde de disponibilite)
         MyDict,
     )
     

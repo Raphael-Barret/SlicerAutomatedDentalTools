@@ -8,7 +8,6 @@ Authors :
 """
 
 import os
-import logging
 import glob
 import time
 import shutil
@@ -18,8 +17,6 @@ import sys
 import vtk, qt, slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
-from slicer import vtkMRMLCommandLineModuleNode
-import webbrowser
 try:
     import importlib.metadata as importlib_metadata
 except ImportError:
@@ -41,7 +38,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 from ADTLib.logging_setup import get_logger
 
-from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.theming import update_line_edit_and_combo_box
 
 # --- LOGGING CONFIGURATION ---
 logger = get_logger("AMASSS")

@@ -1,5 +1,5 @@
 
-import os, sys, time, logging, zipfile, urllib.request, shutil, glob, re
+import os, sys, time, zipfile, urllib.request, shutil, glob, re
 import vtk, qt, slicer
 from qt import (
     QWidget,
@@ -8,17 +8,14 @@ from qt import (
 
 
 from slicer.ScriptedLoadableModule import *
-from slicer.util import VTKObservationMixin, pip_install, pip_uninstall
+from slicer.util import VTKObservationMixin, pip_install
 import webbrowser
 import textwrap
-import importlib.metadata
 import signal
 
-from pathlib import Path
 import platform
 import threading
 import subprocess
-from multiprocessing import Process, Value
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -43,7 +40,7 @@ from ALI_Method.Method import Method
 from ALI_Method.Progress import Display
 
 from ADTLib.format import format_elapsed, elapsed_since
-from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.theming import update_line_edit_and_combo_box
 from ADTLib.env.deps import check_lib_installed as lib_satisfies
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
@@ -145,7 +142,6 @@ SURFACE_NETWORK = {
 
   # "Landmarks type" : ['CL','CB','O','DB','MB','R','RIP','OIP']
 
-import json
 
 def condaQuote(conda, value):
     """Delegated to ADTLib; kept as a module function for the call sites."""

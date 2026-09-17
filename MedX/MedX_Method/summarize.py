@@ -3,8 +3,6 @@ from MedX_Method.Progress import DisplayMedX
 import slicer
 import os
 
-import sys
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

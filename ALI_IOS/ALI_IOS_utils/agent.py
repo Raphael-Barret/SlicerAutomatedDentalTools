@@ -4,7 +4,6 @@ import math
 import torch
 
 from pytorch3d.renderer import look_at_rotation
-from pytorch3d.structures import Meshes
 
 from ALI_IOS_utils.model import MG_AIM_OFFSET
 

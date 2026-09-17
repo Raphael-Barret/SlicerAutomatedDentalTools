@@ -19,8 +19,6 @@ Usage - add to MRI2CBCT.py setup():
 """
 
 import os
-import sys
-import math
 import glob
 import vtk
 import qt
@@ -28,7 +26,6 @@ import ctk
 import slicer
 import numpy as np
 import SimpleITK as sitk
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

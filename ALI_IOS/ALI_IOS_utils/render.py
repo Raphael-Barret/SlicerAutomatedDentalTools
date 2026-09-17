@@ -1,4 +1,3 @@
-import torch
 from pytorch3d.renderer import (
     FoVPerspectiveCameras, RasterizationSettings, MeshRenderer,
     MeshRasterizer, HardPhongShader, PointLights, blending

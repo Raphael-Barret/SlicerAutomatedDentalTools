@@ -10,7 +10,6 @@ Authors :
 #pytorch3d : need version 0.6.2
 #monai : need version 0.7.0
 #IMPORT DE BASE
-import time
 import os
 import glob
 import sys

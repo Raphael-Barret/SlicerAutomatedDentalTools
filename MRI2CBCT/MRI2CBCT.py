@@ -1,7 +1,7 @@
 import os
 import sys
-from typing import Annotated, Optional
-from qt import QWidget, QTableWidget, QDoubleSpinBox, QTableWidgetItem, QHeaderView,QSpinBox, QVBoxLayout, QLabel, QSizePolicy, QCheckBox, QFileDialog,QMessageBox, QApplication, QProgressDialog
+from typing import Annotated
+from qt import QDoubleSpinBox, QHeaderView,QSpinBox, QCheckBox, QFileDialog,QMessageBox, QApplication, QProgressDialog
 import qt
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -32,7 +32,6 @@ import time
 import slicer
 from functools import partial
 from slicer.i18n import tr as _
-from slicer.i18n import translate
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin, pip_install
 from slicer.parameterNodeWrapper import (
@@ -43,14 +42,10 @@ from slicer.parameterNodeWrapper import (
 import shutil
 import urllib
 import zipfile
-import importlib.metadata
 from pathlib import Path
 
-from packaging.version import Version
-from packaging.specifiers import SpecifierSet
 
 from slicer import vtkMRMLScalarVolumeNode
-import logging
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 
@@ -122,8 +117,8 @@ def install_function():
             return False
 
     try:
-        import vtk
-        import itk
+        import vtk  # noqa: F401  (sonde de disponibilite)
+        import itk  # noqa: F401  (sonde de disponibilite)
     except ImportError as e:
         slicer.util.errorDisplay(f"Final import check failed: {e}")
         return False

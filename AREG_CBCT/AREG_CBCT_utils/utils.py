@@ -9,9 +9,6 @@
 8888888 888       888 888         "Y88888P"  888   T88b     888      "Y8888P"
 """
 import numpy as np
-import time
-import sys
-import logging
 from glob import iglob
 import os, json
 import SimpleITK as sitk

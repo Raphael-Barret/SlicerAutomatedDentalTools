@@ -3,8 +3,6 @@ import vtk
 from FlexReg_utils.util import vtkMeanTeeth
 from FlexReg_utils.transform import RotationMatrix, TransformSurf
 
-import sys
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

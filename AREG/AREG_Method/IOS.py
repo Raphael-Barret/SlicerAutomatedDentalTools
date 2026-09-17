@@ -2,16 +2,12 @@ from AREG_Method.Method import Method, FindDentalModelSeg
 from AREG_Method import Review
 from AREG_Method.Progress import DisplayAREGIOS, DisplayCrownSeg, DisplayASOIOS, DisplayALIIOS
 import slicer
-import webbrowser
-import glob
 import os
 import vtk
 import shutil
 import platform
 import csv
 
-import logging
-import sys
 from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

@@ -12,7 +12,7 @@ import unittest
 
 import numpy as np
 import vtk
-from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
+from vtk.util.numpy_support import numpy_to_vtk
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "ALI_IOS_utils"))
 

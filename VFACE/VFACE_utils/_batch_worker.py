@@ -11,7 +11,6 @@ Usage:
 import sys
 import argparse
 import traceback
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
@@ -124,7 +123,6 @@ def compute_distance(pd1, pd2, signed=True):
     Compute distance between two polydata meshes.
     Uses subsampling for large meshes to reduce memory usage.
     """
-    import vtk
 
     n1 = pd1.GetNumberOfPoints()
     n2 = pd2.GetNumberOfPoints()

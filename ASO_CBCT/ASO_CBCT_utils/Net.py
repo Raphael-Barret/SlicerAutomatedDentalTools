@@ -1,11 +1,9 @@
-from slicer.util import pip_install, pip_uninstall
 
 #try to upgrade pip
 
 
 
 
-import torch
 
 
 import torch.nn as nn

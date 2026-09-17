@@ -16,8 +16,6 @@ import slicer
 import time
 import qt
 import platform
-import logging
-import sys
 from ADTLib.naming import patient_id as read_patient_id
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

@@ -32,12 +32,10 @@ from ADTLib.env.conda import (
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
 
-from pathlib import Path
 #
 # DOCShapeAXI
 #
 
-import logging
 
 # ===== Logging Configuration =====
 logger = get_logger("DOCShapeAXI")

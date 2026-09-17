@@ -17,7 +17,6 @@
 #     moving one point only reshapes the patch around it.
 import logging
 import re
-import sys
 
 import numpy as np
 import vtk

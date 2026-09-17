@@ -2,11 +2,9 @@ import vtk
 import numpy as np
 import slicer
 import json
-import logging
 import os
 import re
 import shutil
-import sys
 import zipfile
 from pathlib import Path
 from enum import Flag, auto
@@ -315,7 +313,6 @@ class SegmentationLogic:
     def _runSegmentationForVolume(self, volumeNode):
         """Run the segmentation"""
         try:
-            from SlicerNNUNetLib import Parameter
             
             #Model Configuration
             parameter = self._getModelParameter()
@@ -653,7 +650,7 @@ class SegmentationLogic:
     def _exportMergedVTK(self, segmentationNode):
         """Export VTK"""
         try:
-            import os, re
+            import os
             from vtk.util.numpy_support import vtk_to_numpy
             
             self.log_info("MergedVTK: Start")
@@ -942,7 +939,7 @@ class SegmentationLogic:
     def isNNUNetModuleInstalled():
         """Check if nnunet is installed"""
         try:
-            import SlicerNNUNetLib
+            import SlicerNNUNetLib  # noqa: F401  (sonde de disponibilite)
             return True
         except ImportError:
             return False

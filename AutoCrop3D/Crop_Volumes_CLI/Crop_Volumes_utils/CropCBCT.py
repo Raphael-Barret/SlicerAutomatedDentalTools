@@ -1,8 +1,6 @@
 import SimpleITK as sitk
-import logging
-from Crop_Volumes_utils.FilesType import Search
 import numpy as np
-import os,json,sys
+import os,json
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

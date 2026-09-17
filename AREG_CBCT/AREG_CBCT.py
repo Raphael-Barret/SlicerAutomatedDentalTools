@@ -1,9 +1,6 @@
 #!/usr/bin/env python-real
 import argparse
 import sys, os, time
-import logging
-import numpy as np
-import slicer
 import SimpleITK as sitk
 
 
@@ -33,9 +30,6 @@ logger = get_logger("AREG_CBCT")
 from AREG_CBCT_utils import (
     GetDictPatients,
     VoxelBasedRegistration,
-    LoadOnlyLandmarks,
-    applyTransformLandmarks,
-    WriteJson,
     translate,
     convertdicom2nifti,
 )

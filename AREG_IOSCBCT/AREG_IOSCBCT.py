@@ -2,9 +2,7 @@
 
 import os
 import sys
-import shutil
 import argparse
-import platform
 import logging
 
 import pyvista as pv

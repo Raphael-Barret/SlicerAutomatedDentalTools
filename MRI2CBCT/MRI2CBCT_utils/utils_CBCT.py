@@ -1,7 +1,5 @@
 import os
 from glob import iglob
-import sys
-import logging
 from ADTLib.naming import patient_id as read_patient_id
 
 # ===== Logging Configuration =====

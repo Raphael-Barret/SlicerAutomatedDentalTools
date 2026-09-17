@@ -2,21 +2,15 @@ from ALI_Method.Method import Method
 from ALI_Method.Progress import (
     DisplayALICBCT,
 )
-import os, sys
-import logging
+import os
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
 
 logger = get_logger("ALI_CBCT_Process")
 
-import SimpleITK as sitk
-import numpy as np
 
-from glob import iglob
 import slicer
-import time
-import qt
 import platform
 
 

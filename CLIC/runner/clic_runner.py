@@ -15,7 +15,7 @@ The stdout messages should start by:
   [SEG]      <chemin_nii_gz>
 """
 
-import argparse, json, glob
+import argparse, json
 from pathlib import Path
 
 import numpy as np
@@ -25,8 +25,6 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-import sys
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 import logging
 import pandas as pd
-import numpy as np
 import joblib
 
 # The deployed sklearn version commonly differs from the one used to train the models.

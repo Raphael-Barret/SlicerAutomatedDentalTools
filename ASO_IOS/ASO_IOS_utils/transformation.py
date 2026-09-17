@@ -1,4 +1,3 @@
-import numpy as np
 import vtk
 import logging
 import sys

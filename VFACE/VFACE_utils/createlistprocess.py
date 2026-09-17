@@ -9,7 +9,7 @@ if current_dir not in sys.path:
 from .Progress import DisplayASOCBCT,DisplayAMASSS,DisplayAREGCBCT,DisplayALICBCT
 from glob import iglob
 import slicer
-from .functionaq3dc import AQ3DCLogic, AQ3DCWidget, patientIdFromFileName
+from .functionaq3dc import AQ3DCLogic, patientIdFromFileName
 import qt
 import re
 import shutil
@@ -18,7 +18,6 @@ from pathlib import Path
 import pandas as pd
 import traceback
 
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
@@ -2307,7 +2306,6 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
     fully free. Only a separate process guarantees memory release via the OS.
     """
     import subprocess
-    import json
     import tempfile
     import time
     

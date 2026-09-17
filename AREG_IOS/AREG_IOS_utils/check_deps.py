@@ -207,7 +207,6 @@ def ensure_compatible():
     if is_compatible is False:
         if fix_torchvision_auto():
             # Force reload to get new versions
-            import importlib
             if 'torch' in sys.modules:
                 del sys.modules['torch']
             if 'torchvision' in sys.modules:

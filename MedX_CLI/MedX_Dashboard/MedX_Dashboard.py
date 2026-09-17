@@ -1,7 +1,6 @@
 #!/usr/bin/env python-real
 import argparse
-import torch
-import sys, os, time
+import sys, os
 
 import logging
 

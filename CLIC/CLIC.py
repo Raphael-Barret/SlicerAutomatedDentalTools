@@ -4,9 +4,9 @@
 2025-07-14 → patch 2025-07-15 : batch Conda, anti-dead-lock
 """
 
-import os, sys, glob, queue, time, threading, subprocess, urllib.request
+import os, sys, queue, time, threading
 from pathlib import Path
-from typing import Optional, List
+from typing import List
 
 # Slicer / Qt
 import slicer, qt
@@ -17,7 +17,6 @@ import json
 # Slicer-Conda helper
 from CondaSetUp import CondaSetUpCall
 
-import logging
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search

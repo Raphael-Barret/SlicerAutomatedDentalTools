@@ -1,8 +1,6 @@
 #!/usr/bin/env python-real
-import glob
 import os
 import sys
-import time
 import argparse
 import platform
 import logging

@@ -1,15 +1,11 @@
 from ALI_Method.Method import Method
 from ALI_Method.Progress import DisplayCrownSeg, DisplayALIIOS
 import slicer
-import webbrowser
-import glob
 import os
 import vtk
 import shutil
 import platform
 import csv
-import logging
-import sys
 from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 
 # --- LOGGING CONFIGURATION ---

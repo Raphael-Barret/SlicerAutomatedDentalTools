@@ -1,11 +1,9 @@
 import contextlib
-import logging
 import glob
 import os
 import re
 import stat
 import tempfile
-from typing import Annotated
 import urllib.request
 import shutil
 import zipfile
@@ -31,7 +29,7 @@ import importlib
 try:
     from VFACE_utils import Progress
     importlib.reload(Progress)
-    from VFACE_utils.Progress import DisplayALICBCT,DisplayAMASSS,DisplayASOCBCT,Display
+    from VFACE_utils.Progress import Display
     
     from VFACE_utils import createlistprocess
     importlib.reload(createlistprocess)
@@ -42,7 +40,7 @@ try:
 
 except Exception as e:
     logger.error(f"Error loading VFACE utilities: {e}")
-    from VFACE_utils.Progress import DisplayALICBCT,DisplayAMASSS,DisplayASOCBCT,Display
+    from VFACE_utils.Progress import Display
     from VFACE_utils.createlistprocess import CreateListProcess, NumberScan, patientIdFromFileName
     from VFACE_utils import review_steps
 
@@ -50,12 +48,10 @@ import vtk
 
 import slicer
 from slicer.i18n import tr as _
-from slicer.i18n import translate
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import (
     parameterNodeWrapper,
-    WithinRange,
 )
 
 from slicer import vtkMRMLScalarVolumeNode
@@ -3089,8 +3085,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onCliUpdated(self, caller, event):
         import time
-        import json
-        import subprocess
 
         # Only the node the pipeline is currently waiting on may advance it.
         # Observers can outlive their step, so a stale callback would start the

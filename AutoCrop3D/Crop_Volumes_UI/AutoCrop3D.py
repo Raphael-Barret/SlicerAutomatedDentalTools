@@ -1,4 +1,3 @@
-import logging
 import os,json
 
 
@@ -8,16 +7,13 @@ import SimpleITK as sitk
 
 import slicer
 from slicer.ScriptedLoadableModule import *
-from slicer.util import VTKObservationMixin,pip_install
+from slicer.util import VTKObservationMixin
 
 import qt
-from qt import QFileDialog, QMessageBox
 
 import glob
-import numpy as np
 from functools import partial
 
-from pathlib import Path
 import time
 import threading
 from queue import Queue

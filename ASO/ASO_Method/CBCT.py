@@ -1,13 +1,9 @@
 from ASO_Method.Method import Method
 from ASO_Method.Progress import DisplayASOCBCT, DisplayALICBCT
-import webbrowser
 import os
 import slicer
-import json
 import time
 import qt
-import logging
-import sys
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 

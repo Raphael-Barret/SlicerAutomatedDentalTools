@@ -1,6 +1,5 @@
 #!/usr/bin/env python-real
 import sys, argparse, os, traceback, glob, json
-from pathlib import Path
 
 import logging
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, asdict
-from typing import Tuple, Union, List
+from typing import Union, List
 import os
 import glob
 from itertools import chain

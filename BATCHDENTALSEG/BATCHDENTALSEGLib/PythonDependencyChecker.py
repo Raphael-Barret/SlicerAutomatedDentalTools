@@ -7,8 +7,6 @@ import qt
 import slicer
 from github import Github, GithubException
 
-import logging
-import sys
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
@@ -56,8 +54,8 @@ class PythonDependencyChecker:
     @classmethod
     def areDependenciesSatisfied(cls):
         try:
-            import torch
-            import nnunetv2
+            import torch  # noqa: F401  (sonde de disponibilite)
+            import nnunetv2  # noqa: F401  (sonde de disponibilite)
             return True
         except ImportError:
             return False

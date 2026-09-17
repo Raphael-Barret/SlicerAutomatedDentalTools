@@ -1,8 +1,6 @@
 import numpy as np
 import vtk
 
-import sys
-import logging
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

@@ -4,7 +4,6 @@ import argparse
 import numpy as np
 import nibabel as nib
 import SimpleITK as sitk
-import torch.nn.functional as F
 from sklearn.model_selection import ParameterSampler
 from torchreg import AffineRegistration
 

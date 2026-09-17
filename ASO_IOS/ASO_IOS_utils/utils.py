@@ -5,7 +5,6 @@ import vtk
 import numpy as np
 import json
 import SimpleITK as sitk
-from vtk.util.numpy_support import vtk_to_numpy
 from ASO_IOS_utils.OFFReader import OFFReader
 import logging
 import sys

@@ -1,6 +1,4 @@
-from typing import Any
 import torch
-from collections import deque
 import vtk
 import numpy as np
 

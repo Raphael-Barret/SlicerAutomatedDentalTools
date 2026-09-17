@@ -33,6 +33,7 @@ import sys
 from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
 from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
 from ADTLib.io.fs import search as search_files
+from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_CLI_MARKERS
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_CBCT_utils")
@@ -922,14 +923,7 @@ def GetPatients(folder_path):
     for file in glob.iglob(normpath, recursive=True):
         basename = os.path.basename(file)
         patient = (
-            basename.split("_Or")[0]
-            .split("_OR")[0]
-            .split("_scan")[0]
-            .split("_Scanreg")[0]
-            .split("_Scan")[0]
-            .split("_lm")[0]
-            .split(".")[0]
-        )
+            read_patient_id(basename, ASO_CBCT_CLI_MARKERS))
 
         if patient not in patients.keys():
             patients[patient] = {}

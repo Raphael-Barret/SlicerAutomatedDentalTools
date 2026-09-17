@@ -56,6 +56,7 @@ from slicer.parameterNodeWrapper import (
 
 from slicer import vtkMRMLScalarVolumeNode
 import qt
+from ADTLib.model_registry import ADT_MODELS
 
 
 #
@@ -1020,14 +1021,14 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             
             "ALI/ALI_CBCT/Models/Landmark": {
-                "Cranial Base": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Cranial_Base.zip",
-                "Lower Bones 1": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_1.zip",
-                "Lower Bones 2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_2.zip",
-                "Lower Left Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Left_Teeth.zip",
-                "Lower_Right_Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Right_Teeth.zip",
-                "Upper Bones v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Bones_v2.zip",
-                "Upper Left Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Left_Teeth_v2.zip",
-                "Upper Right Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Right_Teeth_v2.zip",
+                "Cranial Base": f"{ADT_MODELS}/Cranial_Base.zip",
+                "Lower Bones 1": f"{ADT_MODELS}/Lower_Bones_1.zip",
+                "Lower Bones 2": f"{ADT_MODELS}/Lower_Bones_2.zip",
+                "Lower Left Teeth": f"{ADT_MODELS}/Lower_Left_Teeth.zip",
+                "Lower_Right_Teeth": f"{ADT_MODELS}/Lower_Right_Teeth.zip",
+                "Upper Bones v2": f"{ADT_MODELS}/Upper_Bones_v2.zip",
+                "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
+                "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
             },
             "V_FACE": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/VFACE/V_FACE_Models.zip",
         }

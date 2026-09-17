@@ -8,6 +8,7 @@ import platform
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.model_registry import ADT_MODELS
 
 logger = get_logger("AREG_Method_IOSCBCT")
 
@@ -183,14 +184,14 @@ class Semi_IOSCBCT(IOSCBCT):
     def getModelUrl(self):
         return {
             "CBCT": {
-                "Cranial Base": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Cranial_Base.zip",
-                "Lower Bones 1": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_1.zip",
-                "Lower Bones 2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_2.zip",
-                "Lower Left Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Left_Teeth.zip",
-                "Lower_Right_Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Right_Teeth.zip",
-                "Upper Bones v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Bones_v2.zip",
-                "Upper Left Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Left_Teeth_v2.zip",
-                "Upper Right Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Right_Teeth_v2.zip",
+                "Cranial Base": f"{ADT_MODELS}/Cranial_Base.zip",
+                "Lower Bones 1": f"{ADT_MODELS}/Lower_Bones_1.zip",
+                "Lower Bones 2": f"{ADT_MODELS}/Lower_Bones_2.zip",
+                "Lower Left Teeth": f"{ADT_MODELS}/Lower_Left_Teeth.zip",
+                "Lower_Right_Teeth": f"{ADT_MODELS}/Lower_Right_Teeth.zip",
+                "Upper Bones v2": f"{ADT_MODELS}/Upper_Bones_v2.zip",
+                "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
+                "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
         },
             "IOS": "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3/Models.zip",
         }
@@ -503,14 +504,14 @@ class Auto_IOSCBCT(IOSCBCT):
                 "IOS":"https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip"
             },
             "CBCT": {
-                "Cranial Base": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Cranial_Base.zip",
-                "Lower Bones 1": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_1.zip",
-                "Lower Bones 2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Bones_2.zip",
-                "Lower Left Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Left_Teeth.zip",
-                "Lower_Right_Teeth": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Lower_Right_Teeth.zip",
-                "Upper Bones v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Bones_v2.zip",
-                "Upper Left Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Left_Teeth_v2.zip",
-                "Upper Right Teeth v2": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/v0.1-v2.0_models/Upper_Right_Teeth_v2.zip",
+                "Cranial Base": f"{ADT_MODELS}/Cranial_Base.zip",
+                "Lower Bones 1": f"{ADT_MODELS}/Lower_Bones_1.zip",
+                "Lower Bones 2": f"{ADT_MODELS}/Lower_Bones_2.zip",
+                "Lower Left Teeth": f"{ADT_MODELS}/Lower_Left_Teeth.zip",
+                "Lower_Right_Teeth": f"{ADT_MODELS}/Lower_Right_Teeth.zip",
+                "Upper Bones v2": f"{ADT_MODELS}/Upper_Bones_v2.zip",
+                "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
+                "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
         },
             "IOS": "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3/Models.zip",
         }

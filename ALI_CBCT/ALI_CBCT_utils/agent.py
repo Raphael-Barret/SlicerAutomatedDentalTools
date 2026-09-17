@@ -1,28 +1,15 @@
 import numpy as np
 import time
-import logging
 from collections import deque
-import sys
 
 import os
 
 from ALI_CBCT_utils.constants import bcolors, DEVICE
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_CBCT_Agent")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("ALI_CBCT_Agent")
 
 def GetAgentLst(agents_param):
     """Generate a list of agents with error handling."""

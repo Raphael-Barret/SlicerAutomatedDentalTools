@@ -9,18 +9,10 @@ from monai.transforms import Compose, BorderPad, ScaleIntensity, SpatialCrop
 from ALI_CBCT_utils.constants import LABELS, LABEL_GROUPS, SCALE_KEYS, DEVICE, bcolors
 from ALI_CBCT_utils.io import WriteJson, GenControlPoint
 
-import logging
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_CBCT_environment")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("ALI_CBCT_environment")
 
 class Environment :
     def __init__(

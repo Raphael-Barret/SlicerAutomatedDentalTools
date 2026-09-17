@@ -1,6 +1,4 @@
 import os
-import logging
-import sys
 import numpy as np
 import itk
 import SimpleITK as sitk
@@ -9,20 +7,9 @@ import dicom2nifti
 from ALI_CBCT_utils.io import search
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_CBCT_preprocess")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("ALI_CBCT_preprocess")
 
 def CorrectHisto(filepath, outpath, min_porcent=0.01, max_porcent=0.95, i_min=-1500, i_max=4000):
     """

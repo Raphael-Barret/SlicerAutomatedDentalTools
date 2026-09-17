@@ -1,24 +1,11 @@
 # Utilities for generating landmark JSON outputs and label translation
 import json
-import logging
 import os
-import sys
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_IOS_IO")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("ALI_IOS_IO")
 
 def GenControlPoint(group_data, selected_lm):
     """Generate control points for landmarks with error handling."""

@@ -12,19 +12,11 @@ import nibabel as nib
 from MRI2CBCT_CLI_utils.approx_utils import get_corresponding_file, compute_rotation_correction, world_center_of_mass
 from MRI2CBCT_CLI_utils.condyle_segmentation import segment_condyle
 
-import logging
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("MRI2CBCT_CLI_utils_approximate")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("MRI2CBCT_CLI_utils_approximate")
 
 
 def _patientIdFromCbctFilename(cbct_file):

@@ -6,19 +6,6 @@ import re
 import shutil
 
 import sys
-import logging
-
-# ===== Logging Configuration =====
-logger = logging.getLogger("MRI2CBCT_CLI_reg")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -30,6 +17,12 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+# ===== Logging Configuration =====
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("MRI2CBCT_CLI_reg")
+
 
 # realpath, not __file__: this CLI sits in a sub-folder, so it is registered
 # through a flat folder of symlinks into the source tree. __file__ then names

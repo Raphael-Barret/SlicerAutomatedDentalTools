@@ -1,7 +1,5 @@
 # Functions for surface loading, scaling, normal calculation, and mesh utilities
-import logging
 import numpy as np
-import sys
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import torch
@@ -9,20 +7,9 @@ from monai.transforms import ToTensor
 from ADTLib.io.surface import ReadSurf  # noqa: F401  (re-exporte)
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_IOS_Surface")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("ALI_IOS_Surface")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

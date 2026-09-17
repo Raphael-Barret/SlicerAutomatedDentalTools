@@ -3,19 +3,10 @@ import torch
 from vtk.util.numpy_support import numpy_to_vtk
 from AREG_IOS_utils.net import MonaiUNetHRes
 from AREG_IOS_utils.post_process import RemoveIslands, DilateLabel, ErodeLabel
-import logging
-import sys
 # ===== Logging Configuration =====
-logger = logging.getLogger("AREG_IOS_PredPatch")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("AREG_IOS_PredPatch")
 
 
 class PredPatch:

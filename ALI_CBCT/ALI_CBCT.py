@@ -2,29 +2,12 @@
 import os
 import sys
 import time
-import logging
 import argparse
 import ast
 from pathlib import Path
 
 import numpy as np
 import torch
-
-# --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_CBCT")
-logger.setLevel(logging.INFO)
-
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -36,6 +19,12 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+# --- LOGGING CONFIGURATION ---
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("ALI_CBCT")
+
 
 # --- DYNAMIC IMPORTS ---
 try:

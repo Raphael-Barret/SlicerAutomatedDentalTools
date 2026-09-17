@@ -15,20 +15,11 @@ from MedX_CLI_utils.dashboard_utils import (
     set_disc_displacement_data, set_joint_pain_data, initialize_key_value_summary
 )
 
-import sys
-import logging
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("MedX_display_figure")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("MedX_display_figure")
 
 def read_summaries(summary_folder: str) -> dict:
     """

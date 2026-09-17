@@ -21,28 +21,6 @@ import platform
 import argparse
 import numpy as np
 import torch
-import logging
-
-# --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_IOS")
-logger.setLevel(logging.INFO)
-
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
-from monai.networks.nets import UNet
-from monai.transforms import AsDiscrete
-from pytorch3d.structures import Meshes
-from pytorch3d.renderer import TexturesVertex
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -54,6 +32,17 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+# --- LOGGING CONFIGURATION ---
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("ALI_IOS")
+
+from monai.networks.nets import UNet
+from monai.transforms import AsDiscrete
+from pytorch3d.structures import Meshes
+from pytorch3d.renderer import TexturesVertex
+
 
 # realpath, not __file__: a CLI registered through a symlink - the flat dev
 # folder of links into the source tree - leaves __file__ on the link, whose

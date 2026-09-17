@@ -28,24 +28,15 @@ from vtkmodules.vtkFiltersGeneral import vtkTransformPolyDataFilter
 
 import dicom2nifti
 
-import logging
-import sys
 from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
 from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
 from ADTLib.io.fs import search as search_files
 from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_CLI_MARKERS
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("ASO_CBCT_utils")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("ASO_CBCT_utils")
 
 
 cross = lambda x, y: np.cross(

@@ -4,31 +4,7 @@ import sys
 import os
 import time
 import argparse
-import logging
 import SimpleITK as sitk
-
-# --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("SEMI_ASO_CBCT")
-logger.setLevel(logging.INFO)
-
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
-# realpath, not __file__: registering the CLI through a symlink (a flat dev
-# folder of links into the source tree) leaves __file__ on the link, whose
-# parent holds no ASO_CBCT_utils. Resolving first lands in ASO_CBCT
-# either way. In a built install the package is already on sys.path.
-fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
-sys.path.append(fpath)
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -40,6 +16,19 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+# --- LOGGING CONFIGURATION ---
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("SEMI_ASO_CBCT")
+
+# realpath, not __file__: registering the CLI through a symlink (a flat dev
+# folder of links into the source tree) leaves __file__ on the link, whose
+# parent holds no ASO_CBCT_utils. Resolving first lands in ASO_CBCT
+# either way. In a built install the package is already on sys.path.
+fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
+sys.path.append(fpath)
+
 
 from ASO_CBCT_utils import (
     ICP,

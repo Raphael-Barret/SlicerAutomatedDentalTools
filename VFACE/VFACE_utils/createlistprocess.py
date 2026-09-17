@@ -2354,7 +2354,9 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
                 pattern_exact = r'\b' + re.escape(list_patient_clean) + r'\b'
                 if re.search(pattern_exact, patient_id_clean, re.IGNORECASE):
                     return True
-            except Exception:
+            except re.error:
+                # Le nom du patient est echappe avant d etre compile : une erreur ici
+                # ne peut venir que d un motif que re refuse.
                 pass
             if list_patient_clean.isdigit():
                 if patient_id_clean.lower() == f"pat{list_patient_clean}":
@@ -2425,7 +2427,9 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
                 if os.path.isfile(c):
                     slicer_python = c
                     break
-        except Exception:
+        except (AttributeError, NameError):
+            # Hors de Slicer, slicer.app n existe pas : on garde l interpreteur
+            # trouve autrement.
             pass
     
     if slicer_python is None:

@@ -371,8 +371,9 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     t.GetPositionCoordinate().SetCoordinateSystemToNormalizedDisplay()
                     t.SetPosition(0.77, y0-(k-1)*dy); ren.AddActor2D(t)
                 view.forceRender()
-            except Exception:
-                pass
+            except (AttributeError, RuntimeError):
+                # Une vue absente de la disposition courante rend None.
+                logger.debug("Legende non posee sur la vue %s", vn, exc_info=True)
 
     def _on_sh_modified(self, caller, event):
         sh = caller; nid = sh.GetActiveItemID()
@@ -393,7 +394,8 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if isinstance(parent, qt.QLabel):
             try:
                 parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
-            except Exception:
+            except (AttributeError, RuntimeError):
+                # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
                 pass
         if hasattr(parent, 'children'):
             for child in parent.children():
@@ -403,7 +405,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if isinstance(parent, (qt.QCheckBox, qt.QPushButton)):
             try:
                 parent.setStyleSheet("color: #ffffff;")
-            except Exception:
+            except (AttributeError, RuntimeError):
                 pass
         if hasattr(parent, 'children'):
             for child in parent.children():
@@ -413,7 +415,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         try:
             if 'qMRMLNodeComboBox' in parent.__class__.__name__:
                 parent.setStyleSheet("qMRMLNodeComboBox {color: #ffffff;}")
-        except Exception:
+        except (AttributeError, RuntimeError):
             pass
         if hasattr(parent, 'children'):
             for child in parent.children():

@@ -561,7 +561,9 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                                             for row in table:
                                                 full_text += " ".join([str(cell) if cell else "" for cell in row]) + "\n"
                         except Exception:
-                            pass
+                            # Deuxieme echec d affilee : aucun texte n a pu etre extrait de ce PDF,
+                            # et le fichier ressortira donc non anonymise. A dire.
+                            logger.warning(f"Aucun texte extrait de {file}, il ressort tel quel")
                 
                 elif file_ext == ".csv":
                     import csv

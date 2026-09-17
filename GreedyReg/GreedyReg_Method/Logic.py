@@ -255,8 +255,10 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
         try:
           subprocess.run([uninstaller, "/S", f"_?={installDir}"],
                          capture_output=True, timeout=60)
-        except Exception:
-          pass
+        except (OSError, subprocess.SubprocessError):
+            # Le desinstalleur est un nettoyage : le repertoire est efface juste
+            # apres de toute facon.
+            pass
       shutil.rmtree(installDir, ignore_errors=True)
 
   def _findFileRecursive(self, rootDir, fileName):

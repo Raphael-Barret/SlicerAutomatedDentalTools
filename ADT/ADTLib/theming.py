@@ -170,7 +170,8 @@ def update_line_edit_and_combo_box(parent):
                   font-weight: 500;
                 }
             """)
-        except Exception:
+        except (AttributeError, RuntimeError):
+            # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
             pass
     
     # Update QLineEdit
@@ -188,7 +189,7 @@ def update_line_edit_and_combo_box(parent):
                   border: 2px solid #5dade2;
                 }
             """)
-        except Exception:
+        except (AttributeError, RuntimeError):
             pass
     
     # Update QComboBox
@@ -215,7 +216,7 @@ def update_line_edit_and_combo_box(parent):
                   selection-background-color: #5dade2;
                 }
             """)
-        except Exception:
+        except (AttributeError, RuntimeError):
             pass
     
     # Recursively update all children

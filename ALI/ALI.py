@@ -1768,8 +1768,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QLabel):
       try:
         parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
-      except Exception:
-        pass
+      except (AttributeError, RuntimeError):
+          # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+          pass
     
     # Recursively update all children
     if hasattr(parent, 'children'):
@@ -1784,15 +1785,15 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QCheckBox):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except Exception:
-        pass
+      except (AttributeError, RuntimeError):
+          pass
     
     # Update QPushButton text color (for Switch tab selection button in LMTab)
     if isinstance(parent, qt.QPushButton):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except Exception:
-        pass
+      except (AttributeError, RuntimeError):
+          pass
     
     # Recursively update all children
     if hasattr(parent, 'children'):
@@ -1824,12 +1825,12 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for child in parent.children():
               try:
                 child.setStyleSheet("color: #ffffff; background-color: #3c3c3c;")
-              except Exception:
-                pass
-        except Exception:
-          pass
-    except Exception:
-      pass
+              except (AttributeError, RuntimeError):
+                  pass
+        except (AttributeError, RuntimeError):
+            pass
+    except (AttributeError, RuntimeError):
+        pass
     
     # Recursively update all children
     if hasattr(parent, 'children'):

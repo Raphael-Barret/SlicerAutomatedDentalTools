@@ -2581,8 +2581,9 @@ qMRMLNodeComboBox:focus {
       try:
         if hasattr(self.ui, 'AREG_Method') and hasattr(self.ui.AREG_Method, 'merge_seg_checkbox'):
           self.ui.AREG_Method.merge_seg_checkbox.setStyleSheet(checkbox_stylesheet)
-      except Exception:
-        pass
+      except (AttributeError, RuntimeError):
+          # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+          pass
     
     def _styleAllCheckboxes(self, parent, stylesheet):
       """
@@ -2591,8 +2592,8 @@ qMRMLNodeComboBox:focus {
       if isinstance(parent, qt.QCheckBox):
         try:
           parent.setStyleSheet(stylesheet)
-        except Exception:
-          pass
+        except (AttributeError, RuntimeError):
+            pass
       
       # Recursively process all children
       if hasattr(parent, 'children'):
@@ -3338,7 +3339,9 @@ class AREGLogic(ScriptedLoadableModuleLogic):
                     for line in (stream or "").splitlines():
                         self.queueCondaOutput(line)
             except Exception:
-                pass
+                # Dernier recours : il n y a plus rien a tenter apres, mais perdre la
+                # sortie du processus sans laisser de trace rend le diagnostic impossible.
+                logger.debug("Recuperation de la sortie conda impossible", exc_info=True)
 
     def queueCondaOutput(self, line):
         """Hand one line of a conda tool's output to the main thread.

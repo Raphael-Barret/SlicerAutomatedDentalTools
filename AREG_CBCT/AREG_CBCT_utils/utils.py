@@ -327,7 +327,10 @@ def LoadOnlyLandmarks(ldmk_path, ldmk_list=None):
             # lm_coord = ((lm_ph_coord - origin) / spacing).astype(np.float16)
             lm_coord = lm_ph_coord.astype(np.float64)
             landmarks[markup["label"]] = lm_coord
-        except Exception:
+        except (KeyError, IndexError, TypeError):
+            # Un point de controle sans position lisible est saute. Le dire :
+            # un repere manquant deplace le recalage sans rien signaler.
+            logger.debug("Point de controle illisible dans %s", ldmk_path, exc_info=True)
             continue
     if ldmk_list is not None:
         return {key: landmarks[key] for key in ldmk_list if key in landmarks.keys()}

@@ -86,8 +86,9 @@ def process_patient(cbct_path: Path, mri_path: Path, seg_path: Optional[Path], t
         mask_img = nib.Nifti1Image(mask.astype(np.uint8), cbct_half.affine)
         _save(mask_img, f"{name}_Mask_TMJ_{side}.nii.gz", "Mask")
     except Exception:
-        # best-effort save, do not fail the pipeline
-        pass
+        # Sauvegarde d inspection : elle ne doit pas arreter le traitement,
+        # mais son echec doit rester lisible.
+        logger.debug("Masque TMJ non enregistre", exc_info=True)
     if mask.sum() == 0:
         logger.info("No voxel ignored")
         return
@@ -149,7 +150,7 @@ def process_patient(cbct_path: Path, mri_path: Path, seg_path: Optional[Path], t
             mask_on_mri = resample_from_to(mask_img, (mri_crop.shape, mri_crop.affine), order=0)
             _save(mask_on_mri, f"{name}_Mask_TMJ_crop{side}.nii.gz","CBCT seg")
         except Exception:
-            pass
+            logger.debug("Masque TMJ recale non enregistre", exc_info=True)
 
 
 # ── MAIN ────────────────────────────────────────────────────────────

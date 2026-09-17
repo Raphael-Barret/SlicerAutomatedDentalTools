@@ -2974,7 +2974,10 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for stream in (sys.stdout, sys.stderr):
                 try:
                     stream.flush()
-                except Exception:
+                except (AttributeError, OSError, ValueError):
+                    # Le flux peut etre deja ferme, ou valoir None quand Slicer
+                    # tourne sans console. Pas de journalisation ici : elle
+                    # ecrirait dans le flux meme qu on est en train de defaire.
                     pass
             saved_out = os.dup(1)
             saved_err = os.dup(2)
@@ -2986,7 +2989,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             sys.stdout, sys.stderr = saved_sys_out, saved_sys_err
             try:
                 handle.flush()
-            except Exception:
+            except (OSError, ValueError):
                 pass
             if saved_out is not None:
                 os.dup2(saved_out, 1)
@@ -2996,7 +2999,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 os.close(saved_err)
             try:
                 handle.close()
-            except Exception:
+            except (OSError, ValueError):
                 pass
 
     def _reportStepOutput(self, log_path: str, keep_lines: int = 12) -> None:

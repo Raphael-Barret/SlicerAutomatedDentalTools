@@ -23,6 +23,8 @@ select = [
   "F821",   # nom non défini : NameError garanti si la ligne est atteinte
   "E722",   # except nu : avale aussi Ctrl-C et les sorties volontaires
   "F401",   # import inutilisé
+  "S110",   # try/except/pass sur Exception : l'erreur disparaît sans trace
+  "S112",   # try/except/continue sur Exception : idem, dans une boucle
 ]
 
 # BACKLOG, dans l'ordre où il sera traité. Le compte date du 2026-09-16.

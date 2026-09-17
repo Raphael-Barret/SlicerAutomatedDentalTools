@@ -34,7 +34,8 @@ def remove_broken_image_so():
         if image_so_path.exists():
             image_so_path.unlink()
             return True
-    except Exception:
+    except (ImportError, OSError):
+        # torchvision absent, ou le fichier deja retire par un autre passage.
         pass
 
     return False
@@ -180,8 +181,8 @@ def fix_torchvision_auto():
             result = subprocess.run(cmd_conda, capture_output=True, text=True)
             if result.returncode == 0:
                 return True
-        except Exception:
-            pass
+        except (OSError, subprocess.SubprocessError):
+            logger.debug("Installation par conda impossible", exc_info=True)
         
         return False
             

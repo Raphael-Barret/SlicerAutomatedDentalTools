@@ -504,7 +504,8 @@ QRadioButton::indicator:checked {
                 widget.setStyleSheet(checkbox_stylesheet)
             elif isinstance(widget, qt.QRadioButton):
                 widget.setStyleSheet(radio_stylesheet)
-        except Exception:
+        except (AttributeError, RuntimeError):
+            # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
             pass
     
     def _stylePopUpWidgets(self, parent):
@@ -560,13 +561,13 @@ QRadioButton::indicator:checked {
         if isinstance(parent, qt.QCheckBox):
             try:
                 parent.setStyleSheet(checkbox_stylesheet)
-            except Exception:
+            except (AttributeError, RuntimeError):
                 pass
         
         if isinstance(parent, qt.QRadioButton):
             try:
                 parent.setStyleSheet(radio_stylesheet)
-            except Exception:
+            except (AttributeError, RuntimeError):
                 pass
         
         # Recursively process all children
@@ -1145,8 +1146,10 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     checkbox.setCheckable(status[checkbox.text])
                     checkbox2.setCheckable(status[checkbox2.text])
 
-                except Exception:
-                    pass
+                except KeyError:
+                    # status est indexe par le libelle de la case : une case absente du
+                    # dictionnaire reste telle quelle, ce qui merite au moins une trace.
+                    logger.debug("Aucun etat pour %s ni %s", checkbox.text, checkbox2.text)
 
         if self.type == "CBCT":
             for checkboxs, checkboxs2 in zip(
@@ -2334,8 +2337,8 @@ qMRMLNodeComboBox:focus {
       if isinstance(parent, qt.QCheckBox):
         try:
           parent.setStyleSheet(stylesheet)
-        except Exception:
-          pass
+        except (AttributeError, RuntimeError):
+            pass
       
       # Recursively process all children
       if hasattr(parent, 'children'):

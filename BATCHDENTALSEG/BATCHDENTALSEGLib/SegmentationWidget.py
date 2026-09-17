@@ -913,7 +913,7 @@ class SegmentationWidget(qt.QWidget):
             self.logic.stopSegmentation()
             self.logic.waitForSegmentationFinished()
         except Exception:
-            pass
+            logger.debug("Arret de la segmentation apres le kill impossible", exc_info=True)
 
         return killed + self._reclaimStrayProcesses()
 
@@ -1105,8 +1105,9 @@ class SegmentationWidget(qt.QWidget):
         try:
             if slicer.mrmlScene.GetNodeByID(node.GetID()):
                 slicer.mrmlScene.RemoveNode(node)
-        except Exception:
-            pass
+        except (AttributeError, RuntimeError):
+            # Le noeud a deja ete retire de la scene par ailleurs.
+            logger.debug("Noeud deja libere", exc_info=True)
 
     # ─── RAM pre-flight estimate ───────────────────────────────────────────────
 
@@ -1255,8 +1256,10 @@ class SegmentationWidget(qt.QWidget):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
-        except Exception:
-            pass
+        except (ImportError, RuntimeError):
+            # torch peut etre absent, et empty_cache echoue si le contexte CUDA
+            # a deja ete detruit.
+            logger.debug("Cache CUDA non vide", exc_info=True)
         import gc
         gc.collect()
         self.onProgressInfo(
@@ -1283,8 +1286,8 @@ class SegmentationWidget(qt.QWidget):
                 try:
                     slicer.mrmlScene.RemoveNode(node)
                     removed += 1
-                except Exception:
-                    pass
+                except (AttributeError, RuntimeError):
+                    logger.debug("Noeud orphelin non retire", exc_info=True)
         self.processedVolumes = {}
         return removed
 
@@ -2076,8 +2079,8 @@ class SegmentationWidget(qt.QWidget):
                 if hasattr(self, 'segmentEditorNode'):
                     self.segmentEditorWidget.setSegmentationNode(None)
                     self.segmentEditorWidget.setSourceVolumeNode(None)
-            except Exception:
-                pass
+            except (AttributeError, RuntimeError):
+                logger.debug("Editeur de segments non neutralise", exc_info=True)
 
             # 2) Supprimer le display-node de la segmentation
             if segmentationNode and is_node_in_scene(segmentationNode):
@@ -2095,8 +2098,8 @@ class SegmentationWidget(qt.QWidget):
                         itemID = shNode.GetItemByDataNode(segmentationNode)
                         if itemID and itemID != shNode.GetInvalidItemID():
                             shNode.RemoveItem(itemID)
-                except Exception:
-                    pass
+                except (AttributeError, RuntimeError):
+                    logger.debug("Element de hierarchie non retire", exc_info=True)
 
                 if is_node_in_scene(segmentationNode):
                     slicer.mrmlScene.RemoveNode(segmentationNode)
@@ -2106,8 +2109,8 @@ class SegmentationWidget(qt.QWidget):
 
             try:
                 self.segmentEditorWidget.blockSignals(False)
-            except Exception:
-                pass
+            except (AttributeError, RuntimeError):
+                logger.debug("Signaux de l editeur non retablis", exc_info=True)
 
             if volumeNode and is_node_in_scene(volumeNode):
                 volDisp = volumeNode.GetDisplayNode()
@@ -2591,8 +2594,8 @@ class SegmentationWidget(qt.QWidget):
         if self._prevSegmentationNode:
             try:
                 self._prevSegmentationNode.SetDisplayVisibility(False)
-            except Exception:
-                pass
+            except (AttributeError, RuntimeError):
+                logger.debug("Visibilite de la segmentation precedente non modifiee", exc_info=True)
 
         segmentationNode = self.getCurrentSegmentationNode()
 

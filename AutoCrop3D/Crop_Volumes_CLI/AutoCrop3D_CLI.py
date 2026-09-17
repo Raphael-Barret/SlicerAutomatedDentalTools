@@ -144,7 +144,7 @@ def main(args)-> None:
                 try :
                     convertNiftiToVTK(ScanOutPath,VTKOutPath)
                 except Exception:
-                    pass
+                    logger.debug("Conversion VTK de la segmentation impossible", exc_info=True)
 
             index+=1
 

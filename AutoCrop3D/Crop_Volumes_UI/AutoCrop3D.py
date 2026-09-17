@@ -16,7 +16,7 @@ from functools import partial
 
 import time
 import threading
-from queue import Queue
+from queue import Empty, Queue
 import sys
 import io
 
@@ -795,7 +795,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         if not success:
                             logger.error(f"Failed to save volume {patient_path}")
                             continue
-                    except Exception:
+                    except Empty:
+                        # Rien dans la file a cet instant : le tour de boucle suivant
+                        # reessaiera. C est la seule erreur attendue ici.
                         pass
 
                 sys.stdin = original_stdin

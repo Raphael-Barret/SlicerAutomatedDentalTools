@@ -1,4 +1,4 @@
-"""Reading a patient identifier off a file name.
+r"""Reading a patient identifier off a file name.
 
 Six sites built the same identifier by chaining fourteen `.split(...)[0]` calls
 in the same order, and the order is load-bearing: a longer marker has to be cut

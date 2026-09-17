@@ -30,6 +30,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}/format.py
   ${MODULE_NAME}/geometry.py
   ${MODULE_NAME}/io/__init__.py
+  ${MODULE_NAME}/io/fs.py
   ${MODULE_NAME}/io/landmarks.py
   ${MODULE_NAME}/logging_setup.py
   ${MODULE_NAME}/naming.py

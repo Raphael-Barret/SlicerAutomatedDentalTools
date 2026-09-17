@@ -128,3 +128,14 @@ def WriteJson(landmarks, out_path):
     }
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(file, f, ensure_ascii=False, indent=4)
+
+
+def ListLandmarksJson(json_file):
+    """Les étiquettes des points de repère d'un fichier markups, dans l'ordre."""
+    with open(json_file) as f:
+        data = json.load(f)
+
+    return [
+        data["markups"][0]["controlPoints"][i]["label"]
+        for i in range(len(data["markups"][0]["controlPoints"]))
+    ]

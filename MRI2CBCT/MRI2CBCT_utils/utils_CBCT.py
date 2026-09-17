@@ -1,9 +1,9 @@
 import os
-from glob import iglob
 from ADTLib.naming import patient_id as read_patient_id
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.io.fs import search as search_files
 
 logger = get_logger("MRI2CBCT_utils")
 
@@ -124,33 +124,5 @@ def ModifiedDictPatients(patients, todo_str):
 
 
 def search(path, *args):
-    """
-    Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
-
-    Example:
-    args = ('json',['.nii.gz','.nrrd'])
-    return:
-        {
-            'json' : ['path/a.json', 'path/b.json','path/c.json'],
-            '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
-            '.nrrd.gz' : ['path/c.nrrd']
-        }
-    """
-    arguments = []
-    for arg in args:
-        if type(arg) == list:
-            arguments.extend(arg)
-        else:
-            arguments.append(arg)
-    return {
-        key: sorted(
-            [
-                i
-                for i in iglob(
-                    os.path.normpath("/".join([path, "**", "*"])), recursive=True
-                )
-                if i.endswith(key)
-            ]
-        )
-        for key in arguments
-    }
+    """Délégué à ADTLib. Ce site trie : l'ordre des patients en dépend."""
+    return search_files(path, *args, sort=True)

@@ -1,5 +1,4 @@
 import os
-import glob
 import re
 import vtk
 import numpy as np
@@ -9,6 +8,7 @@ from ASO_IOS_utils.OFFReader import OFFReader
 import logging
 import sys
 from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
+from ADTLib.io.fs import search  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_IOS_utils")
@@ -212,37 +212,6 @@ def UpperOrLower(path_filename):
         str: Upper or Lower, for the following exemple if Upper
     """
     return JawFromFileName(path_filename, default="Lower")
-
-
-def search(path, *args):
-    """
-    Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
-
-    Example:
-    args = ('json',['.nii.gz','.nrrd'])
-    return:
-        {
-            'json' : ['path/a.json', 'path/b.json','path/c.json'],
-            '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
-            '.nrrd.gz' : ['path/c.nrrd']
-        }
-    """
-    arguments = []
-    for arg in args:
-        if type(arg) == list:
-            arguments.extend(arg)
-        else:
-            arguments.append(arg)
-    return {
-        key: [
-            i
-            for i in glob.iglob(
-                os.path.normpath("/".join([path, "**", "*"])), recursive=True
-            )
-            if i.endswith(key)
-        ]
-        for key in arguments
-    }
 
 
 def WriteJsonLandmarks(

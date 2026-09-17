@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 import os
 import glob
-import json
 import re
 import shutil
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.io.fs import search as search_files
+from ADTLib.io.landmarks import ListLandmarksJson as list_landmarks_json
 
 logger = get_logger("AREG_Method")
 
@@ -249,43 +250,12 @@ class Method(ABC):
         self.diccheckbox2 = checkboxes
 
     def search(self, path, *args):
-        """
-        Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
-
-        Example:
-        args = ('json',['.nii.gz','.nrrd'])
-        return:
-            {
-                'json' : ['path/a.json', 'path/b.json','path/c.json'],
-                '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
-                '.nrrd.gz' : ['path/c.nrrd']
-            }
-        """
-        arguments = []
-        for arg in args:
-            if type(arg) == list:
-                arguments.extend(arg)
-            else:
-                arguments.append(arg)
-        return {
-            key: [
-                i
-                for i in glob.iglob(
-                    os.path.normpath("/".join([path, "**", "*"])), recursive=True
-                )
-                if i.endswith(key)
-            ]
-            for key in arguments
-        }
+        """Délégué à ADTLib ; la signature est gardée pour les appelants."""
+        return search_files(path, *args)
 
     def ListLandmarksJson(self, json_file):
-        with open(json_file) as f:
-            data = json.load(f)
-
-        return [
-            data["markups"][0]["controlPoints"][i]["label"]
-            for i in range(len(data["markups"][0]["controlPoints"]))
-        ]
+        """Délégué à ADTLib."""
+        return list_landmarks_json(json_file)
 
     def getTestFileListDCM(self):
         """Return a tuple with both the name and the Download link of the test files but only for DCM files (AREG CBCT)

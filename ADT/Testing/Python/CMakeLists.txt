@@ -13,3 +13,7 @@ slicer_add_python_unittest(SCRIPT test_surface.py)
 # search : les deux parametres qui portent ce que les quinze copies
 # faisaient differemment, et rien d autre.
 slicer_add_python_unittest(SCRIPT test_fs.py)
+
+# Le tableau de numerotation des dents : la preference etait ignoree des
+# qu elle n etait pas le dernier tableau du maillage.
+slicer_add_python_unittest(SCRIPT test_labels.py)

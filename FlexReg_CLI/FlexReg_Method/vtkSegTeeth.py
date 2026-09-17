@@ -4,6 +4,7 @@ import vtk
 
 import sys
 import logging
+from ADTLib.labels import has_label_array, label_array
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("FlexReg_vtkSegTeeth")
@@ -28,30 +29,15 @@ class vtkTeeth:
         self.property = property
 
     def GetLabelSurface(self, surf, Preference="Universal_ID"):
-        out = None
+        """Le tableau de numerotation a utiliser : voir `ADTLib.labels`.
 
-        list_label = [
-            surf.GetPointData().GetArrayName(i)
-            for i in range(surf.GetPointData().GetNumberOfArrays())
-        ]
-
-        if len(list_label) != 0:
-            for label in list_label:
-                out = label
-                if Preference == label:
-                    out = Preference
-                    continue
-        return out
+        Quatre des cinq copies faisaient `continue` la ou il fallait `break`,
+        et ne rendaient donc `Preference` que s il etait le dernier tableau.
+        """
+        return label_array(surf, Preference)
 
     def isLabelSurface(self, surf, property):
-        out = False
-        list_label = [
-            surf.GetPointData().GetArrayName(i)
-            for i in range(surf.GetPointData().GetNumberOfArrays())
-        ]
-        if property in list_label:
-            out = True
-        return out
+        return has_label_array(surf, property)
 
 
 class vtkIterTeeth(vtkTeeth):

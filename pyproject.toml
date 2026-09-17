@@ -37,7 +37,5 @@ select = [
 # pas un oubli.
 "**/__init__.py" = ["F401"]
 
-# Un seul nom non défini reste. Les deux autres sont tombés avec le partage de
-# transformation.py dans ADTLib.geometry ; celui-ci tombera avec ReadSurf, dont
-# les cinq copies divergent encore trop pour être fondues sans arbitrage.
-"ALI_IOS/ALI_IOS_utils/surface.py" = ["F821"]        # OFFReader, qui n'existe que dans ASO_IOS_utils
+# Plus aucune exception à F821 : le dernier nom non défini, l'OFFReader
+# d'ALI_IOS, est tombé avec le partage de ReadSurf dans ADTLib.io.surface.

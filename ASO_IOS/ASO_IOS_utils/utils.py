@@ -1,14 +1,13 @@
 import os
 import re
-import vtk
 import numpy as np
 import json
 import SimpleITK as sitk
-from ASO_IOS_utils.OFFReader import OFFReader
 import logging
 import sys
 from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
 from ADTLib.io.fs import search  # noqa: F401  (re-exporte)
+from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_IOS_utils")
@@ -21,120 +20,6 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
-
-
-def ReadSurf(path):
-    fname, extension = os.path.splitext(os.path.basename(path))
-    extension = extension.lower()
-    if extension == ".vtk":
-        reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(path)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".vtp":
-        reader = vtk.vtkXMLPolyDataReader()
-        reader.SetFileName(path)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".stl":
-        reader = vtk.vtkSTLReader()
-        reader.SetFileName(path)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".off":
-        reader = OFFReader()
-        reader.SetFileName(path)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".obj":
-        if os.path.exists(fname + ".mtl"):
-            obj_import = vtk.vtkOBJImporter()
-            obj_import.SetFileName(path)
-            obj_import.SetFileNameMTL(fname + ".mtl")
-            textures_path = os.path.normpath(os.path.dirname(fname) + "/../images")
-            if os.path.exists(textures_path):
-                textures_path = os.path.normpath(
-                    fname.replace(os.path.basename(fname), "")
-                )
-                obj_import.SetTexturePath(textures_path)
-            else:
-                textures_path = os.path.normpath(
-                    fname.replace(os.path.basename(fname), "")
-                )
-                obj_import.SetTexturePath(textures_path)
-
-            obj_import.Read()
-
-            actors = obj_import.GetRenderer().GetActors()
-            actors.InitTraversal()
-            append = vtk.vtkAppendPolyData()
-
-            for i in range(actors.GetNumberOfItems()):
-                surfActor = actors.GetNextActor()
-                append.AddInputData(surfActor.GetMapper().GetInputAsDataSet())
-
-            append.Update()
-            surf = append.GetOutput()
-
-        else:
-            reader = vtk.vtkOBJReader()
-            reader.SetFileName(path)
-            reader.Update()
-            surf = reader.GetOutput()
-
-    return surf
-
-
-def WriteSurf(surf, output_folder, name, inname):
-    """Write surface to file with proper error handling.
-    
-    Args:
-        surf: VTK polydata surface
-        output_folder: Output directory path
-        name: Filename (can include path)
-        inname: Infix to add to filename (e.g., "Or" -> "A2_SegOr.vtk")
-    """
-    try:
-        dir, name = os.path.split(name)
-        name, extension = os.path.splitext(name)
-
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder, exist_ok=True)
-
-        if extension == ".vtk":
-            writer = vtk.vtkPolyDataWriter()
-        elif extension == ".vtp":
-            writer = vtk.vtkXMLPolyDataWriter()
-        elif extension == ".obj":
-            writer = vtk.vtkOBJWriter()
-        else:
-            # Default to VTK format if extension is not recognized
-            extension = ".vtk"
-            writer = vtk.vtkPolyDataWriter()
-        
-        output_path = os.path.join(output_folder, f"{name}{inname}{extension}")
-        logger.debug(f"DEBUG WriteSurf: output_path = {output_path}")
-        logger.debug(f"DEBUG WriteSurf: output_folder = {output_folder}")
-        logger.debug(f"DEBUG WriteSurf: name = {name}, inname = {inname}, extension = {extension}")
-        
-        writer.SetFileName(output_path)
-        writer.SetInputData(surf)
-        writer.Update()
-        
-        # Verify file was created
-        if not os.path.exists(output_path):
-            raise RuntimeError(f"WriteSurf failed: File {output_path} was not created after writer.Update()")
-        
-        # Check file size
-        file_size = os.path.getsize(output_path)
-        logger.debug(f"DEBUG WriteSurf: File created successfully: {output_path} ({file_size} bytes)")
-            
-    except Exception as e:
-        logger.error(f"ERROR in WriteSurf: {str(e)}")
-        logger.debug(f"  Output folder: {output_folder}")
-        logger.debug(f"  Filename: {name}{inname}{extension}")
-        logger.debug(f"  Full path attempted: {output_path if 'output_path' in locals() else 'N/A'}")
-        raise
 
 
 # Which arch a file belongs to is read from its name, and it has to be read the

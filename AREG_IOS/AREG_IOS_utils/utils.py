@@ -1,4 +1,3 @@
-import os
 import vtk
 import numpy as np
 
@@ -6,6 +5,7 @@ import logging
 import sys
 from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
 from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
+from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exporte)
 # ===== Logging Configuration =====
 logger = logging.getLogger("AREG_IOS_utils")
 logger.setLevel(logging.INFO)
@@ -17,57 +17,6 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
-
-
-def ReadSurf(fileName):
-
-    fname, extension = os.path.splitext(fileName)
-    extension = extension.lower()
-    if extension == ".vtk":
-        reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(fileName)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".vtp":
-        reader = vtk.vtkXMLPolyDataReader()
-        reader.SetFileName(fileName)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".stl":
-        reader = vtk.vtkSTLReader()
-        reader.SetFileName(fileName)
-        reader.Update()
-        surf = reader.GetOutput()
-    elif extension == ".obj":
-        if os.path.exists(fname + ".mtl"):
-            obj_import = vtk.vtkOBJImporter()
-            obj_import.SetFileName(fileName)
-            obj_import.SetFileNameMTL(fname + ".mtl")
-            textures_path = os.path.normpath(os.path.dirname(fname) + "/../images")
-            if os.path.exists(textures_path):
-                obj_import.SetTexturePath(textures_path)
-            obj_import.Read()
-
-            actors = obj_import.GetRenderer().GetActors()
-            actors.InitTraversal()
-            append = vtk.vtkAppendPolyData()
-
-            for i in range(actors.GetNumberOfItems()):
-                surfActor = actors.GetNextActor()
-                append.AddInputData(surfActor.GetMapper().GetInputAsDataSet())
-
-            append.Update()
-            surf = append.GetOutput()
-
-        else:
-            reader = vtk.vtkOBJReader()
-            reader.SetFileName(fileName)
-            reader.Update()
-            surf = reader.GetOutput()
-    else:
-        raise ValueError(f"Unsupported file format: {extension}. Supported formats: .vtk, .vtp, .stl, .obj. File: {fileName}")
-
-    return surf
 
 
 def ComputeNormals(surf):
@@ -94,15 +43,3 @@ def GetColorArray(surf, array_name):
         colored_points.InsertNextTuple3(rgb[0], rgb[1], rgb[2])
     return colored_points
 
-
-def WriteSurf(surf, output_folder, name, inname):
-    dir, name = os.path.split(name)
-    name, extension = os.path.splitext(name)
-
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-
-    writer = vtk.vtkPolyDataWriter()
-    writer.SetFileName(os.path.join(output_folder, f"{name}{inname}{extension}"))
-    writer.SetInputData(surf)
-    writer.Update()

@@ -15,6 +15,7 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+from ADTLib.env.deps import check_lib_installed as lib_satisfies
 
 from MRI2CBCT_utils.Preprocess_MRI import Process_MRI
 from MRI2CBCT_utils.Preprocess_CBCT_MRI import Preprocess_CBCT_MRI
@@ -75,26 +76,14 @@ def pathFromVolumeNode(node):
     return storageNode.GetFullNameFromFileName()
 
 def check_lib_installed(lib_name, required_version=None):
-    try:
-        installed_version = Version(importlib.metadata.version(lib_name))
-        if required_version:
-            spec = SpecifierSet(required_version)
-            if installed_version not in spec:
-                logger.warning(f"{lib_name} version {installed_version} does not satisfy {required_version}")
-                return False
-        return True
-    except importlib.metadata.PackageNotFoundError:
-        logger.warning(f"{lib_name} not installed")
-        return False
-    except Exception as e:
-        logger.warning(f"Error checking {lib_name}: {e}")
-        return False
+    """Whether the library is installed and satisfies the constraint."""
+    return lib_satisfies(lib_name, required_version)
 
 def install_function():
     libs = [
         ('itk', None),
         ('einops', None),
-        ('dicom2nifti', '==2.6.2'),
+        ('dicom2nifti', '>=2.6.2'),
         # pydicom is kept on the version Slicer ships: downgrading it to 2.x breaks
         # dicomweb-client and highdicom, hence every DICOM module of Slicer.
         ('pydicom', '==3.0.2'),
@@ -106,9 +95,9 @@ def install_function():
         ('torchreg', None),
         ('SimpleITK', None),
         ('numpy', '==1.26.4'),
-        ('numexpr', '==2.9.0'),
+        ('numexpr', '>=2.9.0'),
         ('psutil', None),
-        ('nnunet_version',"==2.8.0")
+        ('nnunetv2', '>=2.8.0')  # 'nnunet_version' is published nowhere; AREG already names it nnunetv2
     ]
 
     libs_to_install = []

@@ -79,6 +79,7 @@ from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 
 from ADTLib.format import format_elapsed, elapsed_since
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.env.deps import check_lib_installed as lib_satisfies
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
@@ -119,20 +120,8 @@ SHIFT_PAD_SIZE = 128
 
 
 def check_lib_installed(lib_name, required_version=None):
-    '''
-    Check if the library is installed and meets the required version constraint (if any).
-    - lib_name: "torch"
-    - required_version: ">=1.10.0", "==0.7.0", "<2.0.0", etc.
-    '''
-    try:
-        installed_version = _get_installed_version(lib_name)
-        if required_version:
-            # Simple version check - for minimal change, assume it's satisfied if installed
-            # In future, could use packaging to parse required_version
-            pass
-        return True
-    except importlib_metadata.PackageNotFoundError:
-        return False
+    """Whether the library is installed and satisfies the constraint."""
+    return lib_satisfies(lib_name, required_version)
 
 # import csv
 

@@ -12,6 +12,7 @@ from ASO_IOS_utils.transformation import (
 from random import choice
 import logging
 import sys
+from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_IOS_icp")
@@ -522,27 +523,6 @@ def DictTovtkPoints(dict_landmarks):
     output.GetPointData().AddArray(labels)
 
     return output
-
-
-def VTKMatrixToNumpy(matrix):
-    """
-    Copies the elements of a vtkMatrix4x4 into a numpy array.
-
-    Parameters
-    ----------
-    matrix : vtkMatrix4x4
-        Matrix to be copied
-
-    Returns
-    -------
-    numpy array
-        Numpy array with the elements of the vtkMatrix4x4
-    """
-    m = np.ones((4, 4))
-    for i in range(4):
-        for j in range(4):
-            m[i, j] = matrix.GetElement(i, j)
-    return m
 
 
 def vtkSameNumberPoint(source, target):

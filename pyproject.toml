@@ -33,9 +33,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "*/Testing/*" = ["E501"]
 
-# Trois noms non définis restent, tous parce que le module appelle du code qui
-# vit dans la copie voisine du même fichier. Les corriger ici demanderait une
-# quatrième copie ; ils tombent avec le partage de transformation.py et de
-# ReadSurf dans ADTLib (P1-6 de l'audit), pas avant.
+# Un seul nom non défini reste. Les deux autres sont tombés avec le partage de
+# transformation.py dans ADTLib.geometry ; celui-ci tombera avec ReadSurf, dont
+# les cinq copies divergent encore trop pour être fondues sans arbitrage.
 "ALI_IOS/ALI_IOS_utils/surface.py" = ["F821"]        # OFFReader, qui n'existe que dans ASO_IOS_utils
-"FlexReg_CLI/FlexReg_Method/transformation.py" = ["F821"]  # TransformDict et TransformList, qui n'existent que dans AREG_IOS_utils

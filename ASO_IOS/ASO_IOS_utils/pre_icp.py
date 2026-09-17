@@ -5,6 +5,7 @@ from ASO_IOS_utils.icp import vtkMeanTeeth
 from ASO_IOS_utils.transformation import RotationMatrix, TransformSurf
 import logging
 import sys
+from ADTLib.geometry import make_vector  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_IOS_pre_icp")
@@ -20,24 +21,6 @@ logger.addHandler(console_handler)
 
 
 cross = lambda a, b: np.cross(a, b)
-
-
-def make_vector(points2, point1):
-    perpen = points2[1] - points2[0]
-    perpen = perpen / np.linalg.norm(perpen)
-
-    vector1 = points2[0] - point1
-    vector1 = vector1 / np.linalg.norm(vector1)
-
-    vector2 = points2[1] - point1
-    vector2 = vector2 / np.linalg.norm(vector2)
-
-    normal = cross(vector1, vector2)
-    normal = normal / np.linalg.norm(normal)
-
-    direction = cross(normal, perpen)
-    direction = direction / np.linalg.norm(direction)
-    return normal, direction
 
 
 def organizeLandmark(landmarks: list):

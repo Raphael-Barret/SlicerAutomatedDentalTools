@@ -23,6 +23,7 @@ from ADTLib.naming import patient_id as read_patient_id
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
 
 logger = get_logger("AREG_CBCT_utils")
 
@@ -320,56 +321,6 @@ def GenControlePoint(landmarks):
         lm_lst.append(controle_point)
 
     return lm_lst
-
-
-def WriteJson(landmarks, out_path):
-    false = False
-    true = True
-    file = {
-        "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.0.json#",
-        "markups": [
-            {
-                "type": "Fiducial",
-                "coordinateSystem": "LPS",
-                "locked": false,
-                "labelFormat": "%N-%d",
-                "controlPoints": GenControlePoint(landmarks),
-                "measurements": [],
-                "display": {
-                    "visibility": false,
-                    "opacity": 1.0,
-                    "color": [0.5, 0.5, 0.5],
-                    "selectedColor": [
-                        0.26666666666666669,
-                        0.6745098039215687,
-                        0.39215686274509806,
-                    ],
-                    "propertiesLabelVisibility": false,
-                    "pointLabelsVisibility": true,
-                    "textScale": 2.0,
-                    "glyphType": "Sphere3D",
-                    "glyphScale": 2.0,
-                    "glyphSize": 5.0,
-                    "useGlyphScale": true,
-                    "sliceProjection": false,
-                    "sliceProjectionUseFiducialColor": true,
-                    "sliceProjectionOutlinedBehindSlicePlane": false,
-                    "sliceProjectionColor": [1.0, 1.0, 1.0],
-                    "sliceProjectionOpacity": 0.6,
-                    "lineThickness": 0.2,
-                    "lineColorFadingStart": 1.0,
-                    "lineColorFadingEnd": 10.0,
-                    "lineColorFadingSaturation": 1.0,
-                    "lineColorFadingHueOffset": 0.0,
-                    "handlesInteractive": false,
-                    "snapMode": "toVisibleSurface",
-                },
-            }
-        ],
-    }
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(file, f, ensure_ascii=False, indent=4)
-
 
 
 def LoadOnlyLandmarks(ldmk_path, ldmk_list=None):

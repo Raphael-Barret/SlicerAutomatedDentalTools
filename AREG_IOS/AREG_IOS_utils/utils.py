@@ -5,6 +5,8 @@ import json
 
 import logging
 import sys
+from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
+from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
 # ===== Logging Configuration =====
 logger = logging.getLogger("AREG_IOS_utils")
 logger.setLevel(logging.INFO)
@@ -92,68 +94,6 @@ def GetColorArray(surf, array_name):
         rgb = (normal * 0.5 + 0.5) * 255.0
         colored_points.InsertNextTuple3(rgb[0], rgb[1], rgb[2])
     return colored_points
-
-
-def LoadJsonLandmarks(ldmk_path, full_landmark=True, list_landmark=[]):
-    """
-    Load landmarks from json file
-
-    Parameters
-    ----------
-    img : sitk.Image
-        Image to which the landmarks belong
-
-    Returns
-    -------
-    dict
-        Dictionary of landmarks
-
-    Raises
-    ------
-    ValueError
-        If the json file is not valid
-    """
-
-    with open(ldmk_path) as f:
-        data = json.load(f)
-
-    markups = data["markups"][0]["controlPoints"]
-
-    landmarks = {}
-    for markup in markups:
-        lm_ph_coord = np.array(
-            [markup["position"][0], markup["position"][1], markup["position"][2]]
-        )
-        lm_coord = lm_ph_coord.astype(np.float64)
-        landmarks[markup["label"]] = lm_coord
-
-    if not full_landmark:
-        out = {}
-        for lm in list_landmark:
-            out[lm] = landmarks[lm]
-        landmarks = out
-    return landmarks
-
-
-def VTKMatrixToNumpy(matrix):
-    """
-    Copies the elements of a vtkMatrix4x4 into a numpy array.
-
-    Parameters
-    ----------
-    matrix : vtkMatrix4x4
-        Matrix to be copied
-
-    Returns
-    -------
-    numpy array
-        Numpy array with the elements of the vtkMatrix4x4
-    """
-    m = np.ones((4, 4))
-    for i in range(4):
-        for j in range(4):
-            m[i, j] = matrix.GetElement(i, j)
-    return m
 
 
 def WriteSurf(surf, output_folder, name, inname):

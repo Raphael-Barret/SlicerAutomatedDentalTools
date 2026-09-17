@@ -31,6 +31,8 @@ import dicom2nifti
 
 import logging
 import sys
+from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
+from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_CBCT_utils")
@@ -265,56 +267,6 @@ def GenControlePoint(landmarks):
         lm_lst.append(controle_point)
 
     return lm_lst
-
-
-def WriteJson(landmarks, out_path):
-    false = False
-    true = True
-    file = {
-        "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.0.json#",
-        "markups": [
-            {
-                "type": "Fiducial",
-                "coordinateSystem": "LPS",
-                "locked": false,
-                "labelFormat": "%N-%d",
-                "controlPoints": GenControlePoint(landmarks),
-                "measurements": [],
-                "display": {
-                    "visibility": false,
-                    "opacity": 1.0,
-                    "color": [0.5, 0.5, 0.5],
-                    "selectedColor": [
-                        0.26666666666666669,
-                        0.6745098039215687,
-                        0.39215686274509806,
-                    ],
-                    "propertiesLabelVisibility": false,
-                    "pointLabelsVisibility": true,
-                    "textScale": 2.0,
-                    "glyphType": "Sphere3D",
-                    "glyphScale": 2.0,
-                    "glyphSize": 5.0,
-                    "useGlyphScale": true,
-                    "sliceProjection": false,
-                    "sliceProjectionUseFiducialColor": true,
-                    "sliceProjectionOutlinedBehindSlicePlane": false,
-                    "sliceProjectionColor": [1.0, 1.0, 1.0],
-                    "sliceProjectionOpacity": 0.6,
-                    "lineThickness": 0.2,
-                    "lineColorFadingStart": 1.0,
-                    "lineColorFadingEnd": 10.0,
-                    "lineColorFadingSaturation": 1.0,
-                    "lineColorFadingHueOffset": 0.0,
-                    "handlesInteractive": false,
-                    "snapMode": "toVisibleSurface",
-                },
-            }
-        ],
-    }
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(file, f, ensure_ascii=False, indent=4)
-
 
 
 def GetDistances(landmark_dic):
@@ -580,27 +532,6 @@ def ConvertToVTKPoints(dict_landmarks):
     output.GetPointData().AddArray(labels)
 
     return output
-
-
-def VTKMatrixToNumpy(matrix):
-    """
-    Copies the elements of a vtkMatrix4x4 into a numpy array.
-
-    Parameters
-    ----------
-    matrix : vtkMatrix4x4
-        Matrix to be copied
-
-    Returns
-    -------
-    numpy array
-        Numpy array with the elements of the vtkMatrix4x4
-    """
-    m = np.ones((4, 4))
-    for i in range(4):
-        for j in range(4):
-            m[i, j] = matrix.GetElement(i, j)
-    return m
 
 
 """

@@ -22,6 +22,12 @@ import pyvista as pv
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+# ADTLib, que les paquets importent desormais : une suite de tests est un
+# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
+if os.path.isdir(_ADT):
+    sys.path.insert(0, _ADT)
+
 import AREG_IOSCBCT as areg  # noqa: E402
 
 

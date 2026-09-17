@@ -26,6 +26,12 @@ ASO_IOS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, ASO_IOS)
 sys.path.insert(0, os.path.join(ASO_IOS, "PRE_ASO_IOS"))
 
+# ADTLib, que les paquets importent desormais : une suite de tests est un
+# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+_ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
+if os.path.isdir(_ADT):
+    sys.path.insert(0, _ADT)
+
 from ASO_IOS_utils.utils import (  # noqa: E402
     JawFromFileName, PatientNumber, StripJawFromFileName, UpperOrLower)
 from ASO_IOS_utils.data_file import Files_vtk_link  # noqa: E402

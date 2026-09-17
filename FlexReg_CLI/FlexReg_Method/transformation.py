@@ -3,6 +3,7 @@ import vtk
 
 import sys
 import logging
+from ADTLib.geometry import ApplyTransform  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("FlexReg_CLI_transformation")
@@ -70,15 +71,3 @@ def RotateTransform(surf, transform):
     transformFilter.Update()
     return transformFilter.GetOutput()
 
-
-def ApplyTransform(input, transform):
-    if isinstance(input, vtk.vtkPolyData):
-        input = TransformSurf(input, transform)
-
-    if isinstance(input, dict):
-        input = TransformDict(input, transform)
-
-    if isinstance(input, (list, np.ndarray)):
-        input = TransformList(input, transform)
-
-    return input

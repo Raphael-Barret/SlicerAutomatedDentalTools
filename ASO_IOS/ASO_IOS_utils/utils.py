@@ -9,6 +9,7 @@ from vtk.util.numpy_support import vtk_to_numpy
 from ASO_IOS_utils.OFFReader import OFFReader
 import logging
 import sys
+from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
 
 # ===== Logging Configuration =====
 logger = logging.getLogger("ASO_IOS_utils")
@@ -83,47 +84,6 @@ def ReadSurf(path):
             surf = reader.GetOutput()
 
     return surf
-
-
-def LoadJsonLandmarks(ldmk_path, full_landmark=True, list_landmark=[]):
-    """
-    Load landmarks from json file
-
-    Parameters
-    ----------
-    img : sitk.Image
-        Image to which the landmarks belong
-
-    Returns
-    -------
-    dict
-        Dictionary of landmarks
-
-    Raises
-    ------
-    ValueError
-        If the json file is not valid
-    """
-
-    with open(ldmk_path) as f:
-        data = json.load(f)
-
-    markups = data["markups"][0]["controlPoints"]
-
-    landmarks = {}
-    for markup in markups:
-        lm_ph_coord = np.array(
-            [markup["position"][0], markup["position"][1], markup["position"][2]]
-        )
-        lm_coord = lm_ph_coord.astype(np.float64)
-        landmarks[markup["label"]] = lm_coord
-
-    if not full_landmark:
-        out = {}
-        for lm in list_landmark:
-            out[lm] = landmarks[lm]
-        landmarks = out
-    return landmarks
 
 
 def WriteSurf(surf, output_folder, name, inname):

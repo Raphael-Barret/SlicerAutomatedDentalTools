@@ -33,6 +33,187 @@ from ADTLib.logging_setup import get_logger
 logger = get_logger("FlexReg_CLI")
 
 
+def _register_with_icp(args, modelNode):
+    """Recale le maillage sur T1 par ICP, restreint au patch.
+
+    La matrice est aussi ecrite en `.tfm`, dans le repere du fichier : d ou
+    la composition avec le retournement applique a l entree."""
+    reader = vtk.vtkPolyDataReader()
+    reader.SetFileName(args.path_reg)
+    reader.Update()
+    modelNodeT1 = reader.GetOutput()
+
+    # Transform the data to read it in coordinate RAS (like slicer)
+    transform = vtk.vtkTransform()
+    transform.Scale(-1, -1, 1)
+
+    transformFilter = vtk.vtkTransformPolyDataFilter()
+    transformFilter.SetInputData(modelNodeT1)
+    transformFilter.SetTransform(transform)
+    transformFilter.Update()
+
+    modelNodeT1 = transformFilter.GetOutput()
+
+    if args.lower_arch != "None":
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(args.lower_arch)
+        reader.Update()
+        modelNodeLowerArch = reader.GetOutput()
+
+        transform = vtk.vtkTransform()
+        transform.Scale(-1, -1, 1)
+
+        transformFilter = vtk.vtkTransformPolyDataFilter()
+        transformFilter.SetInputData(modelNodeLowerArch)
+        transformFilter.SetTransform(transform)
+        transformFilter.Update()
+
+        modelNodeLowerArch = transformFilter.GetOutput()
+
+    # ICP
+    methode = [vtkICP()]
+    # The palate patch and the mucogingival band live in arrays of their own,
+    # so the arch decides which one the registration is computed on.
+    patch_array = "Bottom_MGL" if args.type == "icp_mgl" else "Butterfly"
+    logger.info(f"registering on the {patch_array} patch")
+    option = vtkMeshTeeth(list_teeth=[1], property=patch_array)
+    icp = ICP(methode, option=option)
+    output_icp = icp.run(modelNode, modelNodeT1)
+
+    matrix_array=output_icp["matrix"]
+    logger.info(f"matrix output icp : {matrix_array}")
+
+    vtk_matrix = vtk.vtkMatrix4x4()
+    for i in range(4):
+        for j in range(4):
+            vtk_matrix.SetElement(i, j, matrix_array[i, j])
+
+    # Apply the matrix to register
+    transform = vtk.vtkTransform()
+    transform.SetMatrix(vtk_matrix)
+    transformFilter = vtk.vtkTransformPolyDataFilter()
+    transformFilter.SetInputData(modelNode)
+    transformFilter.SetTransform(transform)
+    transformFilter.Update()
+
+    # Save the registration matrix
+    flip = np.diag([-1, -1, 1, 1])
+    composed = flip @ matrix_array @ flip
+    composed_inv = np.linalg.inv(composed)
+
+    sitk_tfm = sitk.AffineTransform(3)
+    sitk_tfm.SetMatrix(composed_inv[:3, :3].flatten())
+    sitk_tfm.SetTranslation(composed_inv[:3, 3])
+
+    base_filename = os.path.splitext(os.path.basename(args.lineedit))[0]
+    tfm_outpath = os.path.join(args.path_output, f"{base_filename}{args.suffix}.tfm")
+    sitk.WriteTransform(sitk_tfm, tfm_outpath)
+    logger.info(f"Saved inverted matrix to: {tfm_outpath}")
+
+    modelNode = transformFilter.GetOutput()
+    modelNode.Modified()
+
+    if args.lower_arch != "None":
+        transform = vtk.vtkTransform()
+        transform.SetMatrix(vtk_matrix)
+        transformFilter = vtk.vtkTransformPolyDataFilter()
+        transformFilter.SetInputData(modelNodeLowerArch)
+        transformFilter.SetTransform(transform)
+        transformFilter.Update()
+
+        modelNodeLowerArch = transformFilter.GetOutput()
+        modelNodeLowerArch.Modified()
+        modelNodeLowerArch.Modified()
+    return modelNode, modelNodeLowerArch
+
+def _delete_patch(args, modelNode):
+    """Retire un patch et renumerote ceux qui le suivent."""
+    index = args.index_patch + 1
+    while True:
+        array_name = f"Butterfly{index}"
+
+        # Check if array existing
+        if modelNode.GetPointData().HasArray(array_name):
+
+            current_array = modelNode.GetPointData().GetArray(array_name)
+
+            # Rename it
+            new_array_name = f"Butterfly{index-1}"
+            current_array.SetName(new_array_name)
+
+            # Update old array by the new one
+            modelNode.GetPointData().AddArray(current_array)
+
+            index += 1
+        else:
+            break
+
+    # Delete last array
+    modelNode.GetPointData().RemoveArray(f"Butterfly{index-1}")
+
+def _draw_curve_patch(args, modelNode):
+    """Pose un patch le long de la courbe tracee par l utilisateur."""
+    vector_middle = args.middle_point[1:-1]
+    x, y, z = map(float, vector_middle.split(','))
+    middle = vtk.vtkVector3d(x, y, z)
+
+
+    # Splitting the string into individual array-like strings
+    array_strings = args.curve.split('],[')
+
+    # Initializing an empty list to store the ndarrays
+    arrays = []
+
+    # Looping through each array-like string to convert them into numpy arrays
+    for array_string in array_strings:
+        # Removing the brackets and splitting by spaces to get individual numbers
+        numbers = array_string.replace('[', '').replace(']', '').split()
+        # Converting the numbers into a numpy array and appending to the list
+        arrays.append(np.array([float(num) for num in numbers]))
+
+    curve =[arr.astype(np.float32) for arr in arrays]
+
+    drawPatch(curve,modelNode,middle,args.index_patch)
+
+def _apply_butterfly_patch(args, modelNode):
+    """Pose le patch papillon a partir des trois points donnes."""
+    logger.info(
+            f"Teeth: LT={args.lineedit_teeth_left_top}, RT={args.lineedit_teeth_right_top}, "
+            f"LB={args.lineedit_teeth_left_bot}, RB={args.lineedit_teeth_right_bot} | "
+            f"Ratios: LT={args.lineedit_ratio_left_top}, RT={args.lineedit_ratio_right_top}, "
+            f"LB={args.lineedit_ratio_left_bot}, RB={args.lineedit_ratio_right_bot} | "
+            f"Adjust: LT={args.lineedit_adjust_left_top}, RT={args.lineedit_adjust_right_top}, "
+            f"LB={args.lineedit_adjust_left_bot}, RB={args.lineedit_adjust_right_bot} | "
+            f"Shift: LR={args.shift_lr}, AP={args.shift_ap} | "
+            f"Index: {args.index_patch}"
+        )
+
+    butterflyPatch(
+        surf=modelNode,
+        tooth_anterior_right=args.lineedit_teeth_right_top,
+        tooth_anterior_left=args.lineedit_teeth_left_top,
+
+        tooth_posterior_right=args.lineedit_teeth_right_bot,
+        tooth_posterior_left=args.lineedit_teeth_left_bot,
+
+        ratio_anterior_right=args.lineedit_ratio_right_top,
+        ratio_anterior_left=args.lineedit_ratio_left_top,
+
+        ratio_posterior_left=args.lineedit_ratio_left_bot,
+        ratio_posterior_right=args.lineedit_ratio_right_bot,
+
+        adjust_anterior_right=args.lineedit_adjust_right_top,
+        adjust_anterior_left=args.lineedit_adjust_left_top,
+
+        adjust_posterior_right=args.lineedit_adjust_right_bot,
+        adjust_posterior_left=args.lineedit_adjust_left_bot,
+
+        index=args.index_patch,
+
+        shift_lr=args.shift_lr,
+        shift_ap=args.shift_ap
+    )
+
 def main(args):
     logger.info(f"args.lower_arch : {args.lower_arch}")
     logger.info(f"index_patch :{args.index_patch}")
@@ -56,180 +237,19 @@ def main(args):
 
     if args.type=="butterfly":
 
-        logger.info(
-                f"Teeth: LT={args.lineedit_teeth_left_top}, RT={args.lineedit_teeth_right_top}, "
-                f"LB={args.lineedit_teeth_left_bot}, RB={args.lineedit_teeth_right_bot} | "
-                f"Ratios: LT={args.lineedit_ratio_left_top}, RT={args.lineedit_ratio_right_top}, "
-                f"LB={args.lineedit_ratio_left_bot}, RB={args.lineedit_ratio_right_bot} | "
-                f"Adjust: LT={args.lineedit_adjust_left_top}, RT={args.lineedit_adjust_right_top}, "
-                f"LB={args.lineedit_adjust_left_bot}, RB={args.lineedit_adjust_right_bot} | "
-                f"Shift: LR={args.shift_lr}, AP={args.shift_ap} | "
-                f"Index: {args.index_patch}"
-            )
-        
-        butterflyPatch(
-            surf=modelNode,
-            tooth_anterior_right=args.lineedit_teeth_right_top,
-            tooth_anterior_left=args.lineedit_teeth_left_top,
-            
-            tooth_posterior_right=args.lineedit_teeth_right_bot,
-            tooth_posterior_left=args.lineedit_teeth_left_bot,
-            
-            ratio_anterior_right=args.lineedit_ratio_right_top,
-            ratio_anterior_left=args.lineedit_ratio_left_top,
-            
-            ratio_posterior_left=args.lineedit_ratio_left_bot,
-            ratio_posterior_right=args.lineedit_ratio_right_bot,
-            
-            adjust_anterior_right=args.lineedit_adjust_right_top,
-            adjust_anterior_left=args.lineedit_adjust_left_top,
-            
-            adjust_posterior_right=args.lineedit_adjust_right_bot,
-            adjust_posterior_left=args.lineedit_adjust_left_bot,
-
-            index=args.index_patch,
-
-            shift_lr=args.shift_lr,
-            shift_ap=args.shift_ap
-        )
+        _apply_butterfly_patch(args, modelNode)
     
     elif args.type=="curve":
         # Reading the data
-        vector_middle = args.middle_point[1:-1]
-        x, y, z = map(float, vector_middle.split(','))
-        middle = vtk.vtkVector3d(x, y, z)
-
-
-        # Splitting the string into individual array-like strings
-        array_strings = args.curve.split('],[')
-
-        # Initializing an empty list to store the ndarrays
-        arrays = []
-
-        # Looping through each array-like string to convert them into numpy arrays
-        for array_string in array_strings:
-            # Removing the brackets and splitting by spaces to get individual numbers
-            numbers = array_string.replace('[', '').replace(']', '').split()
-            # Converting the numbers into a numpy array and appending to the list
-            arrays.append(np.array([float(num) for num in numbers]))
-
-        curve =[arr.astype(np.float32) for arr in arrays]
-
-        drawPatch(curve,modelNode,middle,args.index_patch)
+        _draw_curve_patch(args, modelNode)
 
     elif args.type=="delete":
         # To delete the array it will rename all the array with a number > index and delete the last one
-        index = args.index_patch + 1
-        while True:
-            array_name = f"Butterfly{index}"
-            
-            # Check if array existing
-            if modelNode.GetPointData().HasArray(array_name):
-                
-                current_array = modelNode.GetPointData().GetArray(array_name)
-                
-                # Rename it
-                new_array_name = f"Butterfly{index-1}"
-                current_array.SetName(new_array_name)
-                
-                # Update old array by the new one
-                modelNode.GetPointData().AddArray(current_array)
-                
-                index += 1
-            else:
-                break
-    
-        # Delete last array
-        modelNode.GetPointData().RemoveArray(f"Butterfly{index-1}")
+        _delete_patch(args, modelNode)
 
     elif args.type in ("icp", "icp_mgl"):
         # Reading the T1 model to register
-        reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(args.path_reg)
-        reader.Update()
-        modelNodeT1 = reader.GetOutput()
-
-        # Transform the data to read it in coordinate RAS (like slicer)
-        transform = vtk.vtkTransform()
-        transform.Scale(-1, -1, 1)
-
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(modelNodeT1)
-        transformFilter.SetTransform(transform)
-        transformFilter.Update()
-
-        modelNodeT1 = transformFilter.GetOutput()
-        
-        if args.lower_arch != "None":
-            reader = vtk.vtkPolyDataReader()
-            reader.SetFileName(args.lower_arch)
-            reader.Update()
-            modelNodeLowerArch = reader.GetOutput()
-            
-            transform = vtk.vtkTransform()
-            transform.Scale(-1, -1, 1)
-
-            transformFilter = vtk.vtkTransformPolyDataFilter()
-            transformFilter.SetInputData(modelNodeLowerArch)
-            transformFilter.SetTransform(transform)
-            transformFilter.Update()
-
-            modelNodeLowerArch = transformFilter.GetOutput()
-
-        # ICP
-        methode = [vtkICP()]
-        # The palate patch and the mucogingival band live in arrays of their own,
-        # so the arch decides which one the registration is computed on.
-        patch_array = "Bottom_MGL" if args.type == "icp_mgl" else "Butterfly"
-        logger.info(f"registering on the {patch_array} patch")
-        option = vtkMeshTeeth(list_teeth=[1], property=patch_array)
-        icp = ICP(methode, option=option)
-        output_icp = icp.run(modelNode, modelNodeT1)
-
-        matrix_array=output_icp["matrix"]
-        logger.info(f"matrix output icp : {matrix_array}")
-
-        vtk_matrix = vtk.vtkMatrix4x4()
-        for i in range(4):
-            for j in range(4):
-                vtk_matrix.SetElement(i, j, matrix_array[i, j])
-
-        # Apply the matrix to register
-        transform = vtk.vtkTransform()
-        transform.SetMatrix(vtk_matrix)
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(modelNode)
-        transformFilter.SetTransform(transform)
-        transformFilter.Update()
-
-        # Save the registration matrix
-        flip = np.diag([-1, -1, 1, 1])
-        composed = flip @ matrix_array @ flip
-        composed_inv = np.linalg.inv(composed)
-
-        sitk_tfm = sitk.AffineTransform(3)
-        sitk_tfm.SetMatrix(composed_inv[:3, :3].flatten())
-        sitk_tfm.SetTranslation(composed_inv[:3, 3])
-
-        base_filename = os.path.splitext(os.path.basename(args.lineedit))[0]
-        tfm_outpath = os.path.join(args.path_output, f"{base_filename}{args.suffix}.tfm")
-        sitk.WriteTransform(sitk_tfm, tfm_outpath)
-        logger.info(f"Saved inverted matrix to: {tfm_outpath}")
-
-        modelNode = transformFilter.GetOutput()
-        modelNode.Modified()
-        
-        if args.lower_arch != "None":
-            transform = vtk.vtkTransform()
-            transform.SetMatrix(vtk_matrix)
-            transformFilter = vtk.vtkTransformPolyDataFilter()
-            transformFilter.SetInputData(modelNodeLowerArch)
-            transformFilter.SetTransform(transform)
-            transformFilter.Update()
-
-            modelNodeLowerArch = transformFilter.GetOutput()
-            modelNodeLowerArch.Modified()
-            modelNodeLowerArch.Modified()
+        modelNode, modelNodeLowerArch = _register_with_icp(args, modelNode)
         
        
 

@@ -7,7 +7,6 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from .Progress import DisplayASOCBCT,DisplayAMASSS,DisplayAREGCBCT,DisplayALICBCT
-from glob import iglob
 import slicer
 from .functionaq3dc import AQ3DCLogic, patientIdFromFileName
 import qt
@@ -31,6 +30,7 @@ except ImportError:
     logger.warning("Warning: psutil not available - memory monitoring disabled")
 import gc
 from ADTLib.naming import patient_id as read_patient_id
+from ADTLib.io.fs import search
 
 def check_memory_usage(threshold_percent=80):
     if psutil is None:
@@ -2167,7 +2167,9 @@ def GetListFiles(folder_path, file_extension):
     # search() already returns every extension at once, and each of its keys walks
     # the tree: calling it once per extension walked the tree len(file_extension)**2
     # times and threw away all but one result each round.
-    found = search(folder_path, file_extension)
+    # sort=True : la copie locale triait le parcours, et l'ordre de traitement
+    # des patients en depend.
+    found = search(folder_path, file_extension, sort=True)
     file_list = []
     for extension_type in file_extension:
         file_list += found[extension_type]
@@ -2559,30 +2561,7 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
     for pair in processed_pairs:
         logger.info(f"  {pair['patient_id']} ({pair['zone']}): {pair['output_file']}")
 
-def search(path, *args):
-    """
-    Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
 
-    Example:
-    args = ('json',['.nii.gz','.nrrd'])
-    return:
-        {
-            'json' : ['path/a.json', 'path/b.json','path/c.json'],
-            '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
-            '.nrrd.gz' : ['path/c.nrrd']
-        }
-    """
-    arguments = []
-    for arg in args:
-        if type(arg) == list:
-            arguments.extend(arg)
-        else:
-            arguments.append(arg)
-    # Walk the tree once and bucket by extension rather than re-globbing per key.
-    entries = sorted(
-        iglob(os.path.normpath("/".join([path, "**", "*"])), recursive=True)
-    )
-    return {key: [i for i in entries if i.endswith(key)] for key in arguments}
 
 def _landmark_label(dic_features, composant, i):
     """Rebuild the "Landmarks" cell a feature column refers to."""

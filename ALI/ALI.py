@@ -1772,7 +1772,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QLabel):
       try:
         parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
-      except:
+      except Exception:
         pass
     
     # Recursively update all children
@@ -1788,14 +1788,14 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QCheckBox):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except:
+      except Exception:
         pass
     
     # Update QPushButton text color (for Switch tab selection button in LMTab)
     if isinstance(parent, qt.QPushButton):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except:
+      except Exception:
         pass
     
     # Recursively update all children
@@ -1828,11 +1828,11 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for child in parent.children():
               try:
                 child.setStyleSheet("color: #ffffff; background-color: #3c3c3c;")
-              except:
+              except Exception:
                 pass
-        except:
+        except Exception:
           pass
-    except:
+    except Exception:
       pass
     
     # Recursively update all children

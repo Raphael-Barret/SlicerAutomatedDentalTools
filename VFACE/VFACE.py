@@ -506,7 +506,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             bgColor = palette.color(qt.QPalette.Window)
             luminance = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
             return luminance < 0.5
-        except:
+        except Exception:
             return False
 
     def _getStyleSheet(self, isDarkMode: bool) -> str:

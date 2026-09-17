@@ -48,7 +48,7 @@ def Crop(ScanList, InputPath, ROI_Path, OutputPath, suffix_namefile ):
 
             try:
                 sitk.WriteImage(crop_image,ScanOutPath)
-            except:
+            except Exception:
                 logger.error("Error for patient: "+str(patient))
 
 

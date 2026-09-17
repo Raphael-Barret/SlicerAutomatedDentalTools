@@ -394,7 +394,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if isinstance(parent, qt.QLabel):
             try:
                 parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
-            except:
+            except Exception:
                 pass
         if hasattr(parent, 'children'):
             for child in parent.children():
@@ -404,7 +404,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if isinstance(parent, (qt.QCheckBox, qt.QPushButton)):
             try:
                 parent.setStyleSheet("color: #ffffff;")
-            except:
+            except Exception:
                 pass
         if hasattr(parent, 'children'):
             for child in parent.children():
@@ -414,7 +414,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         try:
             if 'qMRMLNodeComboBox' in parent.__class__.__name__:
                 parent.setStyleSheet("qMRMLNodeComboBox {color: #ffffff;}")
-        except:
+        except Exception:
             pass
         if hasattr(parent, 'children'):
             for child in parent.children():

@@ -170,7 +170,7 @@ def update_line_edit_and_combo_box(parent):
                   font-weight: 500;
                 }
             """)
-        except:
+        except Exception:
             pass
     
     # Update QLineEdit
@@ -188,7 +188,7 @@ def update_line_edit_and_combo_box(parent):
                   border: 2px solid #5dade2;
                 }
             """)
-        except:
+        except Exception:
             pass
     
     # Update QComboBox
@@ -215,7 +215,7 @@ def update_line_edit_and_combo_box(parent):
                   selection-background-color: #5dade2;
                 }
             """)
-        except:
+        except Exception:
             pass
     
     # Recursively update all children

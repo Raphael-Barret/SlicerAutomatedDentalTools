@@ -91,7 +91,7 @@ def check_lib_installed(lib_name, required_version=None,system="Windows"):
             lib = importlib.import_module(lib_str)
             cuda_version = lib.__version__.split('cu')[1]
             list_cuda_version.append(cuda_version)
-          except:
+          except Exception:
             return False
         for i in range(len(list_cuda_version)-1):
           if list_cuda_version[i] != list_cuda_version[i+1]:
@@ -123,7 +123,7 @@ def install_function(self,list_libs:list,system:str):
               # check if the library is already installed
               if _get_installed_version(lib):
                 libs_to_update.append((lib, version))
-            except:
+            except Exception:
               libs_to_install.append((lib, version))
 
     if libs_to_install or libs_to_update:
@@ -449,7 +449,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QLabel):
       try:
         parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
-      except:
+      except Exception:
         pass
     
     # Recursively update all children
@@ -465,14 +465,14 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if isinstance(parent, qt.QCheckBox):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except:
+      except Exception:
         pass
     
     # Update QPushButton text color (for Switch tab selection button in LMTab)
     if isinstance(parent, qt.QPushButton):
       try:
         parent.setStyleSheet("color: #ffffff;")
-      except:
+      except Exception:
         pass
     
     # Recursively update all children
@@ -505,11 +505,11 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for child in parent.children():
               try:
                 child.setStyleSheet("color: #ffffff; background-color: #3c3c3c;")
-              except:
+              except Exception:
                 pass
-        except:
+        except Exception:
           pass
-    except:
+    except Exception:
       pass
     
     # Recursively update all children

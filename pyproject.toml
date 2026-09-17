@@ -21,12 +21,12 @@ select = [
   "PLE",    # erreurs pylint : arguments de logging, caractères invalides
   "F811",   # redéfinition silencieuse : la seconde écrase la première
   "F821",   # nom non défini : NameError garanti si la ligne est atteinte
+  "E722",   # except nu : avale aussi Ctrl-C et les sorties volontaires
 ]
 
 # BACKLOG, dans l'ordre où il sera traité. Le compte date du 2026-09-16.
 #   B006  (18) valeur par défaut mutable
 #   B023   (4) fermeture capturant la variable de boucle -- change la sémantique, à traiter cas par cas
-#   E722  (95) except nu
 #   F401 (406) import inutilisé
 #   E501 (3540) ligne trop longue -- à traiter par une passe de formatage, pas à la main
 

@@ -116,7 +116,7 @@ def GetPatients(file_path:str,matrix_path:str):
             try :
                 fname, extension2 = os.path.splitext(os.path.basename(fname))
                 extension = extension2+extension
-            except :
+            except Exception:
                 logger.warning("The file is not a .nii.gz")
 
             if extension ==".vtk" or extension ==".vtp" or extension ==".stl" or extension ==".off" or extension ==".obj" or extension==".nii" or extension==".nii.gz" or extension==".nrrd" or extension==".mrk.json":

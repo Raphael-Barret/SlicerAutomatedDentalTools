@@ -358,7 +358,7 @@ def LoadOnlyLandmarks(ldmk_path, ldmk_list=None):
             # lm_coord = ((lm_ph_coord - origin) / spacing).astype(np.float16)
             lm_coord = lm_ph_coord.astype(np.float64)
             landmarks[markup["label"]] = lm_coord
-        except:
+        except Exception:
             continue
     if ldmk_list is not None:
         return {key: landmarks[key] for key in ldmk_list if key in landmarks.keys()}

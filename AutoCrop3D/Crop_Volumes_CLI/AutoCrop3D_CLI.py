@@ -56,7 +56,7 @@ def main(args)-> None:
             if len(ROIList['.mrk.json']) >1:
                 try:
                     ROI_Path = ROI_dict[patient]
-                except:
+                except Exception:
                     logger.warning('No ROI for patient:'+str(patient))
                     continue
 
@@ -129,7 +129,7 @@ def main(args)-> None:
 
                 sitk.WriteImage(img_crop,ScanOutPath)
 
-            except:
+            except Exception:
                 import sys
                 logger.error("Error for patient: "+str(patient))
                 logger.error('The error says: '+str(sys.exc_info()[0]))
@@ -144,7 +144,7 @@ def main(args)-> None:
             if "seg" in ScanOutPath.lower():
                 try :
                     convertNiftiToVTK(ScanOutPath,VTKOutPath)
-                except :
+                except Exception:
                     pass
 
             index+=1

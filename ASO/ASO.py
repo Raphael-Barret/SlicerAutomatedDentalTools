@@ -509,7 +509,7 @@ QRadioButton::indicator:checked {
                 widget.setStyleSheet(checkbox_stylesheet)
             elif isinstance(widget, qt.QRadioButton):
                 widget.setStyleSheet(radio_stylesheet)
-        except:
+        except Exception:
             pass
     
     def _stylePopUpWidgets(self, parent):
@@ -565,13 +565,13 @@ QRadioButton::indicator:checked {
         if isinstance(parent, qt.QCheckBox):
             try:
                 parent.setStyleSheet(checkbox_stylesheet)
-            except:
+            except Exception:
                 pass
         
         if isinstance(parent, qt.QRadioButton):
             try:
                 parent.setStyleSheet(radio_stylesheet)
-            except:
+            except Exception:
                 pass
         
         # Recursively process all children
@@ -1150,7 +1150,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     checkbox.setCheckable(status[checkbox.text])
                     checkbox2.setCheckable(status[checkbox2.text])
 
-                except:
+                except Exception:
                     pass
 
         if self.type == "CBCT":
@@ -2339,7 +2339,7 @@ qMRMLNodeComboBox:focus {
       if isinstance(parent, qt.QCheckBox):
         try:
           parent.setStyleSheet(stylesheet)
-        except:
+        except Exception:
           pass
       
       # Recursively process all children

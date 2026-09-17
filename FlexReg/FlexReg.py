@@ -132,7 +132,7 @@ def install_function(self, list_libs: list):
             try:
                 if _get_installed_version(lib):
                     libs_to_update.append((lib, version_constraint))
-            except:
+            except Exception:
                 libs_to_install.append((lib, version_constraint))
 
     if libs_to_install or libs_to_update:

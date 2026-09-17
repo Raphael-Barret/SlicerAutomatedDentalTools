@@ -63,7 +63,7 @@ def parse_version(version_str):
     try:
         parts = version_str.split('.')
         return tuple(int(p) for p in parts[:2])
-    except:
+    except Exception:
         return None
 
 
@@ -180,7 +180,7 @@ def fix_torchvision_auto():
             result = subprocess.run(cmd_conda, capture_output=True, text=True)
             if result.returncode == 0:
                 return True
-        except:
+        except Exception:
             pass
         
         return False

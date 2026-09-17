@@ -835,7 +835,7 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 try :
                     fname, extension2 = os.path.splitext(os.path.basename(fname))
                     extension = extension2+extension
-                except :
+                except Exception:
                     logger.warning("The file is not a .nii.gz")
                 if extension != ".vtk" and extension != ".vtp" and extension != ".stl" and extension != ".off" and extension != ".obj" and extension != ".nii.gz" and extension != ".nrrd" and extension != ".mrk.json":
                         warning_text = warning_text + "Wrong type of file patient detected" + "\n"

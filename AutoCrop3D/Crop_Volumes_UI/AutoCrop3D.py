@@ -709,7 +709,7 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         try:
             slicer.util.saveNode(outputVolume, output_path)
             success = True
-        except:
+        except Exception:
             success = False
 
         self.processedFiles += 1
@@ -743,7 +743,7 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 if ROIList is not None:
                     try:
                         ROI_Path = ROI_dict[patient]
-                    except:
+                    except Exception:
                         logger.warning('No ROI for patient:'+str(patient))
                         idx+=1
                         if idx==self.nbFiles:
@@ -799,7 +799,7 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         if not success:
                             logger.error(f"Failed to save volume {patient_path}")
                             continue
-                    except:
+                    except Exception:
                         pass
 
                 sys.stdin = original_stdin
@@ -928,7 +928,7 @@ def test_AutoCrop3D1(self):
     try:
         segmentationFile = os.path.join(segmentationDir, 'Segmentation.nrrd')
         segmentationNode = slicer.util.loadVolume(segmentationFile)
-    except:
+    except Exception:
         raise ValueError("CBCT scan could not be loaded")
 
     #Try Load JSON file
@@ -942,7 +942,7 @@ def test_AutoCrop3D1(self):
     try:
         with open(jsonFile) as f:
             jsonROI = json.load(f)
-    except:
+    except Exception:
         raise ValueError("JSON file could not be loaded")
 
     self.delayDisplay("AutoCropCBCT test passed")

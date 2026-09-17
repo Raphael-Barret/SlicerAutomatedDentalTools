@@ -119,7 +119,7 @@ def install_function(self,list_libs:list):
             # check if the library is already installed
                 if _get_installed_version(lib):
                     libs_to_update.append((lib, version_constraint))
-            except:
+            except Exception:
                 libs_to_install.append((lib, version_constraint))
 
     if libs_to_install or libs_to_update:
@@ -2583,7 +2583,7 @@ qMRMLNodeComboBox:focus {
       try:
         if hasattr(self.ui, 'AREG_Method') and hasattr(self.ui.AREG_Method, 'merge_seg_checkbox'):
           self.ui.AREG_Method.merge_seg_checkbox.setStyleSheet(checkbox_stylesheet)
-      except:
+      except Exception:
         pass
     
     def _styleAllCheckboxes(self, parent, stylesheet):
@@ -2593,7 +2593,7 @@ qMRMLNodeComboBox:focus {
       if isinstance(parent, qt.QCheckBox):
         try:
           parent.setStyleSheet(stylesheet)
-        except:
+        except Exception:
           pass
       
       # Recursively process all children

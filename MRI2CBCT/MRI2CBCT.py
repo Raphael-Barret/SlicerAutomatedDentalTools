@@ -3,6 +3,19 @@ import sys
 from typing import Annotated, Optional
 from qt import QWidget, QTableWidget, QDoubleSpinBox, QTableWidgetItem, QHeaderView,QSpinBox, QVBoxLayout, QLabel, QSizePolicy, QCheckBox, QFileDialog,QMessageBox, QApplication, QProgressDialog
 import qt
+# ADTLib sits next to the modules in an installed build, in the directory Slicer
+# already has on sys.path. A source tree has no such entry -- a module search
+# path only gets there once Slicer finds a module in it, and ADT holds none --
+# so the entry points walk up to the holder directory and add it themselves.
+# This has to run before the first import of anything local, not just before
+# the ADTLib ones: ALI reaches ADTLib through ALI_Method.IOS.
+_adt_root = os.path.dirname(os.path.realpath(__file__))
+while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
+        and _adt_root != os.path.dirname(_adt_root):
+    _adt_root = os.path.dirname(_adt_root)
+if os.path.join(_adt_root, "ADT") not in sys.path:
+    sys.path.append(os.path.join(_adt_root, "ADT"))
+
 from MRI2CBCT_utils.Preprocess_MRI import Process_MRI
 from MRI2CBCT_utils.Preprocess_CBCT_MRI import Preprocess_CBCT_MRI
 from MRI2CBCT_utils.Reg_MRI2CBCT import Registration_MRI2CBCT

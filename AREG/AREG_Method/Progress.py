@@ -121,7 +121,7 @@ class DisplayAREGCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
             out = True
         return out
     
@@ -139,7 +139,7 @@ class DisplayAREGIOSCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -166,7 +166,7 @@ class DisplayAMASSS(Display):
         out = False
         if kwds["progress"] == 200:
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out
@@ -186,7 +186,7 @@ class DisplayASOCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -211,7 +211,7 @@ class DisplayALICBCT(Display):
         out = False
         if kwds["progress"] == 200:
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out
@@ -236,7 +236,7 @@ class DisplayALIIOS(Display):
         out = False
         if kwds["progress"] == 200:
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgessBar"] == False:
+        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out

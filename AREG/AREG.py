@@ -483,8 +483,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.nb_scan = 0
         self.startprocess = 0
         self.patient_process = 0
-        self.dicchckbox = {}
-        self.dicchckbox2 = {}
+        self.checkboxes = {}
+        self.checkboxes2 = {}
         self.display = Display
         self.isDCMInput = False
         self.CBCTOrientRef = "Frankfurt Horizontal and Midsagittal Plane"
@@ -1065,8 +1065,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           
             self.SwitchModeIOSCBCT(self.ui.CbModeType.currentIndex)
 
-        self.dicchckbox = self.ActualMeth.getcheckbox()
-        self.dicchckbox2 = self.ActualMeth.getcheckbox2()
+        self.checkboxes = self.ActualMeth.getcheckbox()
+        self.checkboxes2 = self.ActualMeth.getcheckbox2()
 
         self.SlicerDownloadPath = os.path.join(
             self.documents,
@@ -1419,7 +1419,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if self.type == "CBCT":
             for checkboxs, checkboxs2 in zip(
-                self.dicchckbox.values(), self.dicchckbox2.values()
+                self.checkboxes.values(), self.checkboxes2.values()
             ):
                 for checkbox, checkbox2 in zip(checkboxs, checkboxs2):
                     checkbox.setVisible(status[checkbox.text])
@@ -1540,7 +1540,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             model_folder_2=self.ui.lineEditModel2.text,
             model_folder_3=self.ui.lineEditModel3.text,
             add_in_namefile=self.ui.lineEditAddName.text,
-            dic_checkbox=self.dicchckbox,
+            dic_checkbox=self.checkboxes,
             isDCMInput=self.isDCMInput,
             OrientReference=self.CBCTOrientRef,
             reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
@@ -1576,7 +1576,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 model_folder_2=self.ui.lineEditModel2.text,
                 model_folder_3=self.ui.lineEditModel3.text,
                 add_in_namefile=self.ui.lineEditAddName.text,
-                dic_checkbox=self.dicchckbox,
+                dic_checkbox=self.checkboxes,
                 logPath=self.log_path,
                 merge_seg=merge_seg,
                 isDCMInput=self.isDCMInput,
@@ -1816,10 +1816,10 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.nb_change_bystep = 0
 
         if progress == 0:
-            self.updateProgessBar = False
+            self.updateProgressBar = False
 
         if self.displayModule.isProgress(
-            progress=progress, updateProgessBar=self.updateProgessBar
+            progress=progress, updateProgressBar=self.updateProgressBar
         ):
             progress_bar, message = self.displayModule()
             self.ui.progressBar.setValue(progress_bar)

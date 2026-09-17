@@ -164,14 +164,14 @@ class Method(ABC):
     def getcheckbox(self):
         return self.diccheckbox
 
-    def setcheckbox(self, dicccheckbox):
-        self.diccheckbox = dicccheckbox
+    def setcheckbox(self, checkboxes):
+        self.diccheckbox = checkboxes
 
     def getcheckbox2(self):
         return self.diccheckbox2
 
-    def setcheckbox2(self, dicccheckbox):
-        self.diccheckbox2 = dicccheckbox
+    def setcheckbox2(self, checkboxes):
+        self.diccheckbox2 = checkboxes
 
     def search(self, path, *args):
         """

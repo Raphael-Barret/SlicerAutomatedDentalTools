@@ -41,7 +41,7 @@ class DisplayAutomatrix(Display):
         if os.path.isfile(self.log_path):
             path_time = os.path.getmtime(self.log_path)
             if path_time != self.time_log:
-                if kwds["progress"] == 200 and kwds["updateProgessBar"] == False:
+                if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
                     self.time_log = path_time
                     out = True
 

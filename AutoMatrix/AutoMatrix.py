@@ -634,10 +634,10 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.LabelNameExtension.setText(f"Running {self.module_name}")
         
         if progress == 0:
-            self.updateProgessBar = False
+            self.updateProgressBar = False
             
         if self.displayModule.isProgress(
-            progress=progress, updateProgessBar=self.updateProgessBar
+            progress=progress, updateProgressBar=self.updateProgressBar
         ):
             progress_bar, message = self.displayModule()
             self.ui.progressBar.setValue(progress_bar)

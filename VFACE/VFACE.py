@@ -347,7 +347,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.review_temp_folders = []
         # onCliUpdated only assigns this when progress is 0, so a first event
         # carrying a non-zero progress would read it before it exists.
-        self.updateProgessBar = False
+        self.updateProgressBar = False
 
     def reloadCustomModules(self) -> None:
         """
@@ -3158,9 +3158,9 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         progress = caller.GetProgress()
         if progress == 0:
-            self.updateProgessBar = False
+            self.updateProgressBar = False
 
-        if self.displayModule.isProgress(progress=progress, updateProgessBar=self.updateProgessBar):
+        if self.displayModule.isProgress(progress=progress, updateProgressBar=self.updateProgressBar):
             progress_bar, message = self.displayModule()
             self.ui.progressBar.setValue(progress_bar)
 

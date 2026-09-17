@@ -667,8 +667,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.nb_scan = 0
         self.startprocess = 0
         self.patient_process = 0
-        self.dicchckbox = {}
-        self.dicchckbox2 = {}
+        self.checkboxes = {}
+        self.checkboxes2 = {}
         self.isDCMInput = False
         """
         exemple dic = {'teeth'=['A,....],'Type'=['O',...]}
@@ -865,8 +865,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # UI Changes
         self.SwitchMode(self.ui.CbModeType.currentIndex)
 
-        self.dicchckbox = self.ActualMeth.getcheckbox()
-        self.dicchckbox2 = self.ActualMeth.getcheckbox2()
+        self.checkboxes = self.ActualMeth.getcheckbox()
+        self.checkboxes2 = self.ActualMeth.getcheckbox2()
 
         self.SlicerDownloadPath = os.path.join(
             self.documents,
@@ -1126,7 +1126,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def SelectSuggestLandmark(self):
         best = self.ActualMeth.Suggest()
-        for checkbox in self.logic.iterillimeted(self.dicchckbox):
+        for checkbox in self.logic.iterillimeted(self.checkboxes):
             if checkbox.text in best and checkbox.isEnabled():
                 checkbox.setCheckState(True)
 
@@ -1143,8 +1143,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if self.type == "IOS":
             for checkbox, checkbox2 in zip(
-                self.logic.iterillimeted(self.dicchckbox),
-                self.logic.iterillimeted(self.dicchckbox),
+                self.logic.iterillimeted(self.checkboxes),
+                self.logic.iterillimeted(self.checkboxes),
             ):
                 try:
                     checkbox.setCheckable(status[checkbox.text])
@@ -1155,7 +1155,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if self.type == "CBCT":
             for checkboxs, checkboxs2 in zip(
-                self.dicchckbox.values(), self.dicchckbox2.values()
+                self.checkboxes.values(), self.checkboxes2.values()
             ):
                 for checkbox, checkbox2 in zip(checkboxs, checkboxs2):
                     checkbox.setVisible(status[checkbox.text])
@@ -1202,7 +1202,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             model_folder_ali=self.ui.lineEditModelAli.text,
             model_folder_segor=self.ui.lineEditModelSegOr.text,
             add_in_namefile=self.ui.lineEditAddName.text,
-            dic_checkbox=self.dicchckbox,
+            dic_checkbox=self.checkboxes,
             smallFOV=str(self.ui.checkBoxSmallFOV.isChecked()),
             isDCMInput=self.isDCMInput,
         )
@@ -1217,7 +1217,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 model_folder_ali=self.ui.lineEditModelAli.text,
                 model_folder_segor=self.ui.lineEditModelSegOr.text,
                 add_in_namefile=self.ui.lineEditAddName.text,
-                dic_checkbox=self.dicchckbox,
+                dic_checkbox=self.checkboxes,
                 logPath=self.log_path,
                 smallFOV=str(self.ui.checkBoxSmallFOV.isChecked()),
                 isDCMInput=self.isDCMInput,
@@ -1314,10 +1314,10 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.nb_change_bystep = 0
 
         if progress == 0:
-            self.updateProgessBar = False
+            self.updateProgressBar = False
 
         if self.displayModule.isProgress(
-            progress=progress, updateProgessBar=self.updateProgessBar
+            progress=progress, updateProgressBar=self.updateProgressBar
         ):
             progress_bar, message = self.displayModule()
             self.ui.progressBar.setValue(progress_bar)

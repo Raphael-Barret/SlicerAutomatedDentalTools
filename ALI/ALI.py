@@ -1094,10 +1094,10 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.nb_change_bystep = 0
 
         if progress == 0:
-            self.updateProgessBar = False
+            self.updateProgressBar = False
 
         if self.displayModule.isProgress(
-            progress=progress, updateProgessBar=self.updateProgessBar
+            progress=progress, updateProgressBar=self.updateProgressBar
         ):
             progress_bar, message = self.displayModule()
             self.ui.progressBar.setValue(progress_bar)

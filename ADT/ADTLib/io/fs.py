@@ -1,13 +1,22 @@
 """Trouver les fichiers d'un dossier par extension.
 
-`search` existait en quinze exemplaires, en six variantes. Douze d'entre eux se
-ramènent à cette seule fonction : six étaient une méthode `search(self, ...)`,
-trois la même chose en fonction libre -- identiques à l'octet près une fois le
-`self` retiré -- et trois ne différaient que par un `sorted()` autour du
-résultat, d'où le paramètre `sort`.
+`search` existait en quinze exemplaires, en six variantes. Toutes s'y ramènent
+maintenant, et les deux seules différences de fond sont devenues des paramètres :
 
-Les trois derniers divergent réellement (celui de `data_file.py` filtre en plus,
-celui de VFACE et celui d'ALI_CBCT ont un autre corps) et restent chez eux.
+- six étaient une méthode `search(self, ...)`, trois la même chose en fonction
+  libre -- identiques à l'octet près une fois le `self` retiré ;
+- trois entouraient le résultat d'un `sorted()`, d'où `sort`. L'ordre de
+  parcours des patients en dépend chez elles ;
+- celle de `ASO_IOS_utils/data_file.py` écartait en plus ce qui n'est pas un
+  fichier, d'où `files_only`. Un dossier dont le nom finit par l'extension
+  cherchée -- `patient.nrrd/` -- est compté comme un scan par les quatorze
+  autres. C'est sans doute un défaut partout, mais personne n'en a jamais vu
+  l'effet, alors le comportement d'origine reste celui par défaut et seul
+  l'appelant qui demandait le filtre continue de l'obtenir.
+
+Celle de VFACE ne rangeait pas le résultat de la même façon -- un seul parcours
+de l'arbre, trié, puis réparti par clé -- mais rend exactement ce que rend
+`sort=True`.
 
 Bibliothèque standard seulement : appelé depuis l'environnement Conda.
 """
@@ -15,7 +24,7 @@ import glob
 import os
 
 
-def search(path, *args, sort=False):
+def search(path, *args, sort=False, files_only=False):
     """Les fichiers de `path` groupés par extension demandée.
 
     Renvoie un dictionnaire dont chaque clé est un élément de `args` et la
@@ -25,8 +34,11 @@ def search(path, *args, sort=False):
         search(path, 'json', ['.nii.gz', '.nrrd'])
         {'json': ['path/a.json', ...], '.nii.gz': [...], '.nrrd': [...]}
 
-    `sort` rend chaque liste triée : trois des douze sites d'origine le
+    `sort` rend chaque liste triée : trois des quinze sites d'origine le
     faisaient, et l'ordre de parcours des patients en dépend chez eux.
+
+    `files_only` écarte les répertoires dont le nom se termine par la clé : un
+    seul site d'origine le faisait.
     """
     arguments = []
     for arg in args:
@@ -35,14 +47,12 @@ def search(path, *args, sort=False):
         else:
             arguments.append(arg)
 
-    found = {
-        key: [
-            match
-            for match in glob.iglob(
-                os.path.normpath("/".join([path, "**", "*"])), recursive=True
-            )
-            if match.endswith(key)
-        ]
-        for key in arguments
-    }
-    return {key: sorted(v) for key, v in found.items()} if sort else found
+    entries = list(
+        glob.iglob(os.path.normpath("/".join([path, "**", "*"])), recursive=True)
+    )
+    if files_only:
+        entries = [entry for entry in entries if os.path.isfile(entry)]
+    if sort:
+        entries.sort()
+
+    return {key: [entry for entry in entries if entry.endswith(key)] for key in arguments}

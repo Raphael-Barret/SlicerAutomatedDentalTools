@@ -9,3 +9,7 @@ slicer_add_python_unittest(SCRIPT test_deps.py)
 # ReadSurf, WriteSurf et OFFReader : les cinq copies divergeaient, ces cas
 # figent ce qui a ete retenu et les quatre comportements qui changent.
 slicer_add_python_unittest(SCRIPT test_surface.py)
+
+# search : les deux parametres qui portent ce que les quinze copies
+# faisaient differemment, et rien d autre.
+slicer_add_python_unittest(SCRIPT test_fs.py)

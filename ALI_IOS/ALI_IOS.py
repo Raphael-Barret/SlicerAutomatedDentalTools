@@ -337,13 +337,6 @@ def _discover_patients(args):
         sys.exit(1)
     return dic_patients
 
-def _count_landmarks(dic_patients, dic_teeth):
-    """TODO"""
-    total_landmarks = 0
-    for jaw_teeth in dic_teeth.values():
-        total_landmarks += len(jaw_teeth)
-    total_landmarks *= len(dic_patients)
-
 def _cleanup_scratch(back_to_file, path_vtk, segmented_folder, unified_folder):
     """Efface les dossiers temporaires crees pour cette machoire."""
     if back_to_file is not None:
@@ -994,9 +987,6 @@ def main(args):
 
 
     dic_patients = _discover_patients(args)
-
-    _count_landmarks(dic_patients, dic_teeth)
-
 
     for idx, (patient_id, patient_path) in enumerate(dic_patients.items()):
         logger.info(f"Processing patient {idx + 1}/{len(dic_patients)}: {patient_id}")

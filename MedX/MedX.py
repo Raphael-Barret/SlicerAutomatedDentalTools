@@ -32,6 +32,8 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
 
+from ADTLib.logging_setup import get_logger
+
 from MedX_Method.summarize import MedX_Summarize_Method
 from MedX_Method.dashboard import MedX_Dashboard_Method
 from MedX_Method.Method import Method
@@ -56,16 +58,7 @@ from ADTLib.env.conda import (
     windows_to_linux_path as windows_to_linux_path_shared)
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("MedX")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("MedX")
 
 def check_lib_installed(lib_name, required_version=None):
     """Whether the library is installed and satisfies the constraint."""

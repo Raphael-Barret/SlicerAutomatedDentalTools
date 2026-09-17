@@ -15,6 +15,8 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+from ADTLib.logging_setup import get_logger
 from ADTLib.env.deps import check_lib_installed as lib_satisfies
 
 from MRI2CBCT_utils.Preprocess_MRI import Process_MRI
@@ -53,16 +55,7 @@ import logging
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("MRI2CBCT")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("MRI2CBCT")
 
 def pathFromVolumeNode(node):
     """Returns the on-disk file path a volume node was loaded from, or None

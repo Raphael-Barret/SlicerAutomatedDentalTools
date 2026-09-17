@@ -16,16 +16,6 @@ from slicer.util import VTKObservationMixin, pip_install
 from functools import partialmethod
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("AREG")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
 
 # Slicer captures its own stdout through a pipe that it drains from the Qt event
 # loop, so whatever writes to the log needs that loop to keep running. A conda
@@ -66,6 +56,10 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("AREG")
 
 from AREG_Method.IOS import Auto_IOS, Semi_IOS
 from AREG_Method.CBCT import Semi_CBCT, Auto_CBCT, Or_Auto_CBCT

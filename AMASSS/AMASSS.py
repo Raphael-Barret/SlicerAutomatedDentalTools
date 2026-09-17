@@ -39,23 +39,12 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
 
+from ADTLib.logging_setup import get_logger
+
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("AMASSS")
-logger.setLevel(logging.INFO)
-
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("AMASSS")
 
 # torch 2.2.0 is compiled against numpy 1.x: numpy>=2 breaks every torch import
 # with "_ARRAY_API not found", including in the nnUNet subprocesses.

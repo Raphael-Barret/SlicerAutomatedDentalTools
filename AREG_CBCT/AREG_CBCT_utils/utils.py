@@ -22,20 +22,9 @@ import itk
 from ADTLib.naming import patient_id as read_patient_id
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("AREG_CBCT_utils")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("AREG_CBCT_utils")
 
 """
 8888888888 8888888 888      8888888888  .d8888b.

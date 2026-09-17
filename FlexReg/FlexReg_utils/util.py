@@ -6,16 +6,9 @@ import sys
 import logging
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("FlexReg_util")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("FlexReg_util")
 
 class vtkTeeth:
     def __init__(self, list_teeth, property=None):

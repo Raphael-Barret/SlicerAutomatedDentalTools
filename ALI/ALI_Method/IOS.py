@@ -13,20 +13,9 @@ import sys
 from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 
 # --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("ALI_IOS_Process")
-logger.setLevel(logging.INFO)
+from ADTLib.logging_setup import get_logger
 
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+logger = get_logger("ALI_IOS_Process")
 
 
 class Auto_IOS(Method):

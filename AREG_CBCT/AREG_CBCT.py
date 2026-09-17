@@ -6,21 +6,6 @@ import numpy as np
 import slicer
 import SimpleITK as sitk
 
-# --- LOGGING CONFIGURATION ---
-logger = logging.getLogger("AREG_CBCT")
-logger.setLevel(logging.INFO)
-
-logger.propagate = False
-
-if logger.handlers:
-    logger.handlers.clear()
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
 
 # realpath, not __file__: a CLI registered through a symlink - the flat dev
 # folder of links into the source tree - leaves __file__ on the link, whose
@@ -40,6 +25,10 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("AREG_CBCT")
 
 from AREG_CBCT_utils import (
     GetDictPatients,

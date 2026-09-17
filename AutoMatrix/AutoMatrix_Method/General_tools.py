@@ -6,16 +6,9 @@ import logging
 import sys
 
 # ===== Logging Configuration =====
-logger = logging.getLogger("AutoMatrix_general_tools")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-if logger.handlers:
-    logger.handlers.clear()
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)s - %(levelname)s - (%(filename)s:%(lineno)d) - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+from ADTLib.logging_setup import get_logger
+
+logger = get_logger("AutoMatrix_general_tools")
 
 def search(path, *args):
         """

@@ -23,7 +23,7 @@ class MedX_Dashboard_Method(Method):
                 return False, "No files to run has been found in the "
         return True,""
     
-    def NbScan(self, file_folder: str):
+    def NumberScan(self, file_folder: str):
         files_by_type = self.search(file_folder, ['.docx', '.pdf', '.txt'])
         nb_files = sum(len(v) for v in files_by_type.values())
         return nb_files
@@ -68,7 +68,7 @@ class MedX_Dashboard_Method(Method):
 
         MedXProcess = slicer.modules.medx_dashboard
 
-        nb_files = self.NbScan(
+        nb_files = self.NumberScan(
             kwargs["summary_folder"]
         )
 

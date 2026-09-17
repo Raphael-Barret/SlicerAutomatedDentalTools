@@ -33,6 +33,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}/io/fs.py
   ${MODULE_NAME}/io/landmarks.py
   ${MODULE_NAME}/logging_setup.py
+  ${MODULE_NAME}/method.py
   ${MODULE_NAME}/model_registry.py
   ${MODULE_NAME}/naming.py
   ${MODULE_NAME}/theming.py

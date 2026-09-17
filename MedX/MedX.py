@@ -672,7 +672,7 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             log_path=self.log_path,
         )
         
-        self.nb_scans = self.summarize.NbScan(
+        self.nb_scans = self.summarize.NumberScan(
             file_folder=self.ui.LineEditClinicalNotes.text,
         )
         
@@ -715,7 +715,7 @@ class MedXWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             log_path=self.log_path,
         )
         
-        self.nb_scans = self.dashboard.NbScan(
+        self.nb_scans = self.dashboard.NumberScan(
             file_folder=self.ui.lineEditSummaries.text,
         )
         

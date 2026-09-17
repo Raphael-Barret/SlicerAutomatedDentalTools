@@ -1,15 +1,15 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from ADTLib.method import ADTMethod
 
 
-class Method(ABC):
-    def __init__(self, widget):
-        self.widget = widget
-        self.diccheckbox = {}
-        self.diccheckbox2 = {}
-    
-
+class Method(ADTMethod):
+    # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
+    # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La
+    # forme variadique dit cela sans mentir sur l'arite -- l'ABC de MRI2CBCT en
+    # annoncait deux la ou ses six sous-classes en prennent un. Chaque
+    # implementation declare l'arite qu'elle attend vraiment.
     @abstractmethod
-    def TestScan(self, patient_folder: str, matrix_folder: str) -> str:
+    def TestScan(self, *scan_folders) -> str:
         """Verify if the input folder seems good (have everything required to run the mode selected), if something is wrong the function return string with error message
 
         This function is called when the user want to import scan
@@ -23,32 +23,3 @@ class Method(ABC):
         pass
         """
         
-    @abstractmethod
-    def NbScan(self, input_patient: str, input_matrix: str) -> int:
-        """Count the number of scan in the folder
-
-        Args:
-            input_patient (str): path of folder with scans
-            input_matrix (str): path of folder with matrices
-
-        Returns:
-            int: number of scan in the folder
-        """
-        pass
-
-    @abstractmethod
-    def TestProcess(self, **kwargs) -> str:
-        """Check if everything is OK before launching the process, if something is wrong return string with all error
-
-
-
-        Returns:
-            str or None: return None if there no problem with input of the process, else return str with all error
-        """
-        pass
-
-    @abstractmethod
-    def Process(self, **kwargs):
-        """Launch extension"""
-
-        pass

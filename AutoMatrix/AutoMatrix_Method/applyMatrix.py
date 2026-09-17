@@ -21,7 +21,7 @@ class Automatrix_Method(Method):
             return "Please select a folder with valid scan files"
         return None
     
-    def NbScan(self, input_patient: str, input_matrix: str):
+    def NumberScan(self, input_patient: str, input_matrix: str):
         _, nb_files = GetPatients(input_patient, input_matrix)
         return nb_files
     
@@ -68,7 +68,7 @@ class Automatrix_Method(Method):
         
         AutomatrixProcess = slicer.modules.automatrix_cli
 
-        nb_files = self.NbScan(
+        nb_files = self.NumberScan(
             kwargs["input_patient"],
             kwargs["input_matrix"]
         )

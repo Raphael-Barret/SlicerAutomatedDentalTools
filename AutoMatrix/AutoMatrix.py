@@ -590,7 +590,7 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             log_path=self.log_path,
             is_seg=self.ui.CheckBoxSegmentation.isChecked(),
         )
-        self.nb_scans = self.ActualMeth.NbScan(self.ui.LineEditPatient.text, self.ui.LineEditMatrix.text)
+        self.nb_scans = self.ActualMeth.NumberScan(self.ui.LineEditPatient.text, self.ui.LineEditMatrix.text)
         
         self.nb_extension_launch = len(self.list_Processes_Parameters)
         self.onProcessStarted()

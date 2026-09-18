@@ -17,6 +17,12 @@ logger = get_logger("ASO_Method_IOS")
 
 
 class Auto_IOS(Method):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 3
+    scan_type = "IOS"
+    shows_cbct_input = False
+    model_label = "Segmentation Model Folder"
+    uses_segmentation_model = True
     def __init__(self, widget):
         super().__init__(widget)
 
@@ -479,6 +485,10 @@ class Auto_IOS(Method):
 
 
 class Semi_IOS(Auto_IOS):
+    # --- description de l'interface (voir `Method`) ---
+    # `Semi_IOS` herite d'`Auto_IOS` : seules la page et l'etiquette changent.
+    stacked_page = 2
+    model_label = None
     def getTestFileList(self):
         return (
             "Semi-Automated",

@@ -982,88 +982,58 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.ButtonSearchModel3.setVisible(False)
 
 
-    def SwitchType(self,source=None):
-        """Function to change the UI and the Method in AREG depending on the selected type (Semi CBCT, Fully CBCT...)"""
-        if self.ui.CbInputType.currentIndex == 0:
-            if source == "InputType":
-                number_item = self.ui.CbModeType.count
-                for _ in range(number_item):
-                    self.ui.CbModeType.removeItem(0)
+    #: Par type d'entree : les modes proposes dans l'ordre, la methode qui
+    #: repond a chacun, et la fonction qui ajuste le reste de l'interface.
+    #: Cette table remplace trois branches de `if/elif` imbriquees sur des
+    #: index de liste deroulante. Ajouter un mode se fait ici et dans
+    #: `MethodDic`, sans toucher au corps de `SwitchType`.
+    INPUT_TYPES = {
+        0: {
+            "modes": ["Orientation and Registration",
+                      "Fully-Automated Registration",
+                      "Semi-Automated Registration"],
+            "methods": {0: "Or_Auto_CBCT", 1: "Auto_CBCT", 2: "Semi_CBCT"},
+            "switch_mode": "SwitchModeCBCT",
+        },
+        1: {
+            "modes": ["Orientation and Registration", "Registration"],
+            "methods": {0: "Auto_IOS", 1: "Semi_IOS"},
+            "switch_mode": "SwitchModeIOS",
+        },
+        2: {
+            "modes": ["Fully Automated Registration",
+                      "Semi Automated Registration",
+                      "Registration"],
+            "methods": {0: "Auto_IOSCBCT", 1: "Semi_IOSCBCT", 2: "Reg_IOSCBCT"},
+            "switch_mode": "SwitchModeIOSCBCT",
+        },
+    }
 
-                self.ui.CbModeType.addItem("Orientation and Registration")
-                self.ui.CbModeType.addItem("Fully-Automated Registration")
-                self.ui.CbModeType.addItem("Semi-Automated Registration")
+    def SwitchType(self, source=None):
+        """Choisit la methode, puis applique la description qu'elle donne.
 
-            if self.ui.CbModeType.currentIndex == 2:
-                self.ActualMethName = "Semi_CBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(0)
+        Ce que l'interface doit montrer -- page, type de scan, etiquette du
+        modele -- est lu sur la methode, plus decide ici. Voir
+        `AREG_Method.Method`.
+        """
+        config = self.INPUT_TYPES[self.ui.CbInputType.currentIndex]
 
-            elif self.ui.CbModeType.currentIndex == 0:
-                self.ActualMethName = "Or_Auto_CBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(2)
-                self.ui.label_7.setText("Segmentation Model Folder")
+        if source == "InputType":
+            for _ in range(self.ui.CbModeType.count):
+                self.ui.CbModeType.removeItem(0)
+            for label in config["modes"]:
+                self.ui.CbModeType.addItem(label)
 
-            elif self.ui.CbModeType.currentIndex == 1:
-                self.ActualMethName = "Auto_CBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(1)
-                self.ui.label_7.setText("Segmentation Model Folder")
+        mode = self.ui.CbModeType.currentIndex
+        if mode in config["methods"]:
+            self.ActualMethName = config["methods"][mode]
+            self.ActualMeth = self.MethodDic[self.ActualMethName]
+            self.ui.stackedWidget.setCurrentIndex(self.ActualMeth.stacked_page)
+            self.type = self.ActualMeth.scan_type
+            if self.ActualMeth.model_label is not None:
+                self.ui.label_7.setText(self.ActualMeth.model_label)
 
-            self.type = "CBCT"
-            self.SwitchModeCBCT(self.ui.CbModeType.currentIndex)
-
-        elif self.ui.CbInputType.currentIndex == 1:
-            if source == "InputType":
-                number_item = self.ui.CbModeType.count
-                for _ in range(number_item):
-                    self.ui.CbModeType.removeItem(0)
-
-                self.ui.CbModeType.addItem("Orientation and Registration")
-                self.ui.CbModeType.addItem("Registration")
-
-            if self.ui.CbModeType.currentIndex == 1:
-                self.ActualMeth = self.MethodDic["Semi_IOS"]
-                self.ui.stackedWidget.setCurrentIndex(3)
-                self.type = "IOS"
-
-            elif self.ui.CbModeType.currentIndex == 0:
-                self.ActualMeth = self.MethodDic["Auto_IOS"]
-                self.ui.stackedWidget.setCurrentIndex(3)
-                self.type = "IOS"
-                self.ui.label_7.setText("Segmentation Model Folder")
-
-            self.SwitchModeIOS(self.ui.CbModeType.currentIndex)
-        elif self.ui.CbInputType.currentIndex == 2:
-            if source == "InputType":
-                number_item = self.ui.CbModeType.count
-                for _ in range(number_item):
-                    self.ui.CbModeType.removeItem(0)
-
-                self.ui.CbModeType.addItem("Fully Automated Registration")
-                self.ui.CbModeType.addItem("Semi Automated Registration")
-                self.ui.CbModeType.addItem("Registration")
-
-            if self.ui.CbModeType.currentIndex == 0:
-                self.ActualMethName = "Auto_IOSCBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(4)
-                self.type = "IOSCBCT"
-
-            elif self.ui.CbModeType.currentIndex == 1:
-                self.ActualMethName = "Semi_IOSCBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(4)
-                self.type = "IOSCBCT"
-            
-            elif self.ui.CbModeType.currentIndex == 2:
-                self.ActualMethName = "Reg_IOSCBCT"
-                self.ActualMeth = self.MethodDic[self.ActualMethName]
-                self.ui.stackedWidget.setCurrentIndex(4)
-                self.type = "IOSCBCT"
-          
-            self.SwitchModeIOSCBCT(self.ui.CbModeType.currentIndex)
+        getattr(self, config["switch_mode"])(mode)
 
         self.checkboxes = self.ActualMeth.getcheckbox()
         self.checkboxes2 = self.ActualMeth.getcheckbox2()

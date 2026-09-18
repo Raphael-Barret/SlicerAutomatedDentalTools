@@ -806,7 +806,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditModelAli.setVisible(False)
             self.ui.ButtonSearchModelAli.setVisible(False)
             self.ui.label_6.setVisible(False)
-            if isinstance(self.ActualMeth, (Auto_IOS, Semi_IOS)):
+            if self.ActualMeth.uses_segmentation_model:
                 self.ui.label_7.setVisible(True)
                 self.ui.lineEditModelSegOr.setVisible(True)
                 self.ui.ButtonSearchModelSegOr.setVisible(True)
@@ -817,49 +817,33 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.ButtonSearchModelSegOr.setVisible(False)
                 self.ui.label_CBCTInputType.setVisible(True)
 
+    #: Quelle methode repond a quel couple (type d'entree, mode). La table
+    #: remplace une chaine de quatre `if/elif` sur des index : ajouter une
+    #: methode se fait ici et dans `MethodDic`, sans toucher au reste.
+    METHOD_FOR_COMBO = {
+        (0, 1): "Semi_CBCT",
+        (0, 0): "Auto_CBCT",
+        (1, 1): "Semi_IOS",
+        (1, 0): "Auto_IOS",
+    }
+
     def SwitchType(self):
-        """Function to change the UI and the Method in ASO depending on the selected type (Semi CBCT, Fully CBCT...)"""
-        if (
-            self.ui.CbInputType.currentIndex == 0
-            and self.ui.CbModeType.currentIndex == 1
-        ):
-            self.ActualMeth = self.MethodDic["Semi_CBCT"]
-            self.ui.CbCBCTInputType.setVisible(True)
-            self.ui.stackedWidget.setCurrentIndex(0)
-            self.ui.label_LibsInstallation.setVisible(False)
-            self.type = "CBCT"
+        """Choisit la methode, puis applique la description qu'elle donne.
 
-        elif (
-            self.ui.CbInputType.currentIndex == 0
-            and self.ui.CbModeType.currentIndex == 0
-        ):
-            self.ActualMeth = self.MethodDic["Auto_CBCT"]
-            self.ui.stackedWidget.setCurrentIndex(1)
-            self.ui.CbCBCTInputType.setVisible(True)
-            self.ui.label_LibsInstallation.setVisible(False)
-            self.type = "CBCT"
-            self.ui.label_7.setText("Orientation Model Folder")
+        Ce que l'interface doit montrer n'est plus decide ici mais lu sur la
+        methode -- `stacked_page`, `scan_type`, `shows_cbct_input`,
+        `model_label`. Voir `ASO_Method.Method`.
+        """
+        key = (self.ui.CbInputType.currentIndex, self.ui.CbModeType.currentIndex)
+        self.ActualMeth = self.MethodDic[self.METHOD_FOR_COMBO[key]]
 
-        elif (
-            self.ui.CbInputType.currentIndex == 1
-            and self.ui.CbModeType.currentIndex == 1
-        ):
-            self.ActualMeth = self.MethodDic["Semi_IOS"]
-            self.ui.stackedWidget.setCurrentIndex(2)
-            self.ui.CbCBCTInputType.setVisible(False)
-            self.ui.label_LibsInstallation.setVisible(False)
-            self.type = "IOS"
+        self.ui.stackedWidget.setCurrentIndex(self.ActualMeth.stacked_page)
+        self.ui.CbCBCTInputType.setVisible(self.ActualMeth.shows_cbct_input)
+        self.ui.label_LibsInstallation.setVisible(False)
+        self.type = self.ActualMeth.scan_type
+        if self.ActualMeth.model_label is not None:
+            self.ui.label_7.setText(self.ActualMeth.model_label)
 
-        elif (
-            self.ui.CbInputType.currentIndex == 1
-            and self.ui.CbModeType.currentIndex == 0
-        ):
-            self.ActualMeth = self.MethodDic["Auto_IOS"]
-            self.ui.stackedWidget.setCurrentIndex(3)
-            self.ui.CbCBCTInputType.setVisible(False)
-            self.ui.label_LibsInstallation.setVisible(False)
-            self.type = "IOS"
-            self.ui.label_7.setText("Segmentation Model Folder")
         # UI Changes
         self.SwitchMode(self.ui.CbModeType.currentIndex)
 

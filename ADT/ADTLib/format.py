@@ -18,7 +18,8 @@ def format_timer(seconds):
     """La durée telle que l'affichent les étiquettes de progression.
 
     Ces trois branches existaient en douze exemplaires, mot pour mot, dans les
-    fenêtres d'ALI, ASO, AREG, MedX et AutoMatrix. Le format est conservé au
+    fenêtres d'ALI, ASO, AREG, AutoMatrix et MedX -- ce dernier archivé depuis,
+    ce qui en laisse dix dans l'arbre. Le format est conservé au
     caractère près -- c'est une étiquette que l'utilisateur lit pendant le
     traitement, pas un format à moderniser au passage.
 

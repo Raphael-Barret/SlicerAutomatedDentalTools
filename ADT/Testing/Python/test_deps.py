@@ -201,6 +201,16 @@ class TorchCudaTest(unittest.TestCase):
     def test_does_not_agree_when_one_is_missing(self):
         self.assertFalse(torch_cuda_builds_agree(lookup=INCOMPLETE))
 
+    def test_a_plain_trio_is_not_a_conflict(self):
+        """Le cas qui a bloque AMASSS : trois roues PyPI, versions exactes.
+
+        `torch_cuda_builds_agree` repond non -- aucune etiquette -- et le
+        module proposait « mettre a jour torch 2.2.0 vers 2.2.0 ». La decision
+        doit se prendre sur un desaccord REEL, pas sur une absence d'etiquette.
+        """
+        self.assertIsNone(torch_cuda_conflict(lookup=PLAIN))
+        self.assertFalse(torch_cuda_builds_agree(lookup=PLAIN))
+
     def test_the_family_is_the_three_amasss_installs_together(self):
         self.assertEqual(TORCH_FAMILY, ("torch", "torchvision", "torchaudio"))
 

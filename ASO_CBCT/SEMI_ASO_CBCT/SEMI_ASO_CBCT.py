@@ -212,6 +212,24 @@ def main(args):
         except Exception as e:
             logger.error(f"Error generating final report: {e}")
 
+        # A run where NOT ONE patient came through is a failed run, and it has
+        # to be said with the exit code: the widget decides on
+        # `caller.GetStatus() & caller.ErrorsMask`, so a CLI that logs its
+        # failures and still exits 0 is announced as "Process Done" over an
+        # empty output folder. Observed with a landmark absent from the
+        # reference -- every patient raised a KeyError, the log said
+        # "Failed to process 1 patient(s)", and the window said success.
+        #
+        # A partial failure is not turned into an error: the patients that did
+        # come through are real results, and the warnings above name the ones
+        # that did not.
+        if patients and processed_patients == 0:
+            raise RuntimeError(
+                "No patient could be registered (%d failed): %s"
+                % (len(failed_patients),
+                   "; ".join(f"{patient}: {error}" for patient, error in failed_patients))
+            )
+
     except Exception as e:
         logger.error(f"Fatal error in main(): {e}")
         raise

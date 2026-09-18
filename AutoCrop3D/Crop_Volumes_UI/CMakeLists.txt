@@ -10,9 +10,10 @@ set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/UI/${MODULE_NAME}.ui
 
-  # Le jeu d'essai du bouton « Test Files » et du self-test. Non declare, il
-  # existait en arbre de developpement -- ou tout est la -- et disparaissait de
-  # l'extension compilee, ou le bouton n'aurait rien trouve a decompresser.
+  # The test set of the "Test Files" button and of the self-test. Undeclared,
+  # it existed in a development tree -- where everything is there -- and
+  # vanished from the compiled extension, where the button would have found
+  # nothing to unpack.
   Resources/testfiles/${MODULE_NAME}/Segmentation.zip
   Resources/testfiles/${MODULE_NAME}/ROI.mrk.zip
 )

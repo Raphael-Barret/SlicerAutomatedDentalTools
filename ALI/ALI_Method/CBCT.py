@@ -177,7 +177,7 @@ class Auto_CBCT(Method):
         return None
 
     def getTestFileList(self):
-        """Le scan d'essai : un .nii.gz, pas une archive."""
+        """The test scan: a .nii.gz, not an archive."""
         return (
             "ALI_test_scan",
             AMASSS_TEST_SCAN,

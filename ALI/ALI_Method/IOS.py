@@ -79,7 +79,7 @@ class Auto_IOS(Method):
             writer = csv.writer(fichier)
             writer.writerow(["surf"])
 
-            # Parcourir le dossier et ses sous-dossiers
+            # Walk the folder and its subfolders
             for root, dirs, files in os.walk(input_dir):
                 for file in files:
                     if file.endswith(".vtk") or file.endswith(".stl"):
@@ -124,11 +124,11 @@ class Auto_IOS(Method):
         return out
 
     def getTestFileList(self):
-        """Les scans d'essai : une arcade ne fait pas un jeu.
+        """The test scans: one arch does not make a dataset.
 
-        ALI IOS travaille sur un dossier d'arcades, et les deux arcades du
-        meme patient sont publiees separement -- les deux sont rapatriees
-        dans le meme dossier, qui est alors utilisable tel quel.
+        ALI IOS works on a folder of arches, and the two arches of the same
+        patient are published separately -- both are brought down into the
+        same folder, which is then usable as it is.
         """
         return (
             "ALI_test_scan",

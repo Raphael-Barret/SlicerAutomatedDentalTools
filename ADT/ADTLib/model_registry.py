@@ -1,76 +1,76 @@
-"""Les adresses de publication, écrites une fois.
+"""The publication addresses, written once.
 
-Ce module ne dit pas *quels* modèles un outil propose -- cette sélection lui
-appartient et diffère d'un outil à l'autre, c'est pourquoi les dictionnaires
-`getModelUrl` restent chez eux. Il ne porte que les **bases de release**, celles
-qui se répétaient à l'identique : publier une nouvelle version demandait de
-retrouver 32 littéraux pour la seule release des modèles ADT.
+This module does not say *which* models a tool offers -- that selection belongs
+to the tool and differs from one to the next, which is why the `getModelUrl`
+dictionaries stay where they are. It carries only the **release bases**, the
+ones that were repeated identically: publishing a new version meant tracking
+down 32 literals for the ADT models release alone.
 
-Bibliothèque standard seulement.
+Standard library only.
 """
 
-#: Release portant les modèles de repères et de segmentation de l'extension.
-#: Changer de version se fait ici, et nulle part ailleurs.
+#: Release carrying the extension's landmark and segmentation models.
+#: Changing version happens here, and nowhere else.
 ADT_MODELS = (
     "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools"
     "/releases/download/v0.1-v2.0_models"
 )
 
-#: L'installeur WSL2 que les modules proposent quand WSL manque, ou que ses
-#: bibliothèques système manquent. Le lien était recopié dans six modules, et
-#: deux fois dans chacun.
+#: The WSL2 installer the modules offer when WSL is missing, or when its system
+#: libraries are missing. The link was copied into six modules, and twice in
+#: each of them.
 WSL2_INSTALLER = (
     "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools"
     "/releases/download/wsl2_windows/installer_WSL2.zip"
 )
 
 
-#: Les modèles de plans de référence d'ASO_CBCT, que quatre modules proposent.
-#: Seize littéraux portaient cette base ; la sélection, elle, reste chez chacun.
+#: The ASO_CBCT reference-plane models, which four modules offer. Sixteen
+#: literals carried this base; the selection itself stays with each module.
 ASO_CBCT_GOLD = (
     "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels"
 )
 
-#: Les références et modèles d'ASO_IOS, partagés par ALI, ASO et AREG.
+#: The ASO_IOS references and models, shared by ALI, ASO and AREG.
 ASO_IOS_GOLD = "https://github.com/HUTIN1/ASO/releases/download/v1.0.0"
 
-#: Les jeux d'essai d'ASO_IOS. Deux releases distinctes, une par mode : le jeu
-#: semi-automatique porte les json de repères que le mode réclame, le jeu
-#: automatique ne porte que les surfaces. Les deux liens étaient écrits en dur
-#: dans `ASO_Method/IOS.py`, seuls jeux d'essai à ne pas passer par ici.
+#: The ASO_IOS test data sets. Two distinct releases, one per mode: the
+#: semi-automatic set carries the landmark json files that mode demands, the
+#: automatic set carries only the surfaces. Both links were hard-coded in
+#: `ASO_Method/IOS.py`, the only test data sets not to go through here.
 ASO_IOS_TEST_AUTO = "https://github.com/HUTIN1/ASO/releases/download/v1.0.1"
 ASO_IOS_TEST_SEMI = "https://github.com/HUTIN1/ASO/releases/download/v1.0.2"
 
-#: Les jeux d'essai publiés par Slicer, utilisés par `registerSampleData`.
+#: The test data sets published by Slicer, used by `registerSampleData`.
 SLICER_TESTING_DATA = (
     "https://github.com/Slicer/SlicerTestingData/releases/download/SHA256"
 )
 
 
 # ---------------------------------------------------------------------------
-# Les autres bases de release, chacune recopiée deux à dix fois. Publier une
-# nouvelle version d'un de ces jeux se fait ici, et nulle part ailleurs.
+# The other release bases, each copied two to ten times. Publishing a new
+# version of one of these sets happens here, and nowhere else.
 #
-# Ce module ne dit toujours pas *quels* modèles un outil propose : les
-# dictionnaires `getModelUrl` gardent leur sélection, et c'est voulu -- la
-# fondre serait décider quels modèles chaque outil offre.
+# This module still does not say *which* models a tool offers: the `getModelUrl`
+# dictionaries keep their selection, and that is deliberate -- merging it would
+# mean deciding which models each tool offers.
 # ---------------------------------------------------------------------------
 
 BASE = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download"
 
-#: Les trois jeux de segmentation dentaire, partagés par BATCHDENTALSEG et VFACE.
+#: The three dental segmentation sets, shared by BATCHDENTALSEG and VFACE.
 PEDIATRIC_DENTAL_SEG = f"{BASE}/PEDIATRICDENTALSEG_MODEL"
 NASOMAXILLA_DENT_SEG = f"{BASE}/NASOMAXILLADENTSEG_MODEL"
 UNIVERSAL_LAB = f"{BASE}/UNIVERSALLAB_MODEL"
 
-#: Segmentation CBCT, repères IOS, recalage IOS/CBCT, découpe TMJ, VFACE.
+#: CBCT segmentation, IOS landmarks, IOS/CBCT registration, TMJ crop, VFACE.
 AMASSS_CBCT = f"{BASE}/AMASSS_CBCT"
 ALI_IOS_MODELS = f"{BASE}/ALI_IOS_models"
 AREG_IOSCBCT_MODELS = f"{BASE}/AREG_IOSCBCT"
 TMJ_CROP_MODEL = f"{BASE}/TMJ_CROP_MODEL"
 VFACE_MODELS = f"{BASE}/VFACE"
 
-#: Jeux publiés hors de l'organisation.
+#: Sets published outside the organisation.
 ASO_CBCT_PRE = "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels"
 ASO_CBCT_TEST_FILES = "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles"
 AREG_CBCT_TEST_FILES = "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles"
@@ -81,36 +81,36 @@ AUTOMATRIX_MIRROR = (
     "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror"
 )
 
-#: Les jeux d'essai, une base par release. Le fichier, lui, reste chez l'outil
-#: qui le propose : c'est lui qui sait s'il lui en faut un ou deux.
-#: Ces bases portent /download/, pas /tag/ -- /tag/ est la page web de la
-#: release, que GitHub sert en 200 et que les copies essayaient de dezipper.
+#: The test data sets, one base per release. The file itself stays with the
+#: tool that offers it: that tool is the one that knows whether it needs one or
+#: two. These bases carry /download/, not /tag/ -- /tag/ is the release's web
+#: page, which GitHub serves with a 200 and which the copies tried to unzip.
 CBCT_TEST_SCAN_RELEASE = "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1"
 ALIDDM_TEST_FILES = "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.4"
 
-#: Le meme scan sert a ALI CBCT et a AMASSS : un NIfTI **nu** de 99 Mo, pas une
-#: archive. Il etait recopie a l'identique dans AMASSS et deux fois dans ALI.
+#: The same scan serves ALI CBCT and AMASSS: a **bare** 99 MB NIfTI, not an
+#: archive. It was copied identically into AMASSS and twice into ALI.
 AMASSS_TEST_SCAN = f"{CBCT_TEST_SCAN_RELEASE}/MG_test_scan.nii.gz"
 
 # ---------------------------------------------------------------------------
-# Les jeux d'essai publiés en un seul fichier. Contrairement aux bases
-# ci-dessus, ce sont des adresses complètes : un jeu d'essai est une archive,
-# pas un catalogue dans lequel chaque outil choisit.
+# The test data sets published as a single file. Unlike the bases above, these
+# are complete addresses: a test data set is an archive, not a catalogue each
+# tool picks from.
 # ---------------------------------------------------------------------------
 
-#: Le jeu d'essai de MRI2CBCT. L'archive porte `TestFile/`, avec le CBCT et
-#: l'IRM d'origine (`CBCT_ori`, `MRI_ori`) et le triplet CBCT/IRM/segmentation
-#: déjà prétraité (`REG/CBCT`, `REG/MRI`, `REG/Seg`) qui nourrit les étapes
-#: suivantes.
+#: The MRI2CBCT test data set. The archive carries `TestFile/`, with the
+#: original CBCT and MRI (`CBCT_ori`, `MRI_ori`) and the already preprocessed
+#: CBCT/MRI/segmentation triplet (`REG/CBCT`, `REG/MRI`, `REG/Seg`) that feeds
+#: the following steps.
 MRI2CBCT_TEST_FILES = f"{BASE}/test_files/TestFile.zip"
 
-#: Le jeu d'essai de FlexReg : `TestFiles/T1_test_file.vtk` et
+#: The FlexReg test data set: `TestFiles/T1_test_file.vtk` and
 #: `T2_test_file.vtk`.
 #:
-#: Publié sur un dépôt personnel, et non sous DCBIA-OrthoLab comme tout le
-#: reste : la publication devrait migrer vers l'organisation, faute de quoi le
-#: bouton TestFile de FlexReg dépend d'un compte individuel. L'adresse reste
-#: celle qui répond aujourd'hui -- on ne peut pas republier à leur place.
+#: Published on a personal repository, and not under DCBIA-OrthoLab like
+#: everything else: the publication should migrate to the organisation, failing
+#: which FlexReg's TestFile button depends on an individual account. The address
+#: stays the one that answers today -- we cannot republish in their place.
 FLEXREG_TEST_FILES = (
     "https://github.com/GaelleLeroux/SlicerAutomatedDentalTools"
     "/releases/download/testfileFlexReg/TestFiles.zip"

@@ -8,25 +8,25 @@ module instead of something each copy has to remember.
 
 Standard library only: the CLIs call this from the Conda environment.
 
-TIMEPOINT-SUFFIX -- toujours pas implémenté, mais désormais à une seule ligne
-d'ici. L'identifiant est ce qui reste une fois les marqueurs coupés, et les
-seuls timepoints des jeux ci-dessous sont _T1 et _T2 : une entrée nommée
-P001_T3.nii.gz garde l'identifiant "P001_T3" et ne rencontre jamais le
-P001_T4.nii.gz du dossier T2. La paire est abandonnée, pas signalée.
+TIMEPOINT-SUFFIX -- still not implemented, but now a single line away from
+here. The identifier is what is left once the markers are cut off, and the only
+timepoints in the marker sets below are _T1 and _T2: an input named
+P001_T3.nii.gz keeps the identifier "P001_T3" and never meets the
+P001_T4.nii.gz of the T2 folder. The pair is dropped, not reported.
 
-L'accepter tient en une ligne dans `patient_id`, après la boucle :
+Accepting it takes one line in `patient_id`, after the loop:
 
     name = re.sub(r"_[Tt]\d+$", "", name)
 
-et elle vaut alors pour **tous** les jeux de marqueurs, ce qui n'était pas le
-cas quand dix sites portaient chacun leur chaîne. Ajoutée après la boucle, elle
-est strictement additive : un nom que la boucle réduisait déjà n'est pas touché.
-Attention tout de même à _T10, que "_T1" coupe aujourd'hui en "P001" -- ce
-défaut-là existe avant le changement et ne disparaît pas avec.
+and it then holds for **every** marker set, which was not the case when ten
+sites each carried their own chain. Added after the loop, it is strictly
+additive: a name the loop already shortened is untouched. Mind _T10 all the
+same, which "_T1" cuts today down to "P001" -- that defect exists before the
+change and does not go away with it.
 
-Laissé en l'état sciemment : accepter _T3 change quels scans s'apparient, ce
-qui est une décision et non un refactor. La réponse supportée reste de nommer
-les entrées _T1/_T2.
+Left as it is on purpose: accepting _T3 changes which scans get paired, which
+is a decision and not a refactor. The supported answer is still to name the
+inputs _T1/_T2.
 """
 
 # Cut longest-first where one marker contains another: _Scanreg before _Scan,
@@ -46,37 +46,37 @@ def patient_id(name, markers=PATIENT_ID_MARKERS):
         name = name.split(marker)[0]
     return name
 
-# Les autres jeux de marqueurs du dépôt. Ils ne sont pas fondus dans celui du
-# dessus parce qu'ils ne décrivent pas les mêmes fichiers : un même nom n'y
-# donne pas le même identifiant, et changer cela déciderait quels scans
-# s'apparient. Les nommer ici les rend au moins comparables côte à côte, et
-# fait que l'algorithme -- l'ordre des coupes, la partie fragile -- n'existe
-# qu'une fois.
+# The repository's other marker sets. They are not merged into the one above
+# because they do not describe the same files: the same name does not give the
+# same identifier in them, and changing that would decide which scans get
+# paired. Naming them here at least makes them comparable side by side, and
+# makes the algorithm -- the order of the cuts, the fragile part -- exist only
+# once.
 
-#: ASO, orientation CBCT. Coupe `_Scanreg` avant `_Scan`, et ignore les
-#: marqueurs d'anatomie (`_MAND`, `_MAX`, `_CB`) que le jeu par défaut retire.
+#: ASO, CBCT orientation. Cuts `_Scanreg` before `_Scan`, and ignores the
+#: anatomy markers (`_MAND`, `_MAX`, `_CB`) the default set strips.
 ASO_CBCT_MARKERS = (
     "_scan", "_Scanreg", "_Scan", "_Or", "_OR", "_lm", "_T1", "_T2", ".",
 )
 
-#: ASO_CBCT, le CLI. Même vocabulaire que ci-dessus mais dans un autre ordre --
-#: `_Or` d'abord -- et sans les timepoints, qui restent donc dans l'identifiant.
+#: ASO_CBCT, the CLI. Same vocabulary as above but in a different order --
+#: `_Or` first -- and without the timepoints, which therefore stay in the id.
 ASO_CBCT_CLI_MARKERS = (
     "_Or", "_OR", "_scan", "_Scanreg", "_Scan", "_lm", ".",
 )
 
-#: AREG, appariement IOS/CBCT. Volontairement court : il apparie des surfaces
-#: dont le nom ne porte ni anatomie ni timepoint.
+#: AREG, IOS/CBCT pairing. Deliberately short: it pairs surfaces whose name
+#: carries neither anatomy nor timepoint.
 AREG_IOSCBCT_MARKERS = ("_scan", "_Scanreg", "_lm")
 
-#: MRI2CBCT, recadrage TMJ. Le jeu par défaut plus dix-sept marqueurs propres à
-#: cette chaîne : segmentation, masque, prédiction, recadrage, côté, modalité.
+#: MRI2CBCT, TMJ crop. The default set plus seventeen markers specific to this
+#: pipeline: segmentation, mask, prediction, crop, side, modality.
 TMJ_CROP_MARKERS = PATIENT_ID_MARKERS[:-1] + (
     "_seg", "_Seg", "_mask", "_Mask", "_pred", "_Pred", "_crop", "_Crop",
     "_Left", "_left", "_Right", "_right", "_approximate", "_Approximate",
     "_CBCT", "_MRI", "_MR", ".",
 )
 
-#: Retirer le suffixe d'un fichier de points de repère, sans toucher au reste
-#: du nom. Utilisé là où l'identifiant complet n'est pas ce qu'on cherche.
+#: Strip the suffix of a landmark file, without touching the rest of the name.
+#: Used where the full identifier is not what is being looked for.
 LANDMARK_SUFFIX_MARKERS = ("_lm", "_Or", ".")

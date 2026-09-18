@@ -74,7 +74,7 @@ def check_lib_installed(lib_name, required_version=None):
     except importlib.metadata.PackageNotFoundError:
         logger.info("%s is not installed", lib_name)
         return False
-    except Exception as error:                      # métadonnées illisibles
+    except Exception as error:                      # unreadable metadata
         logger.warning("could not read the version of %s: %s", lib_name, error)
         return False
 
@@ -144,7 +144,7 @@ def torch_cuda_builds_agree(libs=TORCH_FAMILY, lookup=None):
     feeds a warning, use `torch_cuda_conflict` instead.
 
     AMASSS's own copy compared the first pair and returned on it, so a
-    torchaudio out of step with the other two answered « agree ». This one
+    torchaudio out of step with the other two answered "agree". This one
     compares the whole set.
     """
     labels = torch_cuda_labels(libs, lookup)

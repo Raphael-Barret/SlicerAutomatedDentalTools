@@ -171,7 +171,7 @@ def update_line_edit_and_combo_box(parent):
                 }
             """)
         except (AttributeError, RuntimeError):
-            # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+            # A widget without that method, or whose C++ object is already gone.
             pass
     
     # Update QLineEdit

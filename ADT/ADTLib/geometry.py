@@ -1,18 +1,18 @@
-"""Matrices, transformations et vecteurs partagés par les outils de surface.
+"""Matrices, transforms and vectors shared by the surface tools.
 
-Chacune de ces fonctions existait en deux à quatre exemplaires **strictement
-identiques**, dans `AREG_IOS_utils`, `ASO_IOS_utils`, `FlexReg_Method` et
-`ASO_CBCT_utils` -- mesuré ligne à ligne, pas estimé. Les variantes qui
-divergent réellement (le `RotationMatrix` de FlexReg, le `TransformSurf`
-d'ALI_IOS) restent chez elles : les fondre demanderait de trancher laquelle a
-raison, ce qui n'est pas un refactor.
+Each of these functions existed in two to four **strictly identical** copies,
+in `AREG_IOS_utils`, `ASO_IOS_utils`, `FlexReg_Method` and `ASO_CBCT_utils` --
+measured line by line, not estimated. The variants that really diverge
+(FlexReg's `RotationMatrix`, ALI_IOS's `TransformSurf`) stay where they are:
+merging them would take a decision about which one is right, which is not a
+refactor.
 
-FlexReg_Method gagne au passage `TransformDict` et `TransformList`, que son
-`ApplyTransform` appelait sans qu'elles y soient définies -- un `NameError`
-garanti dès qu'on lui passait autre chose qu'un maillage.
+FlexReg_Method gains `TransformDict` and `TransformList` along the way, which
+its `ApplyTransform` called without them being defined there -- a guaranteed
+`NameError` as soon as it was handed anything other than a mesh.
 
-Importé depuis l'environnement Conda par les CLI, donc rien ici ne dépend de
-Slicer ni de Qt. vtk et numpy suffisent, et les appelants les ont déjà.
+Imported from the Conda environment by the CLIs, so nothing here depends on
+Slicer or Qt. vtk and numpy are enough, and the callers already have them.
 """
 import numpy as np
 import vtk

@@ -1,44 +1,43 @@
-"""Lire et écrire un maillage de surface, en un seul endroit.
+"""Read and write a surface mesh, in a single place.
 
-`ReadSurf` existait en cinq exemplaires et `WriteSurf` en quatre, et contrairement
-aux fonctions déjà partagées ici, **ceux-là avaient divergé**. Les différences
-mesurées, et ce qui a été retenu :
+`ReadSurf` existed in five copies and `WriteSurf` in four, and unlike the
+functions already shared here, **those had diverged**. The measured differences,
+and what was kept:
 
 `ReadSurf`
-  - `ASO/IOS_utils/Reader.py` et `ASO_IOS_utils/utils.py` calculaient `fname` à
-    partir de `basename(path)`. Le fichier `.mtl` d'un `.obj` était donc cherché
-    dans le **répertoire courant**, pas à côté du maillage : la branche « avec
-    matériau » ne se déclenchait pour ainsi dire jamais. Les trois autres
-    gardaient le chemin complet, et c'est ce qui est retenu.
-  - Ces deux mêmes copies posaient le chemin des textures dans un `if/else` dont
-    les deux branches calculaient la même valeur — du code mort issu d'un
-    copier-coller. Retenu : la forme des trois autres, qui ne pose le chemin
-    `../images` que s'il existe.
-  - `.off` n'était lu que par trois des cinq. Il l'est maintenant par toutes.
-  - Une extension inconnue renvoyait `surf` jamais affecté, donc un
-    `UnboundLocalError` opaque, dans trois copies sur cinq. `AREG_IOS` et
-    `ALI_IOS` levaient déjà `ValueError` : retenu.
-  - Un fichier absent ne faisait rien lever : les lecteurs VTK renvoient un
-    maillage vide en silence, et l'erreur n'apparaissait que bien plus loin,
-    dans le recalage. `ALI_IOS` vérifiait déjà l'existence et le nombre de
-    points : retenu pour tout le monde. **C'est le seul changement qui peut
-    faire échouer un traitement qui « passait » avant** — il échouait déjà, plus
-    tard et sans dire pourquoi.
+  - `ASO/IOS_utils/Reader.py` and `ASO_IOS_utils/utils.py` computed `fname` from
+    `basename(path)`. The `.mtl` file of an `.obj` was therefore looked up in the
+    **current working directory**, not next to the mesh: the "with material"
+    branch practically never fired. The other three kept the full path, and that
+    is what was kept.
+  - Those same two copies set the texture path in an `if/else` whose two
+    branches computed the same value -- dead code from a copy-paste. Kept: the
+    shape of the other three, which only sets the `../images` path when it
+    exists.
+  - `.off` was read by only three of the five. It is now read by all of them.
+  - An unknown extension returned a never-assigned `surf`, hence an opaque
+    `UnboundLocalError`, in three copies out of five. `AREG_IOS` and `ALI_IOS`
+    already raised `ValueError`: kept.
+  - A missing file raised nothing: the VTK readers silently return an empty
+    mesh, and the error only surfaced much later, during registration.
+    `ALI_IOS` already checked existence and the point count: kept for everyone.
+    **This is the only change that can make a run fail where it "passed"
+    before** -- it was already failing, later and without saying why.
 
 `WriteSurf`
-  - `ASO_IOS_utils` choisissait le rédacteur d'après l'extension ; les autres
-    écrivaient toujours du VTK hérité *sous le nom d'origine*, donc des octets
-    VTK dans un fichier nommé `.vtp` ou `.obj`. Retenu : le rédacteur suit
-    l'extension, et une extension sans rédacteur connu force `.vtk`, nom compris.
-  - `os.mkdir` (trois copies) échoue si le parent manque et sur un dossier créé
-    entre-temps par un autre processus : `os.makedirs(..., exist_ok=True)`.
-  - Celle d'ASO ne prenait pas de `inname` et forçait `.vtk` quoi qu'il arrive.
-    Le seul appel concerné convertit un maillage pour la segmentation, et c'est
-    bien un `.vtk` qu'il veut : il le demande maintenant explicitement dans le
-    nom qu'il passe, plutôt que la fonction le décide pour tous.
+  - `ASO_IOS_utils` picked the writer from the extension; the others always
+    wrote legacy VTK *under the original name*, hence VTK bytes in a file named
+    `.vtp` or `.obj`. Kept: the writer follows the extension, and an extension
+    with no known writer forces `.vtk`, name included.
+  - `os.mkdir` (three copies) fails when the parent is missing and on a folder
+    created meanwhile by another process: `os.makedirs(..., exist_ok=True)`.
+  - The ASO one took no `inname` and forced `.vtk` no matter what. The single
+    call site concerned converts a mesh for segmentation, and a `.vtk` is indeed
+    what it wants: it now asks for that explicitly in the name it passes, rather
+    than the function deciding for everyone.
 
-Importé depuis l'environnement Conda par les CLI : vtk suffit, Slicer et Qt ne
-sont pas requis.
+Imported from the Conda environment by the CLIs: vtk is enough, Slicer and Qt
+are not required.
 """
 import os
 
@@ -50,18 +49,18 @@ logger = get_logger(__name__)
 
 
 class OFFReader:
-    """Lecteur OFF minimal, avec l'interface des lecteurs vtk.
+    """Minimal OFF reader, with the interface of the vtk readers.
 
-    Les deux exemplaires (`ASO/IOS_utils/Reader.py`, `ASO_IOS_utils/OFFReader.py`)
-    étaient identiques au caractère près, préambule de journalisation mis à part.
-    Deux défauts corrigés au passage :
+    The two copies (`ASO/IOS_utils/Reader.py`, `ASO_IOS_utils/OFFReader.py`) were
+    identical character for character, logging preamble aside. Two defects fixed
+    along the way:
 
-    - `__init__` affectait des variables locales `FileName` et `Output` au lieu
-      des attributs, si bien qu'un `GetOutput()` avant `Update()` levait
-      `AttributeError` au lieu de renvoyer `None` ;
-    - un en-tête invalide faisait `raise ("Not a valid OFF header")`, c'est-à-dire
-      lever une chaîne : `TypeError: exceptions must derive from BaseException`,
-      qui masque le vrai message.
+    - `__init__` assigned local variables `FileName` and `Output` instead of the
+      attributes, so that a `GetOutput()` before `Update()` raised
+      `AttributeError` instead of returning `None`;
+    - an invalid header did `raise ("Not a valid OFF header")`, that is, raising
+      a string: `TypeError: exceptions must derive from BaseException`, which
+      hides the real message.
     """
 
     def __init__(self):
@@ -117,7 +116,7 @@ class OFFReader:
 
 
 def _read_obj_with_material(file_name, fname):
-    """Un `.obj` accompagné de son `.mtl`, importé puis aplati en un maillage."""
+    """An `.obj` together with its `.mtl`, imported then flattened into one mesh."""
     obj_import = vtk.vtkOBJImporter()
     obj_import.SetFileName(file_name)
     obj_import.SetFileNameMTL(fname + ".mtl")
@@ -137,13 +136,13 @@ def _read_obj_with_material(file_name, fname):
 
 
 def ReadSurf(file_name):
-    """Le maillage contenu dans `fileName`, quel qu'en soit le format.
+    """The mesh contained in `fileName`, whatever its format.
 
-    Formats lus : `.vtk`, `.vtp`, `.stl`, `.off`, `.obj` (avec son `.mtl` s'il
-    est à côté). Lève `FileNotFoundError` si le fichier manque, `ValueError` si
-    l'extension n'est pas reconnue ou si le maillage lu est vide — les lecteurs
-    vtk renvoyant un maillage vide plutôt qu'une erreur, c'est le seul moyen de
-    distinguer « illisible » de « vide ».
+    Formats read: `.vtk`, `.vtp`, `.stl`, `.off`, `.obj` (with its `.mtl` when it
+    sits next to it). Raises `FileNotFoundError` when the file is missing,
+    `ValueError` when the extension is not recognised or when the mesh read is
+    empty -- since the vtk readers return an empty mesh rather than an error,
+    this is the only way to tell "unreadable" from "empty".
     """
     if not os.path.exists(file_name):
         raise FileNotFoundError(f"File does not exist: {file_name}")
@@ -180,9 +179,9 @@ def ReadSurf(file_name):
     return surf
 
 
-# Quelle extension va avec quel rédacteur. Ce qui n'y figure pas est écrit en
-# VTK hérité, et le nom de sortie prend `.vtk` pour ne pas mentir sur son
-# contenu -- c'est ce que faisait déjà la copie d'ASO_IOS.
+# Which extension goes with which writer. Anything not listed here is written as
+# legacy VTK, and the output name takes `.vtk` so as not to lie about its
+# contents -- that is what the ASO_IOS copy already did.
 _WRITERS = {
     ".vtk": vtk.vtkPolyDataWriter,
     ".vtp": vtk.vtkXMLPolyDataWriter,
@@ -191,11 +190,11 @@ _WRITERS = {
 
 
 def WriteSurf(surf, output_folder, name, inname=""):
-    """Écrit `surf` dans `output_folder`, sous le nom de `name` suffixé d'`inname`.
+    """Write `surf` into `output_folder`, under `name` suffixed with `inname`.
 
-    `name` peut être un chemin complet : seule sa fin est utilisée.
-    `inname` s'insère entre le nom et l'extension, d'où `A2_Seg.vtk` + `Or`
-    qui donne `A2_SegOr.vtk`. Renvoie le chemin écrit.
+    `name` may be a full path: only its tail is used.
+    `inname` is inserted between the name and the extension, hence `A2_Seg.vtk`
+    + `Or` giving `A2_SegOr.vtk`. Returns the path written.
     """
     name = os.path.basename(name)
     name, extension = os.path.splitext(name)
@@ -211,8 +210,8 @@ def WriteSurf(surf, output_folder, name, inname=""):
     writer.SetInputData(surf)
     writer.Update()
 
-    # vtk signale un échec d'écriture par un code de retour que personne ne lit,
-    # et le traitement continuait sur un fichier absent.
+    # vtk reports a write failure through a return code nobody reads, and the
+    # run went on with a file that was not there.
     if not os.path.exists(output_path):
         raise RuntimeError(f"WriteSurf failed: {output_path} was not created")
 

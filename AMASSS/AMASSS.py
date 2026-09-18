@@ -38,7 +38,9 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import update_line_edit_and_combo_box
-from ADTLib.env.deps import TORCH_FAMILY, requirement, torch_cuda_builds_agree
+from ADTLib.env.deps import (
+    TORCH_FAMILY, check_lib_installed as lib_satisfies, requirement,
+    torch_cuda_builds_agree)
 import platform
 
 # --- LOGGING CONFIGURATION ---
@@ -73,33 +75,33 @@ def fix_numpy_version():
         return True
     return False
 
-def check_lib_installed(lib_name, required_version=None,system="Windows"):
+def check_lib_installed(lib_name, required_version=None, system=None):
     '''
     Check if the library with the good version (if needed) is already installed in the slicer environment
     input: lib_name (str) : name of the library
             required_version (str) : required version of the library (if None, any version is accepted)
     output: bool : True if the library is installed with the good version, False otherwise
+
+    `system` no longer changes the answer -- it used to gate the CUDA check on
+    Windows -- but the call site still passes it and it says which platform the
+    install branch will take, so it stays.
     '''
-    if system == "Windows" and lib_name in TORCH_FAMILY:
+    if lib_name in TORCH_FAMILY and not torch_cuda_builds_agree():
       # The three are installed together, from download.pytorch.org/whl/cuXXX,
-      # so the question is not this one's version but whether all three came
-      # from the same build. Answering no reinstalls the set.
+      # on both platforms: a set that does not come from one build is one to
+      # reinstall whatever its version says. This used to run on Windows only,
+      # so on Linux the mismatch nobody can read back to its cause -- an
+      # `undefined symbol` deep inside a model -- went unnoticed.
       #
       # The copy this replaces compared the first pair and returned on it, so a
-      # torchaudio out of step with the other two answered « agree ». The
-      # shared one compares the whole set, and reads the installed metadata
-      # instead of importing torch, which is slow and noisy.
-      return torch_cuda_builds_agree()
+      # torchaudio out of step with the other two answered « agree ».
+      return False
 
-    try:
-        installed_version = _get_installed_version(lib_name)
-        # check if the version is the good one - if required_version != None it's considered as a True
-        if required_version and installed_version != required_version:
-          return False
-        else:
-          return True
-    except importlib_metadata.PackageNotFoundError:
-        return False
+    # And the version itself, which string equality could not answer: a `>=`
+    # constraint never matched, so dicom2nifti and nnunetv2 were proposed for
+    # reinstallation at every run, on every machine; and `2.2.0+cu118` read as
+    # « not 2.2.0 », so a CUDA wheel always looked wrong.
+    return lib_satisfies(lib_name, required_version)
 
 def install_function(self,list_libs:list,system:str):
     '''

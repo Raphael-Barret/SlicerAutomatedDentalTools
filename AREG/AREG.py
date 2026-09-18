@@ -1,4 +1,4 @@
-import os, sys,time, traceback, zipfile, urllib.request, shutil
+import os, sys,time, traceback
 import vtk, qt, slicer
 from qt import (
     QWidget,
@@ -90,6 +90,7 @@ from ADTLib.env.conda import (
 from ADTLib.format import format_timer
 from ADTLib.requests import AREGRequest
 from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.testdata import ensure_with_progress, TestDataError
 
 
 def _get_installed_version(lib_name):
@@ -1103,61 +1104,68 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def DownloadUnzip(
         self, url, directory, folder_name=None, num_downl=1, total_downloads=1
     ):
-        out_path = os.path.join(directory, folder_name)
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
-            temp_path = os.path.join(directory, "temp.zip")
+        """The folder holding this dataset, downloaded only when it is missing.
 
-            # Download the zip file from the url
-            with urllib.request.urlopen(url) as response, open(
-                temp_path, "wb"
-            ) as out_file:
-                # Pop up a progress bar with a QProgressDialog
-                progress = qt.QProgressDialog(
-                    "Downloading {} (File {}/{})".format(
-                        folder_name.split(os.sep)[0], num_downl, total_downloads
-                    ),
-                    "Cancel",
-                    0,
-                    100,
-                    self.parent,
-                )
-                progress.setCancelButton(None)
-                progress.setWindowModality(qt.Qt.WindowModal)
-                progress.setWindowTitle(
-                    "Downloading {}...".format(folder_name.split(os.sep)[0])
-                )
-                progress.show()
-                length = response.info().get("Content-Length")
-                if length:
-                    length = int(length)
-                    blocksize = max(4096, length // 100)
-                    read = 0
-                    while True:
-                        buffer = response.read(blocksize)
-                        if not buffer:
-                            break
-                        read += len(buffer)
-                        out_file.write(buffer)
-                        progress.setValue(read * 100.0 / length)
-                        qt.QApplication.processEvents()
-                shutil.copyfileobj(response, out_file)
+        The work belongs to `ADTLib.testdata`, which this module shares with the
+        six others that carried the same copy. What the copy here got wrong, and
+        the shared one does not: it created the destination folder *before*
+        downloading, so a cancelled or failed download left an empty folder that
+        every later call read as « already there ». And nothing checked what the
+        server actually sent -- a mistyped release link answers 200 with a web
+        page, which then failed as « not a zip file ».
+        """
+        return ensure_with_progress(
+            url,
+            directory,
+            folder_name,
+            parent=self.parent,
+            title="Downloading {} (File {}/{})".format(
+                folder_name.split(os.sep)[0], num_downl, total_downloads
+            ),
+        )
 
-            # Unzip the file
-            with zipfile.ZipFile(temp_path, "r") as zip:
-                zip.extractall(out_path)
+    def testFileListForMode(self):
+        """The (name, url) of the test set for the mode and input type in use.
 
-            # Delete the zip file
-            os.remove(temp_path)
-
-        return out_path
+        `getTestFileListDCM` is only defined by `Or_Auto_CBCT`; for every other
+        mode the base class answers `None`, which unpacked as a `TypeError` with
+        nothing in it for the user. Those modes are reachable only while
+        `isDCMInput` stays False -- `SwitchType` forces it off outside CBCT mode
+        0 -- so the mistake never showed. Say it instead of relying on that.
+        """
+        if self.isDCMInput:
+            files = self.ActualMeth.getTestFileListDCM()
+            if not files:
+                raise TestDataError(
+                    "%s publishes no DICOM test set. Switch the CBCT input type "
+                    "back to NIfTI to use its test files." % self.ActualMethName)
+            return files
+        files = self.ActualMeth.getTestFileList()
+        if not files:
+            raise TestDataError(
+                "%s publishes no test set." % self.ActualMethName)
+        return files
 
     def TestFiles(self):
-        """Function to download and select all the test files"""
-        if self.isDCMInput:
-            name, url = self.ActualMeth.getTestFileListDCM()
-        else:
-            name, url = self.ActualMeth.getTestFileList()
+        """Fill every field of the selected mode from its published test set.
+
+        The download is a chain -- scans, then whichever models the mode asks
+        for -- and any link of it can fail on a bad address or on the network.
+        Reported as a message rather than as a traceback in the Python console,
+        which is where it went until now.
+        """
+        try:
+            self.FillFromTestFiles()
+        except TestDataError as error:
+            qt.QMessageBox.warning(self.parent, "Test Files", str(error))
+        except OSError as error:
+            qt.QMessageBox.warning(
+                self.parent, "Test Files",
+                "The test files could not be downloaded: %s" % error)
+
+    def FillFromTestFiles(self):
+        """Download the test set of the current mode and fill in its fields."""
+        name, url = self.testFileListForMode()
 
         logger.info(f"Test file name: {name}")
         logger.info(f"Test file url: {url}")
@@ -1195,6 +1203,15 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.lineEditMaskT1Path.setText(lm_folder_t1)
                 self.ui.lineEditT2LMPath.setText(lm_folder_t2)
 
+            if self.ActualMethName == "Semi_CBCT":
+                # The semi-automated mode registers on masks the user supplies,
+                # and its TestProcess refuses to start without that folder --
+                # which the button left empty. The published set keeps them in
+                # a <patient>_SegOut folder under T1, so T1 is what to hand
+                # over; it is also the folder AREG_CBCT falls back to on its
+                # own when the field is empty.
+                self.ui.lineEditMaskT1Path.setText(scan_folder_t1)
+
             self.ui.LabelInfoPreProc.setText(
                 "Number of Patients to process : " + str(nb_scans)
             )
@@ -1212,6 +1229,31 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.downloadModel(
                     lineEdit=self.ui.lineEditModel2, name="Orientation", test=True
                 )
+        if self.type == "IOS":
+            # The button downloaded the scans and stopped there, leaving every
+            # model field empty -- and both IOS modes refuse to run without the
+            # registration model. `SwitchModeIOS` names the fields: Model1 the
+            # segmentation, Model2 the orientation reference, Model3 the
+            # registration checkpoint.
+            if self.isMGLRegistration():
+                # MGL builds its patch from the ALI landmarks, so the field
+                # that holds the palatal checkpoint holds the ALI models
+                # instead, and neither orientation field is shown.
+                self.downloadModel(
+                    lineEdit=self.ui.lineEditModel3, name="ALI", test=True
+                )
+            else:
+                self.downloadModel(
+                    lineEdit=self.ui.lineEditModel3, name="Registration", test=True
+                )
+                if self.ActualMethName == "Auto_IOS":
+                    # Only the mode that orients asks for these two.
+                    self.downloadModel(
+                        lineEdit=self.ui.lineEditModel1, name="Segmentation", test=True
+                    )
+                    self.downloadModel(
+                        lineEdit=self.ui.lineEditModel2, name="Reference", test=True
+                    )
         if self.type == "IOSCBCT":
             if self.ActualMethName == "Auto_IOSCBCT":
                 self.SearchModelALI(self.CBCTOrientRef)

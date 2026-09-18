@@ -999,10 +999,17 @@ def GetPatients(folder_path, time_point="T1", segmentationType=None, folder_mask
     file_list = GetListFiles(folder_path, file_extension + json_extension)
     
     # Get mask files from mask folder if provided
+    # The mask folder can be the scan folder itself: the published
+    # semi-automated set keeps its masks in a <patient>_SegOut folder under T1,
+    # so T1 is what the mask field gets. Belonging to the mask folder outranks
+    # the name below, so every file there counted as a mask, the scan became
+    # "segT1" and the patient was left with no scan at all. Same folder: let
+    # the name classify, exactly as when the field is empty.
     mask_files = []
-    if folder_mask and os.path.exists(folder_mask):
+    if folder_mask and os.path.exists(folder_mask) \
+            and os.path.realpath(folder_mask) != os.path.realpath(folder_path):
         mask_files = GetListFiles(folder_mask, file_extension)
-    
+
     # Combine both lists
     all_files = file_list + mask_files
     

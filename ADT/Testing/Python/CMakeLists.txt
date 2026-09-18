@@ -33,3 +33,7 @@ slicer_add_python_unittest(SCRIPT test_pip_requirements.py)
 # Le rapatriement d un jeu de test : archive ou non, page HTML refusee,
 # et un telechargement interrompu qui ne doit pas passer pour complet.
 slicer_add_python_unittest(SCRIPT test_testdata.py)
+
+# Ou l agent d ALI CBCT a le droit de se poser : la ligne qui en decidait
+# acceptait les coordonnees negatives et refusait la marge rembourree.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_bounds.py)

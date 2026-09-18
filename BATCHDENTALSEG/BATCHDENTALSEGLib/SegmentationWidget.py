@@ -93,7 +93,7 @@ class PipRunner(qt.QObject):
         super().__init__(parent)
         self._onLine     = onLine
         self._onFinished = onFinished
-        self._proc       = qt.QProcess(self)           # vie = celle du runner
+        self._proc       = qt.QProcess(self)           # lifetime = that of the runner
 
         # — configuration process —
         self._proc.setProgram(sys.executable)          # PythonSlicer

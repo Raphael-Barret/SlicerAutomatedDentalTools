@@ -1,9 +1,9 @@
 name: CI
 
-# Le harnais existe depuis longtemps -- 141 tests synthétiques, ni scan, ni
-# modèle, ni GPU, en quelques secondes -- mais rien ne le lançait : deux d'entre
-# eux sont restés cassés sur main du commit ad5d96f jusqu'à ce qu'un audit les
-# exécute à la main. C'est ce que ce fichier corrige.
+# The harness had been there for a long time -- 141 synthetic tests, no scan,
+# no model, no GPU, done in seconds -- but nothing ran it: two of them stayed
+# broken on main from commit ad5d96f until an audit ran them by hand. That is
+# what this file fixes.
 
 on:
   push:
@@ -27,8 +27,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # Les suites sont synthétiques mais s'appuient sur les bibliothèques de
-      # maillage ; elles n'ont besoin ni de Slicer, ni de GPU, ni de données.
+      # The suites are synthetic but lean on the mesh libraries; they need
+      # neither Slicer, nor a GPU, nor any data.
       - run: python -m pip install --upgrade pip numpy vtk pyvista SimpleITK
       - name: unittest
         run: |

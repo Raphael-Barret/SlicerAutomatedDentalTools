@@ -47,6 +47,14 @@ def search(path, *args, sort=False, files_only=False):
         else:
             arguments.append(arg)
 
+    # Un chemin vide donnait le motif `/**/*` : glob repartait de la racine du
+    # disque et Slicer se figeait. On l'atteint en lancant AREG IOS avec le
+    # champ « Registration Model Folder » vide (AREG_Method/IOS.py). Un dossier
+    # inexistant rendait deja un resultat vide -- glob n'y trouve rien -- donc
+    # c'est le meme contrat qu'on applique ici, sans parcourir quoi que ce soit.
+    if not path or not os.path.isdir(path):
+        return {key: [] for key in arguments}
+
     entries = list(
         glob.iglob(os.path.normpath("/".join([path, "**", "*"])), recursive=True)
     )

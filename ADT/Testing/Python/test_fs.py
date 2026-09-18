@@ -83,5 +83,23 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(search(self.tmp.name), {})
 
 
+class EmptyPathTest(unittest.TestCase):
+    """Un chemin vide ne doit pas partir de la racine du disque.
+
+    `search("")` construisait le motif `/**/*` : glob parcourait tout le
+    systeme de fichiers et Slicer se figeait. On y arrive en lancant AREG IOS
+    avec le champ du dossier de modeles vide.
+    """
+
+    def test_an_empty_path_finds_nothing(self):
+        self.assertEqual(search("", ".ckpt"), {".ckpt": []})
+
+    def test_a_missing_directory_finds_nothing(self):
+        self.assertEqual(search("/aucun-dossier-de-ce-nom", "json"), {"json": []})
+
+    def test_every_asked_key_is_still_present(self):
+        self.assertEqual(search("", "json", [".vtk", ".nrrd"]),
+                         {"json": [], ".vtk": [], ".nrrd": []})
+
 if __name__ == "__main__":
     unittest.main()

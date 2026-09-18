@@ -1795,8 +1795,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if caller.GetStatus() & caller.Completed:
             if caller.GetStatus() & caller.ErrorsMask:
                 # error
-                out = self._briefCliOutput(caller.GetOutputText())
-                err = self._briefCliOutput(caller.GetErrorText())
+                out = self.logic._briefCliOutput(caller.GetOutputText())
+                err = self.logic._briefCliOutput(caller.GetErrorText())
                 qt.QTimer.singleShot(0, lambda: logger.error(
                     "========= PROCESS COMPLETED WITH ERRORS =========\n"
                     f"{out}\n========= ERROR DETAILS =========\n{err}"
@@ -1810,7 +1810,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # Writing a whole CLI's output here fills the pipe with no reader
                 # left and the main thread blocks in write() for ever - a batch of
                 # three patients through ALI is already enough to do it.
-                cli_output = self._briefCliOutput(caller.GetOutputText())
+                cli_output = self.logic._briefCliOutput(caller.GetOutputText())
                 qt.QTimer.singleShot(0, lambda: logger.info(
                     f"========= PROCESS COMPLETED SUCCESSFULLY =========\n{cli_output}"
                 ))
@@ -1821,17 +1821,6 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     MAX_CLI_OUTPUT_CHARS = 8000
 
     @classmethod
-    def _briefCliOutput(cls, text) -> str:
-        """The tail of a CLI's output, small enough to never fill the stdout pipe."""
-        text = text or ""
-        if len(text) <= cls.MAX_CLI_OUTPUT_CHARS:
-            return text
-        kept = text[-cls.MAX_CLI_OUTPUT_CHARS:]
-        return (
-            f"[... {len(text) - len(kept)} characters omitted, "
-            f"full output in the Slicer log ...]\n{kept}"
-        )
-
     def advanceToNextProcess(self):
         """Launch the next step of the run, or finish if there is none left."""
         try:
@@ -2118,31 +2107,6 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     ids.add(Review.patientIdFromFileName(name))
         return ids
 
-    def previousCorrectableStep(self):
-        """The nearest step behind this one the user can actually change.
-
-        Looking at a bad orientation is useless without a way back to the
-        landmarks that caused it. Steps that only ever get looked at are
-        skipped over, so the button lands where something can be done.
-
-        Returns:
-            tuple: (step, steps to replay after it), or (None, []) if there is
-                nothing correctable behind the current one
-        """
-        current = self.review_step or {}
-        history = self.executed_steps
-        try:
-            # the last time this step ran, not the first
-            here = len(history) - 1 - history[::-1].index(current)
-        except ValueError:
-            return None, []
-
-        for i in range(here - 1, -1, -1):
-            kind = Review.describe(history[i].get("ReviewId", "")).get("kind")
-            if kind in (Review.LANDMARKS, Review.REGISTRATION):
-                return history[i], history[i + 1:here + 1]
-        return None, []
-
     def updateReviewButtons(self):
         """Show the actions this patient, and this step, actually allow.
 
@@ -2164,7 +2128,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.ReviewNextPatientButton.setEnabled(index < total - 1)
 
         # Marking is only worth offering when there is somewhere to go back to.
-        target, _ = self.previousCorrectableStep()
+        target, _ = self.logic.previousCorrectableStep(self.executed_steps)
         self.ui.ReviewFlagButton.setVisible(target is not None)
         if session.isFlagged():
             self.ui.ReviewFlagButton.setText("Cancel - this patient is fine")
@@ -2213,7 +2177,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         the results it already has, and a run of fifty does not start over
         because one case was wrong.
         """
-        target, replay = self.previousCorrectableStep()
+        target, replay = self.logic.previousCorrectableStep(self.executed_steps)
         if target is None:
             logger.warning("Nothing correctable behind this step")
             return
@@ -3324,3 +3288,39 @@ class AREGLogic(ScriptedLoadableModuleLogic):
             dropped = self.conda_output_dropped
             self.conda_output_dropped = 0
         return "\n".join(taken), dropped
+    def _briefCliOutput(cls, text) -> str:
+        """The tail of a CLI's output, small enough to never fill the stdout pipe."""
+        text = text or ""
+        if len(text) <= cls.MAX_CLI_OUTPUT_CHARS:
+            return text
+        kept = text[-cls.MAX_CLI_OUTPUT_CHARS:]
+        return (
+            f"[... {len(text) - len(kept)} characters omitted, "
+            f"full output in the Slicer log ...]\n{kept}"
+        )
+    def previousCorrectableStep(self, executed_steps):
+        """The nearest step behind this one the user can actually change.
+
+        Looking at a bad orientation is useless without a way back to the
+        landmarks that caused it. Steps that only ever get looked at are
+        skipped over, so the button lands where something can be done.
+
+        Returns:
+            tuple: (step, steps to replay after it), or (None, []) if there is
+                nothing correctable behind the current one
+        """
+        current = self.review_step or {}
+        history = executed_steps
+        try:
+            # the last time this step ran, not the first
+            here = len(history) - 1 - history[::-1].index(current)
+        except ValueError:
+            return None, []
+
+        for i in range(here - 1, -1, -1):
+            kind = Review.describe(history[i].get("ReviewId", "")).get("kind")
+            if kind in (Review.LANDMARKS, Review.REGISTRATION):
+                return history[i], history[i + 1:here + 1]
+        return None, []
+
+

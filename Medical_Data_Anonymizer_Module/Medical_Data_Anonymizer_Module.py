@@ -52,6 +52,10 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
 
+        # L'anonymisation elle-meme vit dans le Logic : elle ne touche a aucun
+        # widget et se teste sans lancer Slicer.
+        self.logic = Medical_Data_Anonymizer_ModuleLogic()
+
         # Detect dark mode
         isDarkMode = self._isDarkMode()
         
@@ -580,7 +584,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                     from xml.etree import ElementTree as ET
                     tree = ET.parse(input_file_path)
                     root = tree.getroot()
-                    full_text = self.extract_text_from_xml(root)
+                    full_text = self.logic.extract_text_from_xml(root)
                 
                 elif file_ext == ".odt":
                     from odf import opendocument, text
@@ -596,7 +600,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                     raise ValueError(f"Unsupported file type: {file_ext}")
                 
                 # Anonymize using Presidio
-                anonymized_text = self.anonymize_text_presidio(
+                anonymized_text = self.logic.anonymize_text_presidio(
                     full_text,
                     analyzer,
                     anonymizer,
@@ -624,7 +628,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                 elif file_ext == ".pdf":
                     new_file_name = file.replace(".pdf", "_anonymized.pdf")
                     output_path = os.path.join(output_folder, new_file_name)
-                    self.save_str_pdf(anonymized_text, output_path)
+                    self.logic.save_str_pdf(anonymized_text, output_path)
                 
                 elif file_ext == ".csv":
                     import csv
@@ -688,6 +692,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
 
         self.progressBar.setVisible(False)
 
+class Medical_Data_Anonymizer_ModuleLogic(ScriptedLoadableModuleLogic):
     def save_str_pdf(self, text, filename):
         from reportlab.platypus import SimpleDocTemplate, Preformatted
         from reportlab.lib.styles import getSampleStyleSheet
@@ -765,8 +770,6 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                 text += child.tail + " "
         return text
 
-class Medical_Data_Anonymizer_ModuleLogic(ScriptedLoadableModuleLogic):
-    pass
 
 class Medical_Data_Anonymizer_ModuleTest(ScriptedLoadableModuleTest):
     pass

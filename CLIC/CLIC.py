@@ -10,7 +10,7 @@ from typing import List
 
 # Slicer / Qt
 import slicer, qt
-from slicer.ScriptedLoadableModule import ScriptedLoadableModule, ScriptedLoadableModuleWidget
+from slicer.ScriptedLoadableModule import ScriptedLoadableModule, ScriptedLoadableModuleWidget, ScriptedLoadableModuleLogic
 from slicer.util import VTKObservationMixin
 import json
 
@@ -111,6 +111,9 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def setup(self):
         super().setup()
+
+        # Ce qui ne touche pas a l'interface vit dans le Logic.
+        self.logic = CLICLogic()
         w = slicer.util.loadUI(self.resourcePath("UI/CLIC.ui"))
         self.layout.addWidget(w)
         self.uiWidget = w  # Store reference for styling
@@ -224,7 +227,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self._ensure_env():
             self._toggle_ui(False)
             return
-        scans = self._collect_scans(self.input_path)
+        scans = self.logic._collect_scans(self.input_path)
         if not scans:
             qt.QMessageBox.warning(self.parent, "Input", "No scan found.")
             self._toggle_ui(False)
@@ -302,21 +305,6 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if p:
             setattr(self, attr, p)
             getattr(self.ui, le_name).setText(p)
-
-    def _collect_scans(self, root) -> List[Path]:
-        p = Path(root)
-        exts = (".nii", ".nii.gz", ".nrrd", ".mha", ".mhd")
-        
-        def is_valid_scan(f):
-            """Check if file has valid scan extension (including multi-part like .nii.gz)"""
-            name_lower = f.name.lower()
-            return any(name_lower.endswith(ext) for ext in exts)
-        
-        if p.is_dir():
-            # Look for subdirs containing valid scans
-            dcm = [d for d in p.iterdir() if d.is_dir() and any(is_valid_scan(f) for f in d.iterdir())]
-            return sorted(dcm) if dcm else sorted(f for f in p.iterdir() if is_valid_scan(f))
-        return [p]
 
     def _download_model(self):
         import requests
@@ -423,3 +411,28 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def initializeParameterNode(self):
         pass
+
+
+class CLICLogic(ScriptedLoadableModuleLogic):
+    """Ce que CLIC fait, independamment de son interface.
+
+    La classe n'existait pas : Slicer impose la triade Widget / Logic / Test et
+    CLIC n'avait que le widget. Elle est creee ici pour recevoir ce qui n'a pas
+    besoin de Qt, en commencant par la decouverte des scans -- qui devient du
+    meme coup testable sans lancer Slicer.
+    """
+    def _collect_scans(self, root) -> List[Path]:
+        p = Path(root)
+        exts = (".nii", ".nii.gz", ".nrrd", ".mha", ".mhd")
+        
+        def is_valid_scan(f):
+            """Check if file has valid scan extension (including multi-part like .nii.gz)"""
+            name_lower = f.name.lower()
+            return any(name_lower.endswith(ext) for ext in exts)
+        
+        if p.is_dir():
+            # Look for subdirs containing valid scans
+            dcm = [d for d in p.iterdir() if d.is_dir() and any(is_valid_scan(f) for f in d.iterdir())]
+            return sorted(dcm) if dcm else sorted(f for f in p.iterdir() if is_valid_scan(f))
+        return [p]
+

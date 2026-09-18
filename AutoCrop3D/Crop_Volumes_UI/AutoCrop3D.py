@@ -538,62 +538,6 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 
-    def Search(self,path : str,*args ) :
-        """
-        Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
-        Example:
-        args = ('json',['.nii.gz','.nrrd'])
-        return:
-            {
-                'json' : ['path/a.json', 'path/b.json','path/c.json'],
-                '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
-                '.nrrd.gz' : ['path/c.nrrd']
-            }
-
-        Input : Path of the folder/file, list of the type (str) of file we need
-        Output : dictionnary with the key and the associated path
-        """
-
-        arguments=[]
-
-        for arg in args:
-            if type(arg) == list:
-                arguments.extend(arg)
-
-            else:
-                arguments.append(arg)
-
-
-        result = {}  # Initialize an empty dictionary
-
-        for key in arguments:
-
-            files_matching_key = [] # empty list 'files_matching_key' to store the file paths that end with the current 'key'
-
-            true_path = str(path)
-            if os.path.isdir(true_path):
-                # Use 'glob.iglob' to find all file paths ending with the current 'key' in the 'path' directory
-                # and store the generator object returned by 'glob.iglob' in a variable 'files_generator'
-
-                files_list = glob.iglob(os.path.join(true_path,'**', '*'),recursive=True)
-                for i in files_list:
-
-                    if i.endswith(key):
-                        # If the file path ends with the current 'key', append it to the 'files_matching_key' list
-                        files_matching_key.append(i)
-
-
-
-            else :  # if a file is choosen
-                if true_path.endswith(key) :
-                    files_matching_key.append(path)
-
-            # Assign the resulting list to the 'key' in the 'result' dictionary
-            result[key] = files_matching_key
-
-        return result
-
-
     def CheckInput(self):
         """
         function to check all input and put a pop "error" window
@@ -612,8 +556,8 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             warning_text = warning_text + "Choose a ROI file (.json)" + "\n"
 
         else :
-            self.list_roi=self.Search(self.ui.editPathVolume.text,".mrk.json")
-            self.list_patient=self.Search(self.ui.editPathF.text,".nii.gz",".nrrd.gz",".gipl.gz") #dictionnary with all path of file (working on folder or file)
+            self.list_roi=self.logic.Search(self.ui.editPathVolume.text,".mrk.json")
+            self.list_patient=self.logic.Search(self.ui.editPathF.text,".nii.gz",".nrrd.gz",".gipl.gz") #dictionnary with all path of file (working on folder or file)
 
             isfile = False
             isroi = False
@@ -667,31 +611,6 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.checkBoxSize.setChecked(False)
         self.ui.checkBoxCV.setChecked(False)
 
-    def ChangeKeyDict(self,list_files : list) -> dict:
-        """
-        Return a dictionary with the name of the patient being the key and the path of the file being the value.
-        Example:
-        list_files = ['path/a.json', 'path/b.json','path/c.json']
-        return:
-            {
-                'a' : 'path/a_ROI.mrk.json',
-                'b' : 'path/b_ROI.mrk.json',
-                'c' : 'path/c_ROI.mrk.json'
-            }
-
-        Input : Dictionary with the extension of the file as key and the list of the path of the file as value
-        Output : dictionnary with the key and the associated path
-        """
-        result = {}  # Initialize an empty dictionary
-
-        for key, value in list_files.items():
-            for file in value:
-                patient = os.path.basename(file).split('_')[0]
-                result[patient] = file
-
-        return result
-
-
     def saveOutput(self, outputQueue,outputVolume,path_input,patient_path,output_dir,suffix):
         """
         Save the output volume to a file.
@@ -722,10 +641,10 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def processCropVolume(self,path_input,path_ROI,output_dir,suffix):
         index =0
-        ScanList = self.Search(path_input, ".nii.gz",".nii",".nrrd.gz",".nrrd",".gipl.gz",".gipl")
+        ScanList = self.logic.Search(path_input, ".nii.gz",".nii",".nrrd.gz",".nrrd",".gipl.gz",".gipl")
         if os.path.isdir(path_ROI):
-            ROIList = self.Search(path_ROI,".mrk.json")
-            ROI_dict = self.ChangeKeyDict(ROIList)
+            ROIList = self.logic.Search(path_ROI,".mrk.json")
+            ROI_dict = self.logic.ChangeKeyDict(ROIList)
         else:
             ROIList = None
 
@@ -870,6 +789,87 @@ class AutoCrop3DLogic(ScriptedLoadableModuleLogic):
         self.cliNode = slicer.cli.run(CLI_autoCrop3D,None, parameters)
 
         return CLI_autoCrop3D
+    def Search(self,path : str,*args ) :
+        """
+        Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
+        Example:
+        args = ('json',['.nii.gz','.nrrd'])
+        return:
+            {
+                'json' : ['path/a.json', 'path/b.json','path/c.json'],
+                '.nii.gz' : ['path/a.nii.gz', 'path/b.nii.gz']
+                '.nrrd.gz' : ['path/c.nrrd']
+            }
+
+        Input : Path of the folder/file, list of the type (str) of file we need
+        Output : dictionnary with the key and the associated path
+        """
+
+        arguments=[]
+
+        for arg in args:
+            if type(arg) == list:
+                arguments.extend(arg)
+
+            else:
+                arguments.append(arg)
+
+
+        result = {}  # Initialize an empty dictionary
+
+        for key in arguments:
+
+            files_matching_key = [] # empty list 'files_matching_key' to store the file paths that end with the current 'key'
+
+            true_path = str(path)
+            if os.path.isdir(true_path):
+                # Use 'glob.iglob' to find all file paths ending with the current 'key' in the 'path' directory
+                # and store the generator object returned by 'glob.iglob' in a variable 'files_generator'
+
+                files_list = glob.iglob(os.path.join(true_path,'**', '*'),recursive=True)
+                for i in files_list:
+
+                    if i.endswith(key):
+                        # If the file path ends with the current 'key', append it to the 'files_matching_key' list
+                        files_matching_key.append(i)
+
+
+
+            else :  # if a file is choosen
+                if true_path.endswith(key) :
+                    files_matching_key.append(path)
+
+            # Assign the resulting list to the 'key' in the 'result' dictionary
+            result[key] = files_matching_key
+
+        return result
+
+
+    def ChangeKeyDict(self,list_files : list) -> dict:
+        """
+        Return a dictionary with the name of the patient being the key and the path of the file being the value.
+        Example:
+        list_files = ['path/a.json', 'path/b.json','path/c.json']
+        return:
+            {
+                'a' : 'path/a_ROI.mrk.json',
+                'b' : 'path/b_ROI.mrk.json',
+                'c' : 'path/c_ROI.mrk.json'
+            }
+
+        Input : Dictionary with the extension of the file as key and the list of the path of the file as value
+        Output : dictionnary with the key and the associated path
+        """
+        result = {}  # Initialize an empty dictionary
+
+        for key, value in list_files.items():
+            for file in value:
+                patient = os.path.basename(file).split('_')[0]
+                result[patient] = file
+
+        return result
+
+
 
 #
 # AutoCrop3DTest

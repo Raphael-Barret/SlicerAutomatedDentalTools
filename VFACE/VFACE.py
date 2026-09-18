@@ -367,51 +367,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logger.error(f"Error reloading custom modules: {e}")
 
     @staticmethod
-    def widenCapturedPipes() -> None:
-        """Give Slicer's captured output more room than the default 64 KB.
-
-        Precaution, not a proven cure. What is established: long VFACE runs have
-        frozen several times with the main thread in `pipe_write` on the pipe
-        Slicer captures its own stdout into, zero CPU, never recovering. What is
-        not established: what fills it. Writing 200 KB from inside a VTK observer
-        callback - the shape the freeze was blamed on - does NOT deadlock, with
-        or without a main window, so that explanation is wrong or incomplete.
-
-        Widening suppresses no output and changes no behaviour; it only raises
-        the ceiling from 64 KB to whatever the kernel allows, typically 1 MB,
-        against a whole run's console output of roughly 100 KB. If the freeze
-        really is an accumulation, this removes it; if it is something else, this
-        costs nothing. Do not read it as the fix until a run confirms it.
-
-        Fails quietly wherever it does not apply - Windows, output redirected to
-        a file rather than a pipe, a kernel that refuses - because a smaller pipe
-        is not worth failing over.
-        """
-        try:
-            import fcntl
-        except ImportError:
-            return  # not a POSIX platform; nothing to widen
-        F_SETPIPE_SZ, F_GETPIPE_SZ = 1031, 1032
-        try:
-            with open("/proc/sys/fs/pipe-max-size") as fh:
-                target = int(fh.read().strip())
-        except (OSError, ValueError):
-            target = 1024 * 1024
-        for fd in (1, 2):
-            try:
-                if not stat.S_ISFIFO(os.fstat(fd).st_mode):
-                    continue
-                before = fcntl.fcntl(fd, F_GETPIPE_SZ)
-                if before >= target:
-                    continue
-                fcntl.fcntl(fd, F_SETPIPE_SZ, target)
-                logger.info(
-                    f"Captured output fd{fd} widened {before} -> "
-                    f"{fcntl.fcntl(fd, F_GETPIPE_SZ)} bytes"
-                )
-            except (OSError, ValueError) as e:
-                logger.warning(f"Could not widen fd{fd}, leaving it as it is: {e}")
-
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
@@ -419,7 +374,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Before anything else writes: the deadlock this avoids takes the whole
         # application down, and an undersized pipe is only a problem once it is
         # already full.
-        self.widenCapturedPipes()
+        self.logic.widenCapturedPipes()
 
         self.reloadCustomModules()
 
@@ -1749,18 +1704,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         logger.info(f"{kept} step(s) will pause for review")
         return kept
 
-    def shouldPauseAfterProcess(self, process_info: dict) -> bool:
-        """
-        Determine if process execution should pause for visualization review.
-
-        Args:
-            process_info: Process information dictionary
-
-        Returns:
-            bool: True if pause is requested, False otherwise
-        """
-        return process_info.get("pause_for_visualization", False)
-
     def runPatientIds(self) -> set:
         """The patients this run is about, read from the folder it was given.
 
@@ -1787,20 +1730,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return ids
 
     @staticmethod
-    def belongsToRun(patient: str, wanted_ids: set) -> bool:
-        """Whether a produced file's id names one of the run's patients.
-
-        Usually the ids match outright. Some steps append a marker that
-        patientIdFromFileName does not know how to strip - the heatmaps come out
-        as "C_0001_Mandible_ModelDistance" - which leaves a longer id built on
-        the patient's own. Those still belong to the run, so accept an id that
-        extends an expected one at a separator. "C_0001" must not swallow
-        "C_00011", hence the boundary rather than a bare startswith.
-        """
-        if patient in wanted_ids:
-            return True
-        return any(patient.startswith(w + "_") for w in wanted_ids)
-
     def buildPauseQueue(self, process_info: dict) -> list:
         """
         Build one review item per patient for the step that just finished.
@@ -1858,7 +1787,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     continue
                 patient = patientIdFromFileName(name)
                 path = os.path.join(root, name)
-                if wanted_ids is not None and not self.belongsToRun(patient, wanted_ids):
+                if wanted_ids is not None and not self.logic.belongsToRun(patient, wanted_ids):
                     skipped.add(patient)
                     held_back.setdefault(patient, []).append(path)
                     continue
@@ -1940,7 +1869,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Returns:
             bool: True if the run is now paused and must not advance
         """
-        if not self.shouldPauseAfterProcess(process_info):
+        if not self.logic.shouldPauseAfterProcess(process_info):
             return False
         if not self.ui.checkBox_2.isChecked():
             return False
@@ -2227,19 +2156,10 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             display.SetPointLabelsVisibility(True)
 
         self.pause_markups_nodes.append(node)
-        self.pause_markups_start[node.GetID()] = self.markupsPositions(node)
+        self.pause_markups_start[node.GetID()] = self.logic.markupsPositions(node)
         return node
 
     @staticmethod
-    def markupsPositions(node) -> list:
-        """Control point positions of a markups node, in order."""
-        positions = []
-        for i in range(node.GetNumberOfControlPoints()):
-            position = [0.0, 0.0, 0.0]
-            node.GetNthControlPointPosition(i, position)
-            positions.append(tuple(position))
-        return positions
-
     def savePauseEdits(self) -> None:
         """
         Write back the landmark files whose points the user moved.
@@ -2255,7 +2175,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 continue
 
             before = self.pause_markups_start.get(node.GetID())
-            after = self.markupsPositions(node)
+            after = self.logic.markupsPositions(node)
             if before == after:
                 logger.info(f"{os.path.basename(path)} unchanged, not rewritten")
                 continue
@@ -2287,7 +2207,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         matrix = vtk.vtkMatrix4x4()
         transform.GetMatrixTransformToParent(matrix)
-        if self.isIdentityMatrix(matrix):
+        if self.logic.isIdentityMatrix(matrix):
             logger.info(f"{item['patient']}: registration left as AREG produced it")
             return
 
@@ -2321,7 +2241,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # leaves two matrices in a file every other tool expects to hold one, and
         # a second manual correction would stack a third. The product is exactly
         # equivalent - checked point by point - so there is nothing to lose.
-        composed = self.flattenIfAffine(composed, areg, nudge.GetInverse())
+        composed = self.logic.flattenIfAffine(composed, areg, nudge.GetInverse())
 
         try:
             sitk.WriteTransform(composed, path)
@@ -2333,46 +2253,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.saveAdjustedVolume(item, transform)
 
     @staticmethod
-    def flattenIfAffine(composite, first, second):
-        """One matrix instead of two, when both parts are affine.
-
-        CompositeTransform([A, B]) moves a point as A(B(p)), which is the product
-        of their matrices. Collapsing keeps the file to a single transform, so
-        nothing downstream has to know an adjustment happened - which is what the
-        pipeline assumed all along.
-
-        Returns the composite untouched if either part is not affine: correctness
-        first, tidiness second.
-
-        Args:
-            composite: The composed transform, returned as-is on any doubt
-            first: Transform applied second to a point
-            second: Transform applied first to a point
-
-        Returns:
-            A single AffineTransform, or the composite unchanged
-        """
-        import numpy as np
-        import SimpleITK as sitk
-
-        def as_matrix(t):
-            affine = sitk.AffineTransform(t)      # raises unless truly affine
-            m = np.eye(4)
-            m[:3, :3] = np.array(affine.GetMatrix()).reshape(3, 3)
-            m[:3, 3] = affine.GetTranslation()
-            return m
-
-        try:
-            product = as_matrix(first) @ as_matrix(second)
-        except Exception as e:
-            logger.info(f"Keeping a composite transform, not both parts are affine: {e}")
-            return composite
-
-        flat = sitk.AffineTransform(3)
-        flat.SetMatrix(product[:3, :3].flatten().tolist())
-        flat.SetTranslation(product[:3, 3].tolist())
-        return flat
-
     def saveAdjustedVolume(self, item: dict, transform) -> None:
         """
         Write the moved scan back, so the surfaces and heatmaps match the matrix.
@@ -2401,24 +2281,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
     @staticmethod
-    def isIdentityMatrix(matrix, tolerance: float = 1e-9) -> bool:
-        """
-        Tell whether a 4x4 holds no displacement at all.
-
-        Args:
-            matrix: vtkMatrix4x4 to test
-            tolerance: Largest deviation still counted as identity
-
-        Returns:
-            bool: True if the matrix is the identity within tolerance
-        """
-        for row in range(4):
-            for col in range(4):
-                expected = 1.0 if row == col else 0.0
-                if abs(matrix.GetElement(row, col) - expected) > tolerance:
-                    return False
-        return True
-
     def clearPauseNodes(self) -> None:
         """Remove the nodes the previous review item put in the scene."""
         for node in self.pause_nodes:
@@ -2918,11 +2780,11 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         log_path = None
         try:
             if callable(self.python_process):
-                with self.outputToFile() as log_path:
+                with self.logic.outputToFile() as log_path:
                     result = self.python_process(**self.python_parameters)
                 logger.info(
                     f"Result of {self.module_name}: {result} "
-                    f"(in {self.readableDuration(time.time() - started)})"
+                    f"(in {self.logic.readableDuration(time.time() - started)})"
                 )
                 self.python_process_completed = True
             else:
@@ -2948,61 +2810,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         qt.QTimer.singleShot(100, self.checkPythonProcessStatus)
 
     @contextlib.contextmanager
-    def outputToFile(self):
-        """
-        Send everything a step prints to a file instead of Slicer's own pipe.
-
-        Slicer captures its standard output into a pipe it drains from the Qt
-        event loop. A python step runs with that loop stopped, so nothing drains
-        the pipe while it prints: a talkative one - the segmentation prints per
-        epoch - fills it and the main thread blocks in write() for ever, with a
-        window that never comes back. Writing to a file cannot block, which is
-        why the heatmap workers already do this.
-
-        The redirection is at file-descriptor level on purpose: torch and the
-        segmentation write from C, straight to fd 1, where swapping sys.stdout
-        would not catch them.
-
-        Yields:
-            str: path of the file the step's output was written to
-        """
-        handle = tempfile.NamedTemporaryFile(
-            mode="w+", suffix=".log", prefix="vface_step_", delete=False
-        )
-        saved_out, saved_err = None, None
-        saved_sys_out, saved_sys_err = sys.stdout, sys.stderr
-        try:
-            for stream in (sys.stdout, sys.stderr):
-                try:
-                    stream.flush()
-                except (AttributeError, OSError, ValueError):
-                    # Le flux peut etre deja ferme, ou valoir None quand Slicer
-                    # tourne sans console. Pas de journalisation ici : elle
-                    # ecrirait dans le flux meme qu on est en train de defaire.
-                    pass
-            saved_out = os.dup(1)
-            saved_err = os.dup(2)
-            os.dup2(handle.fileno(), 1)
-            os.dup2(handle.fileno(), 2)
-            sys.stdout, sys.stderr = handle, handle
-            yield handle.name
-        finally:
-            sys.stdout, sys.stderr = saved_sys_out, saved_sys_err
-            try:
-                handle.flush()
-            except (OSError, ValueError):
-                pass
-            if saved_out is not None:
-                os.dup2(saved_out, 1)
-                os.close(saved_out)
-            if saved_err is not None:
-                os.dup2(saved_err, 2)
-                os.close(saved_err)
-            try:
-                handle.close()
-            except (OSError, ValueError):
-                pass
-
     def _reportStepOutput(self, log_path: str, keep_lines: int = 12) -> None:
         """
         Put the tail of a step's own output back in the log, and drop the file.
@@ -3030,23 +2837,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         logger.info(f"{self.module_name} said:\n{prefix}" + "\n".join(shown))
 
     @staticmethod
-    def readableDuration(seconds: float) -> str:
-        """
-        Spell out a duration the way the CLI steps already report theirs.
-
-        Args:
-            seconds: Elapsed seconds
-
-        Returns:
-            str: Human readable duration
-        """
-        seconds = int(seconds)
-        if seconds < 60:
-            return f"{seconds}s"
-        if seconds < 3600:
-            return f"{seconds // 60}min and {seconds % 60}s"
-        return f"{seconds // 3600}h, {seconds % 3600 // 60}min and {seconds % 60}s"
-
     def checkPythonProcessStatus(self):
         """Check Python process status"""
         if self.python_process_completed:
@@ -3077,17 +2867,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     MAX_CLI_OUTPUT_CHARS = 8000
 
     @classmethod
-    def _briefCliOutput(cls, text) -> str:
-        """The tail of a CLI's output, small enough to never fill the stdout pipe."""
-        text = text or ""
-        if len(text) <= cls.MAX_CLI_OUTPUT_CHARS:
-            return text
-        kept = text[-cls.MAX_CLI_OUTPUT_CHARS:]
-        return (
-            f"[... {len(text) - len(kept)} characters omitted, "
-            f"full output in the Slicer log ...]\n{kept}"
-        )
-
     def onCliUpdated(self, caller, event):
         import time
 
@@ -3121,7 +2900,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # output, but _briefCliOutput keeps only a tail and a longer run
             # could push it out.
             self.collectMissingLandmarks(full_output)
-            cli_output = self._briefCliOutput(full_output)
+            cli_output = self.logic._briefCliOutput(full_output)
 
             # CompletedWithErrors is Completed | ErrorsMask, so the test above is
             # also true of a CLI that died. Without this branch the failure was
@@ -3130,7 +2909,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # the empty folders the dead one never filled, reporting success.
             if status & slicer.vtkMRMLCommandLineModuleNode.ErrorsMask:
                 failed_module = self.module_name
-                cli_error = self._briefCliOutput(caller.GetErrorText())
+                cli_error = self.logic._briefCliOutput(caller.GetErrorText())
                 qt.QTimer.singleShot(0, lambda: logger.error(
                     f"\n\n ========= {failed_module} FAILED ========= \n{cli_output}"
                     f"\n ========= ERROR DETAILS ========= \n{cli_error}"
@@ -3326,6 +3105,227 @@ class VFACELogic(ScriptedLoadableModuleLogic):
 
         stopTime = time.time()
         logger.info(f"Processing completed in {stopTime-startTime:.2f} seconds")
+    def belongsToRun(patient: str, wanted_ids: set) -> bool:
+        """Whether a produced file's id names one of the run's patients.
+
+        Usually the ids match outright. Some steps append a marker that
+        patientIdFromFileName does not know how to strip - the heatmaps come out
+        as "C_0001_Mandible_ModelDistance" - which leaves a longer id built on
+        the patient's own. Those still belong to the run, so accept an id that
+        extends an expected one at a separator. "C_0001" must not swallow
+        "C_00011", hence the boundary rather than a bare startswith.
+        """
+        if patient in wanted_ids:
+            return True
+        return any(patient.startswith(w + "_") for w in wanted_ids)
+
+    def markupsPositions(node) -> list:
+        """Control point positions of a markups node, in order."""
+        positions = []
+        for i in range(node.GetNumberOfControlPoints()):
+            position = [0.0, 0.0, 0.0]
+            node.GetNthControlPointPosition(i, position)
+            positions.append(tuple(position))
+        return positions
+
+    def flattenIfAffine(composite, first, second):
+        """One matrix instead of two, when both parts are affine.
+
+        CompositeTransform([A, B]) moves a point as A(B(p)), which is the product
+        of their matrices. Collapsing keeps the file to a single transform, so
+        nothing downstream has to know an adjustment happened - which is what the
+        pipeline assumed all along.
+
+        Returns the composite untouched if either part is not affine: correctness
+        first, tidiness second.
+
+        Args:
+            composite: The composed transform, returned as-is on any doubt
+            first: Transform applied second to a point
+            second: Transform applied first to a point
+
+        Returns:
+            A single AffineTransform, or the composite unchanged
+        """
+        import numpy as np
+        import SimpleITK as sitk
+
+        def as_matrix(t):
+            affine = sitk.AffineTransform(t)      # raises unless truly affine
+            m = np.eye(4)
+            m[:3, :3] = np.array(affine.GetMatrix()).reshape(3, 3)
+            m[:3, 3] = affine.GetTranslation()
+            return m
+
+        try:
+            product = as_matrix(first) @ as_matrix(second)
+        except Exception as e:
+            logger.info(f"Keeping a composite transform, not both parts are affine: {e}")
+            return composite
+
+        flat = sitk.AffineTransform(3)
+        flat.SetMatrix(product[:3, :3].flatten().tolist())
+        flat.SetTranslation(product[:3, 3].tolist())
+        return flat
+
+    def isIdentityMatrix(matrix, tolerance: float = 1e-9) -> bool:
+        """
+        Tell whether a 4x4 holds no displacement at all.
+
+        Args:
+            matrix: vtkMatrix4x4 to test
+            tolerance: Largest deviation still counted as identity
+
+        Returns:
+            bool: True if the matrix is the identity within tolerance
+        """
+        for row in range(4):
+            for col in range(4):
+                expected = 1.0 if row == col else 0.0
+                if abs(matrix.GetElement(row, col) - expected) > tolerance:
+                    return False
+        return True
+
+    def readableDuration(seconds: float) -> str:
+        """
+        Spell out a duration the way the CLI steps already report theirs.
+
+        Args:
+            seconds: Elapsed seconds
+
+        Returns:
+            str: Human readable duration
+        """
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds}s"
+        if seconds < 3600:
+            return f"{seconds // 60}min and {seconds % 60}s"
+        return f"{seconds // 3600}h, {seconds % 3600 // 60}min and {seconds % 60}s"
+
+    def _briefCliOutput(cls, text) -> str:
+        """The tail of a CLI's output, small enough to never fill the stdout pipe."""
+        text = text or ""
+        if len(text) <= cls.MAX_CLI_OUTPUT_CHARS:
+            return text
+        kept = text[-cls.MAX_CLI_OUTPUT_CHARS:]
+        return (
+            f"[... {len(text) - len(kept)} characters omitted, "
+            f"full output in the Slicer log ...]\n{kept}"
+        )
+
+    def shouldPauseAfterProcess(self, process_info: dict) -> bool:
+        """
+        Determine if process execution should pause for visualization review.
+
+        Args:
+            process_info: Process information dictionary
+
+        Returns:
+            bool: True if pause is requested, False otherwise
+        """
+        return process_info.get("pause_for_visualization", False)
+
+    def outputToFile(self):
+        """
+        Send everything a step prints to a file instead of Slicer's own pipe.
+
+        Slicer captures its standard output into a pipe it drains from the Qt
+        event loop. A python step runs with that loop stopped, so nothing drains
+        the pipe while it prints: a talkative one - the segmentation prints per
+        epoch - fills it and the main thread blocks in write() for ever, with a
+        window that never comes back. Writing to a file cannot block, which is
+        why the heatmap workers already do this.
+
+        The redirection is at file-descriptor level on purpose: torch and the
+        segmentation write from C, straight to fd 1, where swapping sys.stdout
+        would not catch them.
+
+        Yields:
+            str: path of the file the step's output was written to
+        """
+        handle = tempfile.NamedTemporaryFile(
+            mode="w+", suffix=".log", prefix="vface_step_", delete=False
+        )
+        saved_out, saved_err = None, None
+        saved_sys_out, saved_sys_err = sys.stdout, sys.stderr
+        try:
+            for stream in (sys.stdout, sys.stderr):
+                try:
+                    stream.flush()
+                except (AttributeError, OSError, ValueError):
+                    # Le flux peut etre deja ferme, ou valoir None quand Slicer
+                    # tourne sans console. Pas de journalisation ici : elle
+                    # ecrirait dans le flux meme qu on est en train de defaire.
+                    pass
+            saved_out = os.dup(1)
+            saved_err = os.dup(2)
+            os.dup2(handle.fileno(), 1)
+            os.dup2(handle.fileno(), 2)
+            sys.stdout, sys.stderr = handle, handle
+            yield handle.name
+        finally:
+            sys.stdout, sys.stderr = saved_sys_out, saved_sys_err
+            try:
+                handle.flush()
+            except (OSError, ValueError):
+                pass
+            if saved_out is not None:
+                os.dup2(saved_out, 1)
+                os.close(saved_out)
+            if saved_err is not None:
+                os.dup2(saved_err, 2)
+                os.close(saved_err)
+            try:
+                handle.close()
+            except (OSError, ValueError):
+                pass
+
+    def widenCapturedPipes() -> None:
+        """Give Slicer's captured output more room than the default 64 KB.
+
+        Precaution, not a proven cure. What is established: long VFACE runs have
+        frozen several times with the main thread in `pipe_write` on the pipe
+        Slicer captures its own stdout into, zero CPU, never recovering. What is
+        not established: what fills it. Writing 200 KB from inside a VTK observer
+        callback - the shape the freeze was blamed on - does NOT deadlock, with
+        or without a main window, so that explanation is wrong or incomplete.
+
+        Widening suppresses no output and changes no behaviour; it only raises
+        the ceiling from 64 KB to whatever the kernel allows, typically 1 MB,
+        against a whole run's console output of roughly 100 KB. If the freeze
+        really is an accumulation, this removes it; if it is something else, this
+        costs nothing. Do not read it as the fix until a run confirms it.
+
+        Fails quietly wherever it does not apply - Windows, output redirected to
+        a file rather than a pipe, a kernel that refuses - because a smaller pipe
+        is not worth failing over.
+        """
+        try:
+            import fcntl
+        except ImportError:
+            return  # not a POSIX platform; nothing to widen
+        F_SETPIPE_SZ, F_GETPIPE_SZ = 1031, 1032
+        try:
+            with open("/proc/sys/fs/pipe-max-size") as fh:
+                target = int(fh.read().strip())
+        except (OSError, ValueError):
+            target = 1024 * 1024
+        for fd in (1, 2):
+            try:
+                if not stat.S_ISFIFO(os.fstat(fd).st_mode):
+                    continue
+                before = fcntl.fcntl(fd, F_GETPIPE_SZ)
+                if before >= target:
+                    continue
+                fcntl.fcntl(fd, F_SETPIPE_SZ, target)
+                logger.info(
+                    f"Captured output fd{fd} widened {before} -> "
+                    f"{fcntl.fcntl(fd, F_GETPIPE_SZ)} bytes"
+                )
+            except (OSError, ValueError) as e:
+                logger.warning(f"Could not widen fd{fd}, leaving it as it is: {e}")
+
 
 
 #

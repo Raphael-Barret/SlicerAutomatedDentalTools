@@ -60,6 +60,7 @@ from ADTLib.model_registry import ADT_MODELS
 from ADTLib.requests import VFACERequest
 from ADTLib.model_registry import AMASSS_CBCT, AREG_CBCT_TEST_FILES, ASO_CBCT_GOLD, AUTOMATRIX_MIRROR, SLICER_TESTING_DATA, VFACE_MODELS
 from ADTLib.testdata import TestDataError, ensure_with_progress
+from ADTLib.theming import apply_button_style
 import time
 import traceback
 
@@ -729,117 +730,29 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for child in parent.children():
                 self._styleAllCheckboxes(child, stylesheet)
 
+    #: Every button on the standard accent. The cancel button is the only one
+    #: on the danger accent.
+    STANDARD_BUTTONS = (
+        "applyButton", "CheckDependencyButton", "continueButton",
+        "DefaultListButton", "TestFilesButton",
+        "reviewSelectAllButton", "reviewSelectNoneButton",
+        "reviewSelectRecommendedButton",
+        "reviewPrevPatientButton", "reviewNextPatientButton",
+        "reviewFlagButton", "reviewGoBackButton",
+    )
+
     def _applyButtonStyleSheets(self, isDarkMode: bool) -> None:
-        """Apply button-specific stylesheets."""
-        if isDarkMode:
-            # Dark mode button styles
-            standard_button_style = """
-            QPushButton {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4ba3ff, stop:1 #3498db);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-weight: 600;
-              font-size: 10pt;
-              padding: 8px;
-              margin-top: 4px;
-            }
-            QPushButton:hover:!pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5cb3ff, stop:1 #2980b9);
-            }
-            QPushButton:pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2980b9, stop:1 #1f618d);
-            }
-            QPushButton:disabled {
-              background-color: #555555;
-              color: #888888;
-            }
-            """
-            
-            cancel_button_style = """
-            QPushButton {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #c0392b);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-weight: 600;
-              font-size: 10pt;
-              padding: 8px;
-              margin-top: 4px;
-            }
-            QPushButton:hover:!pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ec7063, stop:1 #a93226);
-            }
-            QPushButton:pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #a93226, stop:1 #922b21);
-            }
-            QPushButton:disabled {
-              background-color: #555555;
-              color: #888888;
-            }
-            """
-        else:
-            # Light mode button styles
-            standard_button_style = """
-            QPushButton {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4ba3ff, stop:1 #3498db);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-weight: 600;
-              font-size: 10pt;
-              padding: 8px;
-              margin-top: 4px;
-            }
-            QPushButton:hover:!pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5cb3ff, stop:1 #2980b9);
-            }
-            QPushButton:pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2980b9, stop:1 #1f618d);
-            }
-            QPushButton:disabled {
-              background-color: #bdc3c7;
-              color: #95a5a6;
-            }
-            """
-            
-            cancel_button_style = """
-            QPushButton {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #c0392b);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-weight: 600;
-              font-size: 10pt;
-              padding: 8px;
-              margin-top: 4px;
-            }
-            QPushButton:hover:!pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ec7063, stop:1 #a93226);
-            }
-            QPushButton:pressed {
-              background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #a93226, stop:1 #922b21);
-            }
-            QPushButton:disabled {
-              background-color: #bdc3c7;
-              color: #95a5a6;
-            }
-            """
-        
-        # Apply standard style to most buttons
-        for button_name in ['applyButton', 'CheckDependencyButton', 'continueButton',
-                           'DefaultListButton', 'TestFilesButton',
-                           'reviewSelectAllButton', 'reviewSelectNoneButton',
-                           'reviewSelectRecommendedButton',
-                           'reviewPrevPatientButton', 'reviewNextPatientButton',
-                           'reviewFlagButton', 'reviewGoBackButton']:
-            if hasattr(self.ui, button_name):
-                button = getattr(self.ui, button_name)
-                button.setStyleSheet(standard_button_style)
-        
-        # Apply cancel style to cancel button
-        if hasattr(self.ui, 'cancelButton'):
-            self.ui.cancelButton.setStyleSheet(cancel_button_style)
+        """Apply button-specific stylesheets.
+
+        The four sheets spelled out here -- standard and cancel, each in dark
+        and light -- were one 477-character template with seven colours, and
+        dark differed from light only in the two `:disabled` colours. They come
+        from ADTLib now, which reproduces them to the character: the four
+        strings it returns were compared byte for byte with the four this
+        replaced.
+        """
+        apply_button_style(self.ui, self.STANDARD_BUTTONS, "primary", isDarkMode)
+        apply_button_style(self.ui, ("cancelButton",), "danger", isDarkMode)
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""

@@ -223,3 +223,73 @@ def update_line_edit_and_combo_box(parent):
     if hasattr(parent, 'children'):
         for child in parent.children():
             update_line_edit_and_combo_box(child)
+
+# ---------------------------------------------------------------------------
+# The button sheet VFACE carried four times.
+#
+# Those four blocks -- standard/cancel x dark/light -- were byte-identical once
+# every colour was replaced by a token: one 477-character template, seven
+# colours. And dark and light differed only in the two `:disabled` colours; the
+# gradients were the same. So what looked like four stylesheets is one template,
+# two accents and two disabled pairs.
+#
+# Only the accent and the disabled pair are parameters. Everything else -- the
+# radius, the weight, the padding, the indentation -- is reproduced to the
+# character, because these sheets are what the user sees and this move is meant
+# to change nothing on screen.
+# ---------------------------------------------------------------------------
+
+#: Each accent gives the three gradients: normal, hover, pressed.
+BUTTON_ACCENTS = {
+    "primary": (("#4ba3ff", "#3498db"), ("#5cb3ff", "#2980b9"), ("#2980b9", "#1f618d")),
+    "danger": (("#e74c3c", "#c0392b"), ("#ec7063", "#a93226"), ("#a93226", "#922b21")),
+}
+
+#: Background and foreground of a disabled button, per palette.
+BUTTON_DISABLED = {True: ("#555555", "#888888"), False: ("#bdc3c7", "#95a5a6")}
+
+
+def button_stylesheet(accent="primary", dark=None):
+    """The stylesheet of a push button, for one accent and one palette.
+
+    `accent` is a key of `BUTTON_ACCENTS`; `dark` defaults to what the
+    application currently shows.
+    """
+    if dark is None:
+        dark = is_dark_mode()
+    (normal, hover, pressed) = BUTTON_ACCENTS[accent]
+    (off_background, off_text) = BUTTON_DISABLED[bool(dark)]
+    gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 %s, stop:1 %s)"
+    return (
+        "\n"
+        "            QPushButton {\n"
+        "              background-color: " + gradient % normal + ";\n"
+        "              color: white;\n"
+        "              border: none;\n"
+        "              border-radius: 6px;\n"
+        "              font-weight: 600;\n"
+        "              font-size: 10pt;\n"
+        "              padding: 8px;\n"
+        "              margin-top: 4px;\n"
+        "            }\n"
+        "            QPushButton:hover:!pressed {\n"
+        "              background-color: " + gradient % hover + ";\n"
+        "            }\n"
+        "            QPushButton:pressed {\n"
+        "              background-color: " + gradient % pressed + ";\n"
+        "            }\n"
+        "            QPushButton:disabled {\n"
+        "              background-color: " + off_background + ";\n"
+        "              color: " + off_text + ";\n"
+        "            }\n"
+        "            "
+    )
+
+
+def apply_button_style(ui, names, accent="primary", dark=None):
+    """Set that sheet on every widget of `ui` named in `names` that exists."""
+    sheet = button_stylesheet(accent, dark)
+    for name in names:
+        widget = getattr(ui, name, None)
+        if widget is not None:
+            widget.setStyleSheet(sheet)

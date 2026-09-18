@@ -89,9 +89,9 @@ def PathFromNode(node):
   return filepath
 
 
-#: ALI ne publie aucun jeu DICOM. Le bouton le dit, plutot que d echouer sur
-#: un lien invente -- l appel precedent partait chercher une URL qui n existe
-#: nulle part et finissait en « Failed to download test files ».
+#: ALI publishes no DICOM dataset. The button says so, rather than failing on
+#: a made-up link -- the previous call went looking for a URL that exists
+#: nowhere and ended in "Failed to download test files".
 NO_DCM_TEST_FILES = (
   "No DICOM test dataset is published for ALI.\n\n"
   "Pick the \"NIFTI, NRRD, GIPL\" extension to use the published test scan, "
@@ -538,8 +538,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.ScanPathLabel.setText('DICOM\'s Folder')
       self.isDCMInput = True
 
-    # Le bouton est desactive en DICOM, et son infobulle dit pourquoi : ALI ne
-    # publie pas de jeu DICOM, et un bouton qui echoue toujours n apprend rien.
+    # The button is disabled in DICOM, and its tooltip says why: ALI publishes
+    # no DICOM dataset, and a button that always fails teaches nothing.
     self.ui.DownloadTestPushButton.setEnabled(not self.isDCMInput)
     self.ui.DownloadTestPushButton.setToolTip(
       NO_DCM_TEST_FILES if self.isDCMInput
@@ -644,8 +644,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     "Download Models" button gets them.
     """
     if self.isDCMInput:
-      # Rien n est publie en DICOM pour ALI : le dire, plutot que d echouer
-      # sur un lien invente.
+      # Nothing is published in DICOM for ALI: say so, rather than failing
+      # on a made-up link.
       qt.QMessageBox.information(self.parent, "No DICOM test files",
                                  NO_DCM_TEST_FILES)
       return
@@ -672,7 +672,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.lineEditScanPath.setText(scan_folder)
     self.CheckScan()
 
-    # Le dossier de modeles est aussi obligatoire : sans lui, Run refuse.
+    # The models folder is required too: without it, Run refuses.
     try:
       self.downloadModel(self.ui.lineEditModelPath)
     except (OSError, zipfile.BadZipFile) as error:
@@ -684,8 +684,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         f"not be downloaded:\n{error}")
       return
 
-    # Le champ de sortie, lui, ne s ecrase pas : ce que l utilisateur a choisi
-    # reste.
+    # The output field, for its part, is not overwritten: what the user chose
+    # stays.
     if self.ui.SaveFolderLineEdit.text == "":
       self.output_folder = os.path.join(scan_folder, "Predicted")
       self.ui.SaveFolderLineEdit.setText(self.output_folder)
@@ -1734,7 +1734,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       try:
         parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
       except (AttributeError, RuntimeError):
-          # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+          # A widget without that method, or whose C++ object is already gone.
           pass
     
     # Recursively update all children

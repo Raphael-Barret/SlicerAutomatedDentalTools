@@ -166,7 +166,7 @@ def EstimateMissingArchPositions(lst_teeth, RI, V):
 
 
 def _prepare_log_file(args):
-    """Vide le fichier de suivi que la GUI lit pour afficher la progression."""
+    """Empty the progress file the GUI reads to show how far the run is."""
     try:
         log_dir = os.path.split(args.log_path)[0]
         if not os.path.exists(log_dir):
@@ -179,11 +179,11 @@ def _prepare_log_file(args):
         sys.exit(1)
 
 def _selected_landmarks(args):
-    """Les reperes demandes, lus des trois listes passees en argument.
+    """The requested landmarks, read from the three lists given as arguments.
 
-    Un repere ordinaire est un couple dent x type (`LR6` + `O` -> `LR6O`) ;
-    les reperes mucogingivaux portent deja leur nom de sortie et sont repris
-    tels quels."""
+    An ordinary landmark is a tooth x type pair (`LR6` + `O` -> `LR6O`);
+    the mucogingival ones already carry their output name and are taken as
+    they are."""
     try:
         def clean_list(raw):
             items = [item.strip().replace("'", "").replace('"', '') for item in raw.split(" ")]
@@ -207,7 +207,7 @@ def _selected_landmarks(args):
     return landmarks_selected, lm_types, teeth, teeth_mg
 
 def _translate_tooth_labels(teeth, teeth_mg):
-    """Les numeros de dents demandes, ranges par machoire."""
+    """The requested tooth numbers, grouped by jaw."""
     try:
         dic_teeth = TradLabel(teeth)
         dic_teeth_mg = TradLabelMG(teeth_mg)
@@ -218,11 +218,11 @@ def _translate_tooth_labels(teeth, teeth_mg):
     return dic_teeth, dic_teeth_mg
 
 def _discover_models(args, dic_teeth_mg, lm_types):
-    """Les poids `.pth` presents dans le dossier, et ceux qui vont servir.
+    """The `.pth` weights present in the folder, and the ones that will serve.
 
-    Un modele ne sert que si un des types de repere demandes en depend. Le
-    modele MG est un cas a part : il ne concerne que l arcade inferieure, et
-    son absence est une erreur des qu une dent MG est demandee."""
+    A model only serves if one of the requested landmark types depends on
+    it. The MG model is a case apart: it concerns the lower arch only, and
+    its absence is an error as soon as an MG tooth is requested."""
     try:
         available_models = {}
         models_to_use = {}
@@ -286,10 +286,10 @@ def _discover_models(args, dic_teeth_mg, lm_types):
     return models_to_use
 
 def _discover_patients(args):
-    """Les scans a traiter, que l entree soit un fichier ou un dossier.
+    """The scans to process, whether the input is a file or a folder.
 
-    Un dossier sans `.vtk` est une erreur : le message dit ce qui s y trouve
-    a la place, parce que le cas courant est un dossier de `.stl`."""
+    A folder with no `.vtk` is an error: the message says what is there
+    instead, because the common case is a folder of `.stl`."""
     dic_patients = {}
 
     try:
@@ -338,7 +338,7 @@ def _discover_patients(args):
     return dic_patients
 
 def _cleanup_scratch(back_to_file, path_vtk, segmented_folder, unified_folder):
-    """Efface les dossiers temporaires crees pour cette machoire."""
+    """Delete the temporary folders created for this jaw."""
     if back_to_file is not None:
         # The oriented copy has served its purpose.
         shutil.rmtree(os.path.dirname(path_vtk), ignore_errors=True)
@@ -348,10 +348,9 @@ def _cleanup_scratch(back_to_file, path_vtk, segmented_folder, unified_folder):
         shutil.rmtree(segmented_folder, ignore_errors=True)
 
 def _apply_and_write(args, back_to_file, group_data, jaw, landmarks_selected, models_type, patient_id, patient_path, segmented_path):
-    """Remet les points dans le repere du fichier d origine, puis les ecrit.
+    """Put the points back in the original file's frame, then write them.
 
-    La peinture du scan est optionnelle et ne touche que le fichier de
-    sortie."""
+    Painting the scan is optional and touches nothing but the output file."""
     if back_to_file is not None:
         # The prediction ran on the oriented copy; what is
         # written has to be in the coordinates of the file
@@ -393,11 +392,11 @@ def _apply_and_write(args, back_to_file, group_data, jaw, landmarks_selected, mo
             logger.error(f"Error saving predictions for {patient_id}_{jaw}_{models_type}: {e}")
 
 def _refine_mg_group(LABEL, args, group_data, lst_teeth, mg_aims, mg_pitch, mg_scale_factor, models_type, path_vtk, patient_id):
-    """Les reprises propres au modele MG, dans l ordre ou elles se completent.
+    """The MG-only fix-ups, in the order in which they complete each other.
 
-    Doublons separes, trous combles, points isoles repris, ligne completee,
-    lissee, puis plaquee sur la surface. Chacune est commandee par son
-    option et ne fait rien sans elle."""
+    Duplicates separated, gaps filled, stranded points dealt with, the line
+    completed, smoothed, then laid back onto the surface. Each is driven by
+    its own option and does nothing without it."""
     if models_type == "MG":
         # A skipped tooth is easy to miss in the log stream:
         # say in one line how much of the line is missing.
@@ -480,12 +479,12 @@ def _refine_mg_group(LABEL, args, group_data, lst_teeth, mg_aims, mg_pitch, mg_s
         SnapAll(group_data, ReadSurf(path_vtk))
 
 def _place_one_landmark(F, V, agent, args, estimated, face_ids, first_aim, first_point, forced_conf, group_data, label, land_name, locator, mean_arr, mg_aims, mg_scale_factor, models_type, off_aim, pass_index, refine, scale_factor, surf_unit, won_conf):
-    """Le point retenu sur la surface, pour un repere donne.
+    """The point kept on the surface, for one given landmark.
 
-    Moyenne des sommets des faces retenues, ramenee sur le maillage par le
-    localisateur, puis remise a l echelle du fichier. Au second passage, un
-    point qui a trop bouge est ecarte : la ou la premiere prediction etait
-    deja fausse, viser dessus envoie la seconde plus loin encore."""
+    The mean of the vertices of the kept faces, brought back onto the mesh
+    by the locator, then scaled back to the file. On the second pass, a
+    point that has moved too far is discarded: where the first prediction
+    was already wrong, aiming at it sends the second further still."""
     logger.debug(f'Processing landmark: {land_name}')
     try:
         all_verts = [int(F[0][int(face.item())][i].item()) for face in face_ids for i in range(3)]
@@ -576,12 +575,12 @@ def _place_one_landmark(F, V, agent, args, estimated, face_ids, first_aim, first
     return mg_scale_factor
 
 def _faces_per_landmark(F, LABEL, RI, V, agent, args, label, logits, mg_pitch, models_type, patient_id, pred_data, surf_unit, tens_pix_to_face_model):
-    """Quelles faces du maillage portent chaque repere predit.
+    """Which faces of the mesh carry each predicted landmark.
 
-    Quand la classe du repere ne gagne nulle part, rien ne serait ecrit pour
-    cette dent. `--force_landmarks` retient alors les pixels ou elle est la
-    plus probable, et la confiance est consignee dans le json : un point
-    force est nettement moins sur qu un point gagne."""
+    When the landmark class wins nowhere, nothing would be written for that
+    tooth. `--force_landmarks` then keeps the pixels where it is the most
+    likely, and the confidence is recorded in the json: a forced point is
+    markedly less sure than a won one."""
     index_label_land_r = (pred_data == 1.).nonzero(as_tuple=False)
 
     # Fallback: the landmark class won nowhere, so nothing would be
@@ -670,10 +669,11 @@ def _faces_per_landmark(F, LABEL, RI, V, agent, args, label, logits, mg_pitch, m
     return dico_rgb, forced_conf, locator, off_aim, won_conf
 
 def _run_network(agent, meshe, model, models_type):
-    """Les vues rasterisees du maillage, passees au reseau.
+    """The rasterised views of the mesh, passed to the network.
 
-    Le reseau MG et les autres n ont ni le meme nombre de canaux d entree
-    ni le meme nombre de classes en sortie : c est la seule difference."""
+    The MG network and the others have neither the same number of input
+    channels nor the same number of output classes: that is the only
+    difference."""
     images_model, tens_pix_to_face_model = agent.get_view_rasterize(meshe)
     tens_pix_to_face_model = tens_pix_to_face_model.permute(1, 0, 4, 2, 3)
 
@@ -726,10 +726,10 @@ def _run_network(agent, meshe, model, models_type):
     return logits, pred_data, tens_pix_to_face_model
 
 def _predict_one_landmark(LABEL, args, camera_position, first_aim, first_point, group_data, jaw, label, mg_aims, mg_estimated, mg_pitch, mg_scale, mg_scale_factor, model, models_type, pass_index, path_vtk, patient_id, refine, sphere_radius):
-    """Un repere : rendu des vues, passage du reseau, position sur la surface.
+    """One landmark: views rendered, network run, position on the surface.
 
-    Une dent absente de la segmentation n est pas une erreur -- elle est
-    seulement absente -- et le message le dit avec la raison."""
+    A tooth absent from the segmentation is not an error -- it is only
+    absent -- and the message says so along with the reason."""
     try:
         logger.debug(f"Loading model for patient {patient_id}, label {label}, jaw {jaw}")
 
@@ -792,12 +792,12 @@ def _predict_one_landmark(LABEL, args, camera_position, first_aim, first_point, 
     return mg_scale_factor
 
 def _prepare_mg_context(args, lst_teeth, models_type, path_vtk, patient_id):
-    """Ce que le modele MG demande en plus, et que les autres ignorent.
+    """What the MG model asks for on top, and the others ignore.
 
-    Trois choses, chacune commandee par une option : redresser l arcade,
-    la mettre a l echelle, et estimer la position des dents absentes de la
-    segmentation. Renvoie aussi la transformation inverse, a appliquer aux
-    points avant de les ecrire dans le repere du fichier d origine."""
+    Three things, each driven by an option: straighten the arch, scale it,
+    and estimate the position of the teeth absent from the segmentation.
+    Also returns the inverse transform, to be applied to the points before
+    writing them in the frame of the original file."""
     back_to_file = None
     if models_type == "MG":
         matrix = LowerArchMatrix(ReadSurf(path_vtk))
@@ -841,14 +841,14 @@ def _prepare_mg_context(args, lst_teeth, models_type, path_vtk, patient_id):
     return back_to_file, mg_estimated, mg_scale, path_vtk
 
 def _unify_arch_labels(path_vtk, patient_path):
-    """Renumerote l arcade si la segmentation l a nommee dans les deux machoires.
+    """Renumber the arch if the segmentation named it in both jaws.
 
-    Rien dans un voisinage ne dit de quelle machoire vient un scan : un
-    maxillaire et une mandibule inversee ont la meme forme. Quand la
-    segmentation hesite, elle partage chaque dent entre son numero et le
-    meme rang dans l autre arcade, et le repere n est jamais ecrit.
-    Le maillage corrige part dans un dossier temporaire : le fichier de
-    l utilisateur n est pas touche."""
+    Nothing in a neighbourhood says which jaw a scan comes from: a maxilla
+    and an upside-down mandible have the same shape. When the segmentation
+    hesitates, it splits each tooth between its own number and the same
+    rank in the other arch, and the landmark is never written.
+    The corrected mesh goes to a temporary folder: the user's file is not
+    touched."""
     unified_folder = None
     scan_jaw = ScanJawFromName(patient_path)
     surf_labels = ReadSurf(path_vtk)
@@ -865,10 +865,11 @@ def _unify_arch_labels(path_vtk, patient_path):
     return unified_folder
 
 def _process_jaw(LABEL, args, jaw, landmarks_selected, lst_teeth, models_to_use, models_type, patient_id, patient_path, sphere_radius):
-    """Une machoire, pour un type de modele donne.
+    """One jaw, for a given model type.
 
-    Prepare le maillage, place chaque repere, applique les reprises propres
-    au modele MG, ecrit le resultat, puis efface ce qui a ete cree en route."""
+    Prepares the mesh, places each landmark, applies the fix-ups proper to
+    the MG model, writes the result, then deletes what was created along
+    the way."""
     if models_type == "MG" and jaw != "Lower":
         return
     if not lst_teeth:
@@ -951,10 +952,10 @@ def _process_jaw(LABEL, args, jaw, landmarks_selected, lst_teeth, models_to_use,
         return
 
 def _process_model(args, dic_teeth, dic_teeth_mg, landmarks_selected, models_to_use, models_type, patient_id, patient_path):
-    """Un type de modele, pour un patient : les deux machoires qu il couvre.
+    """One model type, for one patient: the two jaws it covers.
 
-    Une erreur ici fait passer au type suivant plutot que d arreter le
-    patient -- les types de reperes sont independants."""
+    An error here moves on to the next type rather than stopping the
+    patient -- the landmark types are independent."""
     try:
         LABEL = dic_label[models_type]
         sphere_radius = 0.2 if models_type in ("O", "MG") else 0.3

@@ -16,11 +16,11 @@ class Method(ADTMethod, LandmarkMethod, DicomMethod):
         pass
     
 
-    # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
-    # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La
-    # forme variadique dit cela sans mentir sur l'arite -- l'ABC de MRI2CBCT en
-    # annoncait deux la ou ses six sous-classes en prennent un. Chaque
-    # implementation declare l'arite qu'elle attend vraiment.
+    # The input folders depend on the tool: a single one for ASO and ALI, two
+    # timepoints for AREG and MRI2CBCT, patients and matrices for AutoMatrix.
+    # The variadic form says that without lying about the arity -- the MRI2CBCT
+    # ABC announced two where its six subclasses take one. Each implementation
+    # declares the arity it really expects.
     @abstractmethod
     def TestScan(self, *scan_folders) -> str:
         """Verify if the input folder seems good (have everything required to run the mode selected), if something is wrong the function return string with error message

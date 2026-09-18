@@ -90,8 +90,8 @@ def process_patient(cbct_path: Path, mri_path: Path, seg_path: Optional[Path], t
         mask_img = nib.Nifti1Image(mask.astype(np.uint8), cbct_half.affine)
         _save(mask_img, f"{name}_Mask_TMJ_{side}.nii.gz", "Mask")
     except Exception:
-        # Sauvegarde d inspection : elle ne doit pas arreter le traitement,
-        # mais son echec doit rester lisible.
+        # Inspection save: it must not stop the processing, but its failure
+        # has to stay readable.
         logger.debug("Masque TMJ non enregistre", exc_info=True)
     if mask.sum() == 0:
         logger.info("No voxel ignored")

@@ -124,5 +124,5 @@ def ModifiedDictPatients(patients, todo_str):
 
 
 def search(path, *args):
-    """Délégué à ADTLib. Ce site trie : l'ordre des patients en dépend."""
+    """Delegated to ADTLib. This call site sorts: the patient order depends on it."""
     return search_files(path, *args, sort=True)

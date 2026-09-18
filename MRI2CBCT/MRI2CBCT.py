@@ -56,24 +56,24 @@ from ADTLib.model_registry import (
 # ===== Logging Configuration =====
 logger = get_logger("MRI2CBCT")
 
-#: Le dossier, sous les téléchargements de Slicer, où le jeu d'essai est
-#: déposé, et celui où les sorties d'essai sont écrites.
+#: The folder, under the Slicer downloads, where the test set is dropped,
+#: and the one where the test outputs are written.
 TEST_FILES_DIRECTORY = "MRI2CBCT_TestFiles"
 TEST_OUTPUT_DIRECTORY = "MRI2CBCT_TestFiles_output"
 
-#: Ce que le jeu d'essai publié nourrit, étape par étape.
+#: What the published test set feeds, step by step.
 #:
-#: `inputs` donne, pour chaque champ d'entrée de l'étape, le sous-dossier de
-#: l'archive qui le remplit ; `output` donne le champ de sortie et le nom du
-#: dossier qu'il reçoit ; `model` nomme le champ de modèle, quand l'étape en
-#: demande un. L'étape est choisie par le bouton, et non devinée en comparant
-#: `objectName` : ajouter un champ se fait ici, en un seul endroit.
+#: `inputs` gives, for each input field of the step, the subfolder of the
+#: archive that fills it; `output` gives the output field and the name of the
+#: folder it receives; `model` names the model field, when the step asks for
+#: one. The step is chosen by the button, not guessed by comparing
+#: `objectName`: adding a field is done here, in a single place.
 #:
-#: L'archive ne porte pas tout : elle n'a ni segmentation d'origine -- la
-#: sienne est déjà prétraitée -- ni second temps, donc `lineEditResampleSeg`
-#: et les trois champs T2 du rééchantillonnage restent vides. Ni l'un ni les
-#: autres ne sont obligatoires : `resampleMRICBCT` passe « None » au CLI pour
-#: un champ vide.
+#: The archive does not carry everything: it has neither an original
+#: segmentation -- its own is already preprocessed -- nor a second timepoint,
+#: so `lineEditResampleSeg` and the three T2 fields of the resampling stay
+#: empty. Neither is required: `resampleMRICBCT` passes "None" to the CLI for
+#: an empty field.
 TEST_FILE_STEPS = {
     "Resample": {
         "inputs": (("lineEditResampleMRI", ("MRI_ori",)),
@@ -449,9 +449,9 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         ### Registration ###
         self.ui.SearchButtonOutput.connect("clicked(bool)",partial(self.openFinder,"OutputReg"))
-        # Les trois boutons de l'étape remplissent la même chose : l'étape
-        # entière. Lequel on presse ne change rien -- un jeu d'essai ne se
-        # choisit pas champ par champ.
+        # The three buttons of the step fill the same thing: the whole step.
+        # Which one is pressed changes nothing -- a test set is not chosen
+        # field by field.
         for button in (self.ui.pushButtonTestFileRegMRI,
                        self.ui.pushButtonTestFileRegCBCT,
                        self.ui.pushButtonTestFileRegSeg):
@@ -1272,7 +1272,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         The dataset is downloaded only when it is missing, and the download is
         checked: an interrupted one does not count as present, and a release
         link that answers with a web page is named as such instead of failing
-        later on « not a zip file ». Input fields are always rewritten, that
+        later on "not a zip file". Input fields are always rewritten, that
         being what the button is for; the output folder is only filled when
         the user has not chosen one.
         """

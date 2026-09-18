@@ -129,6 +129,11 @@ class LandmarkMethod(ABC):
         """Return a tuple with both the name and the Download link of the test files
 
         tuple = ('name','link')
+
+        A mode whose input is a folder may need several files -- ALI IOS wants
+        an upper and a lower arch -- and then gives a dict instead of a link:
+        tuple = ('name', {'part': 'link', ...}), every part landing in the one
+        folder named by 'name'.
         """
         pass
 

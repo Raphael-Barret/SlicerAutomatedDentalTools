@@ -13,7 +13,8 @@ logger = get_logger("ALI_CBCT_Process")
 import slicer
 import platform
 from ADTLib.model_registry import ADT_MODELS
-from ADTLib.model_registry import AMASSS_CBCT_UPSTREAM, ASO_CBCT_GOLD
+from ADTLib.model_registry import (
+    ALI_CBCT_TEST_FILES, AMASSS_CBCT_UPSTREAM, ASO_CBCT_GOLD)
 import re
 
 
@@ -176,9 +177,10 @@ class Auto_CBCT(Method):
         return None
 
     def getTestFileList(self):
+        """Le scan d'essai : un .nii.gz, pas une archive."""
         return (
             "ALI_test_scan",
-            "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1/MG_test_scan.nii.gz",
+            f"{ALI_CBCT_TEST_FILES}/MG_test_scan.nii.gz",
         )
 
     def Process(self, request):

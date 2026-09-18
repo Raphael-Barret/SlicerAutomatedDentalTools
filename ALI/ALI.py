@@ -49,6 +49,7 @@ from ADTLib.env.conda import (
 from ADTLib.format import format_timer
 from ADTLib.requests import ALIRequest
 from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.testdata import TestDataError, ensure_with_progress
 import traceback
 
 
@@ -88,10 +89,14 @@ def PathFromNode(node):
   return filepath
 
 
-TEST_SCAN = {
-  "CBCT": 'https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1/MG_test_scan.nii.gz',
-  "IOS" : 'https://github.com/baptistebaquero/ALIDDM/releases/tag/v1.0.4',
-}
+#: ALI ne publie aucun jeu DICOM. Le bouton le dit, plutot que d echouer sur
+#: un lien invente -- l appel precedent partait chercher une URL qui n existe
+#: nulle part et finissait en « Failed to download test files ».
+NO_DCM_TEST_FILES = (
+  "No DICOM test dataset is published for ALI.\n\n"
+  "Pick the \"NIFTI, NRRD, GIPL\" extension to use the published test scan, "
+  "or press Search to point ALI at a DICOM folder of your own."
+)
 
 MODELS_LINK = {
   "CBCT": [
@@ -533,6 +538,15 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.ScanPathLabel.setText('DICOM\'s Folder')
       self.isDCMInput = True
 
+    # Le bouton est desactive en DICOM, et son infobulle dit pourquoi : ALI ne
+    # publie pas de jeu DICOM, et un bouton qui echoue toujours n apprend rien.
+    self.ui.DownloadTestPushButton.setEnabled(not self.isDCMInput)
+    self.ui.DownloadTestPushButton.setToolTip(
+      NO_DCM_TEST_FILES if self.isDCMInput
+      else "Download the published test scans if they are missing, then fill in "
+           "the scan, model and output folders so the run can be started."
+    )
+
   def SwitchInput(self,index):
 
     if index == 0:
@@ -566,10 +580,6 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       selected = True
 
     return selected
-
-  def onTestDownloadButton(self):
-    webbrowser.open(TEST_SCAN[self.type])
-
 
   def onModelDownloadButton(self):
     for link in MODELS_LINK[self.type]:
@@ -607,51 +617,79 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CheckScan()
       
         
+  def EnsureTestFiles(self, name, urls):
+    """The folder of test scans for the current mode, fetched only if missing.
+
+    A mode may need more than one file -- ALI IOS wants an upper and a lower
+    arch -- and then `urls` is a dict: every part lands under the one folder
+    the module is given as input, each with its own completeness marker, so
+    an interrupted download is never taken for a finished one.
+    """
+    root = os.path.join(self.SlicerDownloadPath, "Test_Files")
+    if isinstance(urls, str):
+      return ensure_with_progress(urls, root, name, self.parent,
+                                  "Downloading %s..." % name)
+
+    for part, url in urls.items():
+      ensure_with_progress(url, root, os.path.join(name, part), self.parent,
+                           "Downloading %s (%s)..." % (name, part))
+    return os.path.join(root, name)
+
   def TestFiles(self):
-    """Function to download and select all the test files"""
+    """Fetch this mode's test files if they are missing, and fill in every field.
+
+    Filling only the scan folder was not enough: the model folder is required
+    too, so pressing this and then Run answered "Please select folder for the
+    landmark identification model". The models come down the same way the
+    "Download Models" button gets them.
+    """
+    if self.isDCMInput:
+      # Rien n est publie en DICOM pour ALI : le dire, plutot que d echouer
+      # sur un lien invente.
+      qt.QMessageBox.information(self.parent, "No DICOM test files",
+                                 NO_DCM_TEST_FILES)
+      return
+
+    name, urls = self.ActualMeth.getTestFileList()
+    logger.debug(f"Test files for {self.type}: {name} from {urls}")
+
     try:
-      if self.isDCMInput:
-        name, url = self.ActualMeth.getTestFileListDCM()
-      else:
-        name, url = self.ActualMeth.getTestFileList()
+      scan_folder = self.EnsureTestFiles(name, urls)
+    except (TestDataError, OSError) as error:
+      logger.error(f"Test files for {self.type} could not be obtained: {error}",
+                   exc_info=True)
+      qt.QMessageBox.warning(self.parent, "Error",
+                             f"Failed to download the test files:\n{error}")
+      return
 
-      logger.debug(f"Test file name: {name}")
-      logger.debug(f"Download URL: {url}")
+    logger.debug(f"Scan folder: {scan_folder}")
+    error = self.ActualMeth.TestScan(scan_folder)
+    if isinstance(error, str):
+      qt.QMessageBox.warning(self.parent, "Warning", error)
+      return
 
-      scan_folder = self.DownloadUnzip(
-        url=url,
-        directory=os.path.join(self.SlicerDownloadPath),
-        folder_name=os.path.join("Test_Files", name)
-        if not self.isDCMInput
-        else os.path.join("Test_Files", "DCM", name),
-      )
+    self.input_path = scan_folder
+    self.ui.lineEditScanPath.setText(scan_folder)
+    self.CheckScan()
 
-      logger.debug(f"Scan folder: {scan_folder}")
+    # Le dossier de modeles est aussi obligatoire : sans lui, Run refuse.
+    try:
+      self.downloadModel(self.ui.lineEditModelPath)
+    except (OSError, zipfile.BadZipFile) as error:
+      logger.error(f"Models for {self.type} could not be downloaded: {error}",
+                   exc_info=True)
+      qt.QMessageBox.warning(
+        self.parent, "Error",
+        f"The test scans are in {scan_folder}, but the {self.type} models could "
+        f"not be downloaded:\n{error}")
+      return
 
-      if self.isDCMInput:
-        nb_scans = self.ActualMeth.NumberScanDCM(scan_folder)
-        error = self.ActualMeth.TestScanDCM(scan_folder)
-      else:
-        nb_scans = self.ActualMeth.NumberScan(scan_folder)
-        error = self.ActualMeth.TestScan(scan_folder)
+    # Le champ de sortie, lui, ne s ecrase pas : ce que l utilisateur a choisi
+    # reste.
+    if self.ui.SaveFolderLineEdit.text == "":
+      self.output_folder = os.path.join(scan_folder, "Predicted")
+      self.ui.SaveFolderLineEdit.setText(self.output_folder)
 
-      if isinstance(error, str):
-        qt.QMessageBox.warning(self.parent, "Warning", error)
-      else:
-        self.nb_patient = nb_scans
-        self.ui.lineEditScanPath.setText(scan_folder)
-        self.ui.LabelInfoPreProc.setText(
-            "Number of patients to process: " + str(nb_scans)
-        )
-
-      if self.ui.SaveFolderLineEdit.text == "":
-        dir, spl = os.path.split(scan_folder)
-        self.ui.SaveFolderLineEdit.setText(os.path.join(dir, spl, "Predicted"))
-    
-    except Exception as e:
-      logger.error(f"Error downloading test files: {str(e)}", exc_info=True)
-      qt.QMessageBox.warning(self.parent, "Error", f"Failed to download test files: {str(e)}")
-        
   def DownloadUnzip(
         self, url, directory, folder_name=None, num_downl=1, total_downloads=1
     ):

@@ -10,7 +10,7 @@ from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shar
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
-from ADTLib.model_registry import ALI_IOS_MODELS, ASO_IOS_GOLD
+from ADTLib.model_registry import ALI_IOS_MODELS, ALIDDM_TEST_FILES, ASO_IOS_GOLD
 import re
 
 logger = get_logger("ALI_IOS_Process")
@@ -124,9 +124,18 @@ class Auto_IOS(Method):
         return out
 
     def getTestFileList(self):
+        """Les scans d'essai : une arcade ne fait pas un jeu.
+
+        ALI IOS travaille sur un dossier d'arcades, et les deux arcades du
+        meme patient sont publiees separement -- les deux sont rapatriees
+        dans le meme dossier, qui est alors utilisable tel quel.
+        """
         return (
             "ALI_test_scan",
-            "https://github.com/baptistebaquero/ALIDDM/releases/tag/v1.0.4/T1_01_U_segmented.vtk",
+            {
+                "Upper": f"{ALIDDM_TEST_FILES}/T1_01_U_segmented.vtk",
+                "Lower": f"{ALIDDM_TEST_FILES}/T1_01_L_segmented.vtk",
+            },
         )
 
     def getModel(self, path, extension="ckpt"):

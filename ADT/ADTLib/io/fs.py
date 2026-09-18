@@ -1,44 +1,43 @@
-"""Trouver les fichiers d'un dossier par extension.
+"""Find the files of a folder by extension.
 
-`search` existait en quinze exemplaires, en six variantes. Toutes s'y ramènent
-maintenant, et les deux seules différences de fond sont devenues des paramètres :
+`search` existed in fifteen copies, in six variants. All of them now come down
+to this one, and the only two substantive differences became parameters:
 
-- six étaient une méthode `search(self, ...)`, trois la même chose en fonction
-  libre -- identiques à l'octet près une fois le `self` retiré ;
-- trois entouraient le résultat d'un `sorted()`, d'où `sort`. L'ordre de
-  parcours des patients en dépend chez elles ;
-- celle de `ASO_IOS_utils/data_file.py` écartait en plus ce qui n'est pas un
-  fichier, d'où `files_only`. Un dossier dont le nom finit par l'extension
-  cherchée -- `patient.nrrd/` -- est compté comme un scan par les quatorze
-  autres. C'est sans doute un défaut partout, mais personne n'en a jamais vu
-  l'effet, alors le comportement d'origine reste celui par défaut et seul
-  l'appelant qui demandait le filtre continue de l'obtenir.
+- six were a `search(self, ...)` method, three the same thing as a free
+  function -- identical byte for byte once the `self` is removed;
+- three wrapped the result in a `sorted()`, hence `sort`. The order in which
+  patients are traversed depends on it in those;
+- the one in `ASO_IOS_utils/data_file.py` additionally discarded anything that
+  is not a file, hence `files_only`. A folder whose name ends with the
+  extension being looked for -- `patient.nrrd/` -- is counted as a scan by the
+  other fourteen. This is probably a defect everywhere, but nobody has ever
+  seen its effect, so the original behaviour stays the default and only the
+  caller that asked for the filter keeps getting it.
 
-Celle de VFACE ne rangeait pas le résultat de la même façon -- un seul parcours
-de l'arbre, trié, puis réparti par clé -- mais rend exactement ce que rend
-`sort=True`.
+The VFACE one did not lay the result out the same way -- a single walk of the
+tree, sorted, then split by key -- but returns exactly what `sort=True` returns.
 
-Bibliothèque standard seulement : appelé depuis l'environnement Conda.
+Standard library only: called from the Conda environment.
 """
 import glob
 import os
 
 
 def search(path, *args, sort=False, files_only=False):
-    """Les fichiers de `path` groupés par extension demandée.
+    """The files of `path` grouped by requested extension.
 
-    Renvoie un dictionnaire dont chaque clé est un élément de `args` et la
-    valeur la liste des fichiers de `path` qui se terminent par cette clé.
-    Une liste passée dans `args` est aplatie.
+    Returns a dictionary whose every key is an item of `args` and whose value
+    is the list of files under `path` that end with that key. A list passed in
+    `args` is flattened.
 
         search(path, 'json', ['.nii.gz', '.nrrd'])
         {'json': ['path/a.json', ...], '.nii.gz': [...], '.nrrd': [...]}
 
-    `sort` rend chaque liste triée : trois des quinze sites d'origine le
-    faisaient, et l'ordre de parcours des patients en dépend chez eux.
+    `sort` returns each list sorted: three of the fifteen original sites did
+    so, and the order in which patients are traversed depends on it in those.
 
-    `files_only` écarte les répertoires dont le nom se termine par la clé : un
-    seul site d'origine le faisait.
+    `files_only` discards the directories whose name ends with the key: a
+    single original site did so.
     """
     arguments = []
     for arg in args:
@@ -47,11 +46,12 @@ def search(path, *args, sort=False, files_only=False):
         else:
             arguments.append(arg)
 
-    # Un chemin vide donnait le motif `/**/*` : glob repartait de la racine du
-    # disque et Slicer se figeait. On l'atteint en lancant AREG IOS avec le
-    # champ « Registration Model Folder » vide (AREG_Method/IOS.py). Un dossier
-    # inexistant rendait deja un resultat vide -- glob n'y trouve rien -- donc
-    # c'est le meme contrat qu'on applique ici, sans parcourir quoi que ce soit.
+    # An empty path gave the pattern `/**/*`: glob started over from the root
+    # of the disk and Slicer froze. It is reached by running AREG IOS with the
+    # "Registration Model Folder" field empty (AREG_Method/IOS.py). A
+    # non-existent folder already gave an empty result -- glob finds nothing
+    # there -- so the same contract is applied here, without walking anything
+    # at all.
     if not path or not os.path.isdir(path):
         return {key: [] for key in arguments}
 

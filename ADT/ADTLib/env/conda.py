@@ -46,7 +46,7 @@ def conda_quote(conda, value):
 def init_conda():
     """The SlicerConda entry point for this platform, or False without it."""
     try:
-        import CondaSetUp  # noqa: F401  (sonde de disponibilite)
+        import CondaSetUp  # noqa: F401  (availability probe)
     except ImportError:
         return False
 

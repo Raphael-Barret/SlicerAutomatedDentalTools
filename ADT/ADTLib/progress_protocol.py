@@ -1,67 +1,67 @@
-"""Le canal `<filter-progress>`, nommé une fois.
+"""The `<filter-progress>` channel, named once.
 
-Les CLI de l'extension parlent à leur interface par une seule voie : une ligne
-`<filter-progress>x</filter-progress>` sur la sortie standard. Slicer la lit,
-**multiplie x par cent**, et range le résultat sur le nœud du CLI, d'où
-`caller.GetProgress()` le ressort côté fenêtre.
+The extension's CLIs talk to their interface through a single route: a line
+`<filter-progress>x</filter-progress>` on standard output. Slicer reads it,
+**multiplies x by a hundred**, and stores the result on the CLI node, from
+where `caller.GetProgress()` hands it back on the widget side.
 
-Ce facteur cent n'est écrit nulle part, et c'est lui qui a produit les trois
-conventions qu'on trouvait dans le dépôt :
+That factor of a hundred is written down nowhere, and it is what produced the
+three conventions found in the repository:
 
-- un CLI qui imprime une **fraction** `0.42` fait afficher 42 : c'est l'usage
-  prévu, et la barre avance ;
-- un CLI qui imprime l'entier `2` fait afficher 200, ce qu'aucune barre ne sait
-  représenter. Ce n'est pas une progression, c'est un **événement** : les
-  interfaces comparent la valeur à `200` pour savoir qu'un patient de plus est
-  fini. Le CLI l'envoie en **impulsion** `0 → 2 → 0`, parce que Slicer ne
-  prévient sa fenêtre que lorsque la valeur *change* ;
-- et AMASSS, qui recevait les deux, devinait à l'exécution laquelle il tenait
+- a CLI that prints a **fraction** `0.42` makes 42 show up: that is the
+  intended use, and the bar advances;
+- a CLI that prints the integer `2` makes 200 show up, which no bar can
+  represent. That is not progress, it is an **event**: the interfaces compare
+  the value to `200` to learn that one more patient is done. The CLI sends it
+  as a **pulse** `0 -> 2 -> 0`, because Slicer only notifies its widget when
+  the value *changes*;
+- and AMASSS, which received both, guessed at run time which one it was holding
   (`if progress > 1: progress /= 100`).
 
-Ici les trois sont nommées. Les constantes portent la valeur **telle que
-l'interface la voit**, puisque c'est là qu'on la compare ; la division par cent
-n'existe qu'à un seul endroit, juste en dessous.
+Here the three are named. The constants carry the value **as the interface sees
+it**, since that is where it is compared; the division by a hundred lives in a
+single place, just below.
 
-Bibliothèque standard seulement : importé depuis l'environnement Conda par les
-CLI, et depuis Slicer par les fenêtres.
+Standard library only: imported from the Conda environment by the CLIs, and
+from Slicer by the widgets.
 """
 import sys
 import time
 
-# Ce que Slicer fait de la valeur imprimée avant de la donner à la fenêtre.
+# What Slicer does to the printed value before handing it to the widget.
 SCALE = 100
 
-# Les deux événements, dans l'unité où l'interface les lit.
-STEP_DONE = 100      # le CLI a imprimé 1 : une étape de plus est finie
-PATIENT_DONE = 200   # le CLI a imprimé 2 : un patient de plus est fini
+# The two events, in the unit the interface reads them in.
+STEP_DONE = 100      # the CLI printed 1: one more step is done
+PATIENT_DONE = 200   # the CLI printed 2: one more patient is done
 
-# Slicer ne signale que les changements de valeur : une impulsion doit donc
-# redescendre, et laisser à la boucle d'événements le temps de la voir. Le
-# délai est celui qu'utilisaient les quatre CLI qui envoyaient déjà 0 → 2 → 0.
+# Slicer only reports value changes: a pulse must therefore come back down,
+# and leave the event loop the time to see it. The delay is the one used by the
+# four CLIs that already sent 0 -> 2 -> 0.
 PULSE_PAUSE = 0.2
 
 
 def emit(value, flush=True):
-    """Écrit une valeur brute sur le canal. Les deux fonctions suivantes l'appellent."""
+    """Write a raw value on the channel. The next two functions call it."""
     print(f"<filter-progress>{value}</filter-progress>")
     if flush:
         sys.stdout.flush()
 
 
 def emit_fraction(fraction):
-    """Où en est le traitement, entre 0 et 1.
+    """How far along the run is, between 0 and 1.
 
-    C'est l'usage prévu du canal : la barre de progression suit.
+    This is the intended use of the channel: the progress bar follows.
     """
     emit(f"{fraction:.4f}")
 
 
 def emit_event(event, pause=PULSE_PAUSE):
-    """Signale un événement à l'interface, en impulsion.
+    """Report an event to the interface, as a pulse.
 
-    `event` est une des constantes ci-dessus. La valeur redescend à zéro parce
-    que Slicer ne réveille la fenêtre que sur un changement : sans le retour à
-    zéro, deux événements de suite passeraient pour un seul.
+    `event` is one of the constants above. The value comes back down to zero
+    because Slicer only wakes the widget on a change: without the return to
+    zero, two events in a row would pass for one.
     """
     emit(0)
     time.sleep(pause)
@@ -72,15 +72,15 @@ def emit_event(event, pause=PULSE_PAUSE):
 
 
 def is_event(progress, event):
-    """La valeur reçue par la fenêtre est-elle cet événement ?"""
+    """Is the value the widget received this event?"""
     return progress == event
 
 
 def as_fraction(progress):
-    """La valeur reçue, ramenée entre 0 et 1.
+    """The received value, brought back between 0 and 1.
 
-    Une fenêtre qui reçoit à la fois des fractions et des impulsions ne peut
-    pas les distinguer autrement que par l'échelle : au-delà de 1, la valeur
-    vient du facteur cent. C'est ce que faisait AMASSS à la main.
+    A widget that receives both fractions and pulses has no way to tell them
+    apart other than by scale: past 1, the value comes from the factor of a
+    hundred. This is what AMASSS did by hand.
     """
     return progress / SCALE if progress > 1 else progress

@@ -9,12 +9,12 @@ three ways of being wrong. All three are real, all three were reproduced:
   - **A wrong link still answers 200.** ALI's IOS entry used
     `releases/tag/...` instead of `releases/download/...`; GitHub serves a
     202 KB HTML page with `Content-Type: text/html`, which the copies then
-    tried to unzip. The user sees « not a zip file » and has no way to guess
+    tried to unzip. The user sees "not a zip file" and has no way to guess
     the link is wrong.
   - **The cache lies after an interrupted download.** The copies create the
     destination directory *before* downloading. Cancel, lose the network, or
     hit an error, and the empty directory stays: from then on
-    `if not os.path.exists(out_path)` answers « already there » and the module
+    `if not os.path.exists(out_path)` answers "already there" and the module
     silently works against nothing.
 
 So: the destination is only ever created by moving a completed directory into
@@ -34,8 +34,8 @@ import zipfile
 
 logger = logging.getLogger(__name__)
 
-#: Écrit dans le dossier une fois l'extraction finie. Sa présence -- et elle
-#: seule -- veut dire « ce jeu est complet ».
+#: Written into the folder once extraction has finished. Its presence -- and
+#: its presence alone -- means "this dataset is complete".
 MARKER = ".adt-testdata-complete"
 
 _HTML_STARTS = (b"<!doctype", b"<html", b"<?xml")
@@ -97,8 +97,8 @@ def _unpack(archive, destination, url):
         with zipfile.ZipFile(archive) as zipped:
             zipped.extractall(destination)
         return
-    # Pas une archive : c'est le fichier lui-meme qu'on veut, sous son nom
-    # d'origine. C'est le cas de MG_test_scan.nii.gz, qu'ALI dezippait.
+    # Not an archive: the file itself is what is wanted, under its original
+    # name. This is the case of MG_test_scan.nii.gz, which ALI was unzipping.
     name = os.path.basename(urllib.parse.urlsplit(url).path) or "testdata"
     shutil.move(archive, os.path.join(destination, name))
 
@@ -115,9 +115,9 @@ def ensure(url, root, name, progress=None):
         logger.debug("%s is already downloaded, in %s", name, destination)
         return destination
 
-    # Un dossier present mais sans marqueur vient d un telechargement
-    # interrompu : il ne vaut rien, et le garder ferait croire au suivant que
-    # le jeu est la.
+    # A folder that is present but carries no marker comes from an interrupted
+    # download: it is worth nothing, and keeping it would make the next run
+    # believe the dataset is there.
     if os.path.isdir(destination):
         logger.info("%s was left incomplete, downloading it again", name)
         shutil.rmtree(destination, ignore_errors=True)

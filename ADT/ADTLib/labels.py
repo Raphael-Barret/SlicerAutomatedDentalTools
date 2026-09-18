@@ -1,43 +1,42 @@
-"""Quel tableau de points porte les numéros de dents d'un maillage.
+"""Which point array carries the tooth numbers of a mesh.
 
-`GetLabelSurface` et `isLabelSurface` existaient en cinq exemplaires, methodes
-de cinq classes `vtkTeeth` elles-mêmes recopiées (`ASO_IOS_utils/icp.py`,
+`GetLabelSurface` and `isLabelSurface` existed in five copies, methods of five
+`vtkTeeth` classes that were themselves copies (`ASO_IOS_utils/icp.py`,
 `FlexReg_utils/util.py`, `FlexReg_Method/util.py`,
 `FlexReg_Method/vtkSegTeeth.py`, `AREG_IOS_utils/vtkSegTeeth.py`).
 
-Quatre des cinq portaient le même défaut : la boucle écrivait
-`out = Preference` puis faisait `continue` au lieu de `break`, si bien que le
-tour suivant écrasait aussitôt la valeur trouvée. Le nom demandé n'était donc
-rendu que s'il se trouvait être le **dernier** tableau du maillage ; sinon la
-fonction rendait celui d'après. Un maillage portant `Universal_ID` puis
-`Normals` faisait chercher les dents dans les normales. Seule la copie
-d'`ASO_IOS_utils` avait `break`, et c'est elle qui est retenue : dans les
-quatre autres, l'affectation `out = Preference` ne servait à rien, ce qui suffit
-à dire ce qui était voulu.
+Four of the five carried the same defect: the loop wrote `out = Preference`
+then did `continue` instead of `break`, so that the next turn immediately
+overwrote the value just found. The requested name was therefore only returned
+when it happened to be the **last** array of the mesh; otherwise the function
+returned the one after it. A mesh carrying `Universal_ID` then `Normals` had
+the teeth looked for in the normals. Only the `ASO_IOS_utils` copy had `break`,
+and that is the one kept: in the other four the `out = Preference` assignment
+served no purpose, which is enough to say what was intended.
 
-Ne dépend que de l'interface vtk du maillage reçu : importable depuis
-l'environnement Conda comme depuis Slicer.
+Depends only on the vtk interface of the mesh it receives: importable from the
+Conda environment as well as from Slicer.
 """
 
 
 def array_names(surf):
-    """Les noms des tableaux de données de points portés par `surf`."""
+    """The names of the point data arrays carried by `surf`."""
     point_data = surf.GetPointData()
     return [point_data.GetArrayName(i) for i in range(point_data.GetNumberOfArrays())]
 
 
 def has_label_array(surf, name):
-    """`surf` porte-t-il un tableau de points nommé `name` ?"""
+    """Does `surf` carry a point array named `name`?"""
     return name in array_names(surf)
 
 
 def label_array(surf, preference="Universal_ID"):
-    """Le tableau à utiliser comme numérotation des dents.
+    """The array to use as the tooth numbering.
 
-    `preference` s'il est là, sinon le dernier tableau du maillage, sinon
-    `None` s'il n'y en a aucun. Le repli sur le dernier n'a rien d'évident,
-    mais c'est ce que faisaient les cinq copies et rien n'indique laquelle
-    serait la bonne : le changer demanderait de trancher, pas de refactorer.
+    `preference` when it is there, otherwise the last array of the mesh,
+    otherwise `None` when there is none. Falling back on the last one is not
+    obvious at all, but it is what the five copies did and nothing says which
+    one would be right: changing it would take a decision, not a refactor.
     """
     names = array_names(surf)
     if not names:

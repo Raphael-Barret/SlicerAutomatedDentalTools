@@ -1,15 +1,15 @@
-"""Les fichiers de points de repère, lus et écrits en un seul endroit.
+"""The landmark files, read and written in a single place.
 
-`LoadJsonLandmarks` existait en trois exemplaires strictement identiques
-(`AREG_IOS_utils`, `ASO_IOS_utils`, `FlexReg_Method`) et `WriteJson` en deux
-(`AREG_CBCT_utils`, `ASO_CBCT_utils`). Les variantes qui divergent -- celle
-d'ASO_CBCT, celle d'ALI_CBCT, celle d'ALI_IOS -- restent chez elles.
+`LoadJsonLandmarks` existed in three strictly identical copies
+(`AREG_IOS_utils`, `ASO_IOS_utils`, `FlexReg_Method`) and `WriteJson` in two
+(`AREG_CBCT_utils`, `ASO_CBCT_utils`). The variants that diverge -- the
+ASO_CBCT one, the ALI_CBCT one, the ALI_IOS one -- stay where they are.
 
-La valeur par défaut mutable `list_landmark=[]` que portaient les trois copies
-devient `None` : la liste n'était jamais écrite, seulement parcourue, donc le
-changement ne se voit pas, mais le piège disparaît.
+The mutable default `list_landmark=[]` that the three copies carried becomes
+`None`: the list was never written to, only iterated over, so the change is
+invisible, but the trap is gone.
 
-Importé depuis l'environnement Conda : ni Slicer ni Qt ici.
+Imported from the Conda environment: neither Slicer nor Qt here.
 """
 import json
 
@@ -131,7 +131,7 @@ def WriteJson(landmarks, out_path):
 
 
 def ListLandmarksJson(json_file):
-    """Les étiquettes des points de repère d'un fichier markups, dans l'ordre."""
+    """The landmark labels of a markups file, in order."""
     with open(json_file) as f:
         data = json.load(f)
 

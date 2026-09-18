@@ -1,26 +1,26 @@
-"""Le contrat que les modules partagent, et les capacités qu'ils composent.
+"""The contract the modules share, and the capabilities they compose.
 
-Six modules déclaraient leur propre `Method(ABC)` : 934 lignes dont la plus
-grande part n'était pas du code mais des contrats répétés. Mesurés côte à côte,
-ils ne se recouvrent pas au hasard -- trois grappes ressortent, nettes :
+Six modules declared their own `Method(ABC)`: 934 lines of which the greater
+part was not code but repeated contracts. Measured side by side, they do not
+overlap at random -- three clusters stand out, sharply:
 
-    noyau      ASO AREG ALI MRI2CBCT MedX AutoMatrix   Process, TestProcess,
+    core       ASO AREG ALI MRI2CBCT MedX AutoMatrix   Process, TestProcess,
                                                         NumberScan, search
-    repères    ASO AREG ALI                            7 méthodes
-    cases      ASO AREG                                5 méthodes
-    DICOM      ASO AREG ALI MRI2CBCT                   3 méthodes
+    landmarks  ASO AREG ALI                            7 methods
+    checkboxes ASO AREG                                5 methods
+    DICOM      ASO AREG ALI MRI2CBCT                   3 methods
 
-(MedX figure dans cette mesure parce qu'il était là quand elle a été prise ; il
-a depuis été archivé dans la branche `archive/medx` et retiré de l'arbre.)
+(MedX appears in this measurement because it was there when it was taken; it
+has since been archived in the `archive/medx` branch and removed from the tree.)
 
-D'où un noyau et des mixins, plutôt qu'une classe unique où MedX aurait hérité
-de `getcheckbox` et de `DicLandmark`. Un module compose ce qu'il offre vraiment ;
-ce qu'il déclare reste vrai.
+Hence a core plus mixins, rather than a single class where MedX would have
+inherited `getcheckbox` and `DicLandmark`. A module composes what it really
+offers; what it declares stays true.
 
-Ce qui n'est PAS ici, et pourquoi : `TestScan` et `TestModel` ont des arités
-franchement différentes d'un outil à l'autre (jusqu'à quatre arguments chez
-AREG), et `getModelUrl` renvoie une sélection propre à chaque outil. Les
-remonter demanderait de trancher un comportement, pas de déplacer du code.
+What is NOT here, and why: `TestScan` and `TestModel` have plainly different
+arities from one tool to the next (up to four arguments in AREG), and
+`getModelUrl` returns a selection specific to each tool. Lifting them would
+take a decision about behaviour, not a move of code.
 """
 from abc import ABC, abstractmethod
 
@@ -29,7 +29,7 @@ from ADTLib.io.landmarks import ListLandmarksJson as list_landmarks_json
 
 
 class ADTMethod(ABC):
-    """Ce que les six modules ont en commun, et rien de plus."""
+    """What the six modules have in common, and nothing more."""
 
     def __init__(self, widget):
         self.widget = widget
@@ -67,12 +67,12 @@ class ADTMethod(ABC):
         pass
 
     def search(self, path, *args):
-        """Délégué à ADTLib ; la signature est gardée pour les appelants."""
+        """Delegated to ADTLib; the signature is kept for the callers."""
         return search_files(path, *args)
 
 
 class LandmarkMethod(ABC):
-    """Les outils qui manipulent des points de repère : ASO, AREG, ALI."""
+    """The tools that handle landmarks: ASO, AREG, ALI."""
 
     @abstractmethod
     def DicLandmark(self):
@@ -151,12 +151,12 @@ class LandmarkMethod(ABC):
         pass
 
     def ListLandmarksJson(self, json_file):
-        """Délégué à ADTLib."""
+        """Delegated to ADTLib."""
         return list_landmarks_json(json_file)
 
 
 class CheckboxMethod(ABC):
-    """Les outils dont l'interface porte des cases à cocher : ASO, AREG."""
+    """The tools whose interface carries checkboxes: ASO, AREG."""
 
     @abstractmethod
     def TestCheckbox(self) -> str:
@@ -176,7 +176,7 @@ class CheckboxMethod(ABC):
 
 
 class DicomMethod(ABC):
-    """Les outils qui acceptent du DICOM en entrée."""
+    """The tools that accept DICOM as input."""
 
     def NumberScanDCM(self, *scan_folders):
         """

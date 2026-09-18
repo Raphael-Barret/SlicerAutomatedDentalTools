@@ -15,22 +15,22 @@ def format_elapsed(seconds):
 
 
 def format_timer(seconds):
-    """La durée telle que l'affichent les étiquettes de progression.
+    """The duration as the progress labels display it.
 
-    Ces trois branches existaient en douze exemplaires, mot pour mot, dans les
-    fenêtres d'ALI, ASO, AREG, AutoMatrix et MedX -- ce dernier archivé depuis,
-    ce qui en laisse dix dans l'arbre. Le format est conservé au
-    caractère près -- c'est une étiquette que l'utilisateur lit pendant le
-    traitement, pas un format à moderniser au passage.
+    These three branches existed in twelve copies, word for word, in the
+    widgets of ALI, ASO, AREG, AutoMatrix and MedX -- the last one archived
+    since, which leaves ten in the tree. The format is preserved character for
+    character -- it is a label the user reads during the run, not a format to
+    modernise along the way.
 
         5      -> "Time : 5s"
         192    -> "Time : 3min and 12s"
         3723   -> "Time : 1h, 2min and 3s"
 
-    Une treizieme copie existe, dans `MRI2CBCT.py`, et elle ecrit `"Time: "`
-    sans espace avant le deux-points. Elle reste chez elle : l'aligner
-    changerait une etiquette que l'utilisateur lit pendant son traitement, ce
-    qui n'est pas le sujet de cette passe.
+    A thirteenth copy exists, in `MRI2CBCT.py`, and it writes `"Time: "`
+    without a space before the colon. It stays where it is: aligning it would
+    change a label the user reads during their run, which is not what this pass
+    is about.
     """
     if seconds < 60:
         return f"Time : {int(seconds)}s"

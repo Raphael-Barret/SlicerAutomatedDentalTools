@@ -73,3 +73,10 @@ AREG_IOS_MODELS = "https://github.com/HUTIN1/AREG/releases/download/v1.0.0"
 AUTOMATRIX_MIRROR = (
     "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror"
 )
+
+#: Les jeux d'essai, une base par release. Le fichier, lui, reste chez l'outil
+#: qui le propose : c'est lui qui sait s'il lui en faut un ou deux.
+#: Ces bases portent /download/, pas /tag/ -- /tag/ est la page web de la
+#: release, que GitHub sert en 200 et que les copies essayaient de dezipper.
+ALI_CBCT_TEST_FILES = "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1"
+ALIDDM_TEST_FILES = "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.4"

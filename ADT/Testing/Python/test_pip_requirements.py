@@ -29,7 +29,7 @@ from ADTLib.env.deps import requirement  # noqa: E402
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      "..", "..", ".."))
 
-# Un nom de paquet, puis une version nue ou une contrainte PEP 440.
+# A package name, then a bare version or a PEP 440 constraint.
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_.\-]{1,40}$")
 _VERSION = re.compile(r"^\s*(?:[<>=!~]{1,2}\s*)?[0-9][0-9A-Za-z.\-+*,<>=!~ ]*$")
 
@@ -79,7 +79,7 @@ class PipRequirementsTest(unittest.TestCase):
         found = {(lib, version) for _, lib, version in _library_pairs()}
         self.assertIn(("dicom2nifti", ">=2.6.2"), found)
         self.assertIn(("pydicom", "3.0.2"), found)
-        self.assertGreater(len(found), 20, "le balayage ne voit presque rien")
+        self.assertGreater(len(found), 20, "the scan sees almost nothing")
 
     def test_pip_accepts_every_pair_in_the_repository(self):
         broken = []

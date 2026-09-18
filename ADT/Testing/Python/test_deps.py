@@ -11,8 +11,8 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# ADTLib, que les paquets importent desormais : une suite de tests est un
-# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+# ADTLib, which the packages now import: a test suite is an entry point
+# like any other, nothing has put it on sys.path before it runs.
 _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
@@ -88,7 +88,7 @@ class RequirementTest(unittest.TestCase):
     developer machine never exercises.
     """
 
-    # Ce que les trois modules passent reellement, releve dans le code :
+    # What the three modules actually pass, read off the code:
     #   ALI/ALI.py list_libs_cbct / list_libs_ios
     #   ASO/ASO.py libs
     #   FlexReg/FlexReg.py list_libs
@@ -134,13 +134,13 @@ def _lookup(**versions):
 
 ALL_118 = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118",
                   torchaudio="2.2.0+cu118")
-# torch et torchvision d'accord, torchaudio non : le cas que la copie d'AMASSS
-# declarait « d'accord », parce qu'elle s'arretait a la premiere paire.
+# torch and torchvision agree, torchaudio does not: the case the AMASSS copy
+# declared "in agreement", because it stopped at the first pair.
 LAST_ODD = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118",
                    torchaudio="2.2.0+cu121")
 FIRST_ODD = _lookup(torch="2.2.0+cu121", torchvision="0.17.0+cu118",
                     torchaudio="2.2.0+cu118")
-# Ce que pose une installation PyPI ordinaire : aucune etiquette.
+# What an ordinary PyPI install lays down: no label at all.
 PLAIN = _lookup(torch="2.2.0", torchvision="0.17.0", torchaudio="2.2.0")
 MIXED = _lookup(torch="2.2.0+cu118", torchvision="0.17.0", torchaudio="2.2.0")
 INCOMPLETE = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118")
@@ -166,13 +166,13 @@ class TorchCudaTest(unittest.TestCase):
         self.assertEqual(torch_cuda_labels(lookup=PLAIN),
                          {"torch": None, "torchvision": None, "torchaudio": None})
 
-    # --- torch_cuda_conflict : ne doit jamais crier au loup
+    # --- torch_cuda_conflict: must never cry wolf
 
     def test_no_conflict_when_they_agree(self):
         self.assertIsNone(torch_cuda_conflict(lookup=ALL_118))
 
     def test_no_conflict_on_a_plain_pypi_install(self):
-        """Sans etiquette on ne sait pas : ce n'est pas un desaccord."""
+        """With no label there is no way to tell: that is not a disagreement."""
         self.assertIsNone(torch_cuda_conflict(lookup=PLAIN))
 
     def test_no_conflict_when_only_one_declares_a_build(self):
@@ -183,10 +183,10 @@ class TorchCudaTest(unittest.TestCase):
                          {"torch": "121", "torchvision": "118", "torchaudio": "118"})
 
     def test_the_last_one_out_of_step_is_caught_too(self):
-        """Le defaut de la copie d'AMASSS : elle ne comparait que la 1re paire."""
+        """The defect of the AMASSS copy: it compared the 1st pair only."""
         self.assertIsNotNone(torch_cuda_conflict(lookup=LAST_ODD))
 
-    # --- torch_cuda_builds_agree : plus strict, c'est ce qu'AMASSS veut
+    # --- torch_cuda_builds_agree: stricter, and what AMASSS wants
 
     def test_agree_when_all_three_come_from_the_same_build(self):
         self.assertTrue(torch_cuda_builds_agree(lookup=ALL_118))
@@ -195,7 +195,7 @@ class TorchCudaTest(unittest.TestCase):
         self.assertFalse(torch_cuda_builds_agree(lookup=LAST_ODD))
 
     def test_does_not_agree_on_a_plain_install(self):
-        """AMASSS installe depuis l'index CUDA : une roue PyPI est a remplacer."""
+        """AMASSS installs from the CUDA index: a PyPI wheel is to be replaced."""
         self.assertFalse(torch_cuda_builds_agree(lookup=PLAIN))
 
     def test_does_not_agree_when_one_is_missing(self):

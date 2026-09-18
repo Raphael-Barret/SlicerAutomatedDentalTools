@@ -6,10 +6,9 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
   )
 
-# Les notes d'exemple sont copiees a l'execution depuis Resources/testfiles
-# vers le dossier de telechargement de l'utilisateur (voir `CNE.py`). Elles
-# manquaient au manifeste : le bouton d'exemple ne trouvait rien dans une
-# install compilee.
+# The sample notes are copied at run time from Resources/testfiles into the
+# user's download folder (see `CNE.py`). They were missing from the manifest:
+# the sample button found nothing in a compiled install.
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/UI/${MODULE_NAME}.ui

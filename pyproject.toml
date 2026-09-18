@@ -1,43 +1,43 @@
-# Outillage qualité du dépôt. Aucune dépendance de build : Slicer construit
-# l'extension par CMake, ce fichier ne sert qu'aux outils de développement.
+# Quality tooling for the repository. No build dependency: Slicer builds the
+# extension through CMake, and this file only serves the development tools.
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"          # la version embarquée par Slicer 5.13
+target-version = "py312"          # the version Slicer 5.13 ships
 extend-exclude = ["**/__pycache__"]
 
-# CLIQUET : on n'active que les règles que le dépôt passe aujourd'hui, pour que
-# la CI soit verte dès le premier jour et le reste. Chaque règle du backlog
-# ci-dessous s'active dans la branche qui corrige ses violations -- jamais en
-# bloc, sinon la CI devient un bruit de fond qu'on apprend à ignorer.
+# RATCHET: only the rules the repository passes today are enabled, so the CI is
+# green on day one and stays that way. Each rule in the backlog below is turned
+# on by the branch that fixes its violations -- never all at once, or the CI
+# becomes background noise that everyone learns to ignore.
 [tool.ruff.lint]
 select = [
-  "E9",     # erreurs de syntaxe et d'exécution
-  "F6",     # littéraux fautifs : clé de dictionnaire répétée, etc.
-  "F7",     # break/continue/return hors de leur bloc
-  "B002",   # ++x, qui ne fait rien
-  "B012",   # break/return dans un finally, qui avale l'exception
-  "B018",   # expression sans effet : le « f.close » sans parenthèses
-  "PLE",    # erreurs pylint : arguments de logging, caractères invalides
-  "F811",   # redéfinition silencieuse : la seconde écrase la première
-  "F821",   # nom non défini : NameError garanti si la ligne est atteinte
-  "E722",   # except nu : avale aussi Ctrl-C et les sorties volontaires
-  "F401",   # import inutilisé
-  "S110",   # try/except/pass sur Exception : l'erreur disparaît sans trace
-  "S112",   # try/except/continue sur Exception : idem, dans une boucle
+  "E9",     # syntax and runtime errors
+  "F6",     # bad literals: repeated dictionary key, and the like
+  "F7",     # break/continue/return outside their block
+  "B002",   # ++x, which does nothing
+  "B012",   # break/return inside a finally, which swallows the exception
+  "B018",   # expression with no effect: the "f.close" without parentheses
+  "PLE",    # pylint errors: logging arguments, invalid characters
+  "F811",   # silent redefinition: the second one wins
+  "F821",   # undefined name: a guaranteed NameError if the line is reached
+  "E722",   # bare except: also swallows Ctrl-C and deliberate exits
+  "F401",   # unused import
+  "S110",   # try/except/pass on Exception: the error vanishes without a trace
+  "S112",   # try/except/continue on Exception: same, inside a loop
 ]
 
-# BACKLOG, dans l'ordre où il sera traité. Le compte date du 2026-09-16.
-#   B006  (18) valeur par défaut mutable
-#   B023   (4) fermeture capturant la variable de boucle -- change la sémantique, à traiter cas par cas
-#   E501 (3540) ligne trop longue -- à traiter par une passe de formatage, pas à la main
+# BACKLOG, in the order it will be worked through. Counts taken on 2026-09-16.
+#   B006  (18) mutable default value
+#   B023   (4) closure capturing the loop variable -- changes the semantics, one case at a time
+#   E501 (3540) line too long -- for a formatting pass, not by hand
 
 [tool.ruff.lint.per-file-ignores]
 "*/Testing/*" = ["E501"]
 
-# Un __init__.py ne fait souvent que ré-exporter : ses imports sont son objet,
-# pas un oubli.
+# An __init__.py often does nothing but re-export: its imports are its purpose,
+# not an oversight.
 "**/__init__.py" = ["F401"]
 
-# Plus aucune exception à F821 : le dernier nom non défini, l'OFFReader
-# d'ALI_IOS, est tombé avec le partage de ReadSurf dans ADTLib.io.surface.
+# No exception to F821 is left: the last undefined name, ALI_IOS's OFFReader,
+# went with the move of ReadSurf into ADTLib.io.surface.

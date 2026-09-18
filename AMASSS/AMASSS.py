@@ -21,7 +21,6 @@ try:
     import importlib.metadata as importlib_metadata
 except ImportError:
     import importlib_metadata
-import importlib
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -39,6 +38,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import update_line_edit_and_combo_box
+from ADTLib.env.deps import TORCH_FAMILY, torch_cuda_builds_agree
 import platform
 
 # --- LOGGING CONFIGURATION ---
@@ -80,22 +80,16 @@ def check_lib_installed(lib_name, required_version=None,system="Windows"):
             required_version (str) : required version of the library (if None, any version is accepted)
     output: bool : True if the library is installed with the good version, False otherwise
     '''
-    if system == "Windows":
-      lib_torch = ["torch","torchvision","torchaudio"]
-      list_cuda_version =[]
-      if lib_name in lib_torch:
-        for lib_str in lib_torch:
-          try:
-            lib = importlib.import_module(lib_str)
-            cuda_version = lib.__version__.split('cu')[1]
-            list_cuda_version.append(cuda_version)
-          except Exception:
-            return False
-        for i in range(len(list_cuda_version)-1):
-          if list_cuda_version[i] != list_cuda_version[i+1]:
-            return False
-          else:
-            return True
+    if system == "Windows" and lib_name in TORCH_FAMILY:
+      # The three are installed together, from download.pytorch.org/whl/cuXXX,
+      # so the question is not this one's version but whether all three came
+      # from the same build. Answering no reinstalls the set.
+      #
+      # The copy this replaces compared the first pair and returned on it, so a
+      # torchaudio out of step with the other two answered « agree ». The
+      # shared one compares the whole set, and reads the installed metadata
+      # instead of importing torch, which is slow and noisy.
+      return torch_cuda_builds_agree()
 
     try:
         installed_version = _get_installed_version(lib_name)

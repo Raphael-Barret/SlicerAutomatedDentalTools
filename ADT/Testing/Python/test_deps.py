@@ -19,7 +19,11 @@ if os.path.isdir(_ADT):
 
 from packaging.requirements import Requirement  # noqa: E402
 
-from ADTLib.env.deps import check_lib_installed, normalise_spec, requirement  # noqa: E402
+import importlib.metadata  # noqa: E402
+
+from ADTLib.env.deps import (  # noqa: E402
+    TORCH_FAMILY, check_lib_installed, normalise_spec, requirement,
+    torch_cuda_builds_agree, torch_cuda_conflict, torch_cuda_labels)
 
 
 class NormaliseSpecTest(unittest.TestCase):
@@ -118,6 +122,87 @@ class RequirementTest(unittest.TestCase):
         """Guards the test above from passing for the wrong reason."""
         with self.assertRaises(Exception):
             Requirement("dicom2nifti==>=2.6.2")
+
+def _lookup(**versions):
+    """A stand-in for importlib.metadata.version, so no wheel has to exist."""
+    def version(name):
+        if name not in versions:
+            raise importlib.metadata.PackageNotFoundError(name)
+        return versions[name]
+    return version
+
+
+ALL_118 = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118",
+                  torchaudio="2.2.0+cu118")
+# torch et torchvision d'accord, torchaudio non : le cas que la copie d'AMASSS
+# declarait « d'accord », parce qu'elle s'arretait a la premiere paire.
+LAST_ODD = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118",
+                   torchaudio="2.2.0+cu121")
+FIRST_ODD = _lookup(torch="2.2.0+cu121", torchvision="0.17.0+cu118",
+                    torchaudio="2.2.0+cu118")
+# Ce que pose une installation PyPI ordinaire : aucune etiquette.
+PLAIN = _lookup(torch="2.2.0", torchvision="0.17.0", torchaudio="2.2.0")
+MIXED = _lookup(torch="2.2.0+cu118", torchvision="0.17.0", torchaudio="2.2.0")
+INCOMPLETE = _lookup(torch="2.2.0+cu118", torchvision="0.17.0+cu118")
+
+
+class TorchCudaTest(unittest.TestCase):
+    """One CUDA build across torch, torchvision and torchaudio, or not.
+
+    A mismatch imports fine and fails much later, inside a model, with an
+    `undefined symbol`. AMASSS was the only module looking, on Windows only,
+    and its loop compared the first pair and returned on it.
+    """
+
+    def test_labels_read_the_local_version(self):
+        self.assertEqual(torch_cuda_labels(lookup=ALL_118),
+                         {"torch": "118", "torchvision": "118", "torchaudio": "118"})
+
+    def test_a_library_that_is_absent_is_absent_from_the_mapping(self):
+        self.assertEqual(sorted(torch_cuda_labels(lookup=INCOMPLETE)),
+                         ["torch", "torchvision"])
+
+    def test_present_but_unlabelled_is_None_not_missing(self):
+        self.assertEqual(torch_cuda_labels(lookup=PLAIN),
+                         {"torch": None, "torchvision": None, "torchaudio": None})
+
+    # --- torch_cuda_conflict : ne doit jamais crier au loup
+
+    def test_no_conflict_when_they_agree(self):
+        self.assertIsNone(torch_cuda_conflict(lookup=ALL_118))
+
+    def test_no_conflict_on_a_plain_pypi_install(self):
+        """Sans etiquette on ne sait pas : ce n'est pas un desaccord."""
+        self.assertIsNone(torch_cuda_conflict(lookup=PLAIN))
+
+    def test_no_conflict_when_only_one_declares_a_build(self):
+        self.assertIsNone(torch_cuda_conflict(lookup=MIXED))
+
+    def test_a_real_disagreement_is_reported_with_its_members(self):
+        self.assertEqual(torch_cuda_conflict(lookup=FIRST_ODD),
+                         {"torch": "121", "torchvision": "118", "torchaudio": "118"})
+
+    def test_the_last_one_out_of_step_is_caught_too(self):
+        """Le defaut de la copie d'AMASSS : elle ne comparait que la 1re paire."""
+        self.assertIsNotNone(torch_cuda_conflict(lookup=LAST_ODD))
+
+    # --- torch_cuda_builds_agree : plus strict, c'est ce qu'AMASSS veut
+
+    def test_agree_when_all_three_come_from_the_same_build(self):
+        self.assertTrue(torch_cuda_builds_agree(lookup=ALL_118))
+
+    def test_does_not_agree_when_the_last_is_out_of_step(self):
+        self.assertFalse(torch_cuda_builds_agree(lookup=LAST_ODD))
+
+    def test_does_not_agree_on_a_plain_install(self):
+        """AMASSS installe depuis l'index CUDA : une roue PyPI est a remplacer."""
+        self.assertFalse(torch_cuda_builds_agree(lookup=PLAIN))
+
+    def test_does_not_agree_when_one_is_missing(self):
+        self.assertFalse(torch_cuda_builds_agree(lookup=INCOMPLETE))
+
+    def test_the_family_is_the_three_amasss_installs_together(self):
+        self.assertEqual(TORCH_FAMILY, ("torch", "torchvision", "torchaudio"))
 
 if __name__ == "__main__":
     unittest.main()

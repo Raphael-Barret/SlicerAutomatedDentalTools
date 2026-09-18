@@ -1,4 +1,4 @@
-import os, sys, platform, shutil, zipfile, urllib, textwrap, time, threading, re, io, tempfile
+import os, sys, platform, shutil, textwrap, time, threading, re, io, tempfile
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -34,7 +34,6 @@ from qt import (
     QSpinBox,
     QWidget,
     QTimer,
-    QApplication,
     QDialog,
     QSizePolicy,
     QSpacerItem,
@@ -80,7 +79,8 @@ from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
-from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib import testdata
+from ADTLib.model_registry import FLEXREG_TEST_FILES, SLICER_TESTING_DATA
 from FlexReg_utils.orientation import orientation_f
 from FlexReg_utils.butterfly_preview import ButterflyPreview, ADJUST_SIGN
 from FlexReg_utils.mgl_patch import (
@@ -89,6 +89,11 @@ from FlexReg_utils.mgl_patch import (
     DoubtfulLandmarks,
 )
 import json
+
+# Le dossier, sous les téléchargements de Slicer, où le jeu d'essai est
+# déposé, et celui que le bouton propose comme sortie quand elle est vide.
+TEST_FILES_DIRECTORY = "FlexReg_TestFiles"
+TEST_OUTPUT_DIRECTORY = "FlexReg_TestFiles_output"
 
 # Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
 # larger value in the line edit still works, the knob just saturates.
@@ -489,7 +494,8 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         add one widget of list_widget_scan
         '''
         self.list_widget_scan.append(
-            WidgetParameter(self.ui.verticalLayout_2,self.parent,title,self.list_widget_scan))
+            WidgetParameter(self.ui.verticalLayout_2,self.parent,title,self.list_widget_scan,
+                            self.ui.lineEditOutput))
         self.list_widget_scan[-1].setArch(self.isLowerArch())
 
     def openFinder(self,nom : str,_) -> None :
@@ -1596,9 +1602,13 @@ class JoystickPad(QWidget):
 
 # Class with widget
 class WidgetParameter:
-    def __init__(self,layout,parent,title,scans=None) -> None:
+    def __init__(self,layout,parent,title,scans=None,output_line_edit=None) -> None:
         self.parent_layout = layout
         self.parent = parent
+        # Le champ de sortie du module, un seul pour les deux panneaux. Le
+        # panneau ne le lit jamais : il le remplit quand l'utilisateur n'a
+        # rien choisi et que le bouton TestFile est pressé.
+        self.output_line_edit = output_line_edit
         self.surf = None
         self.curve = None
         self.glue = False
@@ -2638,88 +2648,46 @@ class WidgetParameter:
         self.timer.timeout.connect(self.onProcessUpdateDelete)
         self.timer.start(500)
         
-    def DownloadUnzip(
-        self, url, directory, folder_name=None, num_downl=1, total_downloads=1
-    ):
-        """
-        Download and unzip a file from a given URL to a specified directory.
-
-        Parameters:
-        - url: The URL of the zip file to download.
-        - directory: The directory where the file should be downloaded and unzipped.
-        - folder_name: The name of the folder to create and unzip the contents into.
-        - num_downl: The current download number (for progress display).
-        - total_downloads: The total number of downloads (for progress display).
-
-        Returns:
-        - out_path: The path to the unzipped folder.
-        """
-        
-        out_path = os.path.join(directory, folder_name)
-
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
-
-            temp_path = os.path.join(directory, "temp.zip")
-
-            # Download the zip file from the url
-            with urllib.request.urlopen(url) as response, open(
-                temp_path, "wb"
-            ) as out_file:
-                # Pop up a progress bar with a QProgressDialog
-                progress = QProgressDialog(
-                    "Downloading {} (File {}/{})".format(
-                        folder_name.split(os.sep)[0], num_downl, total_downloads
-                    ),
-                    "Cancel",
-                    0,
-                    100,
-                    self.parent,
-                )
-                progress.setCancelButton(None)
-                progress.setWindowModality(Qt.WindowModal)
-                progress.setWindowTitle(
-                    "Downloading {}...".format(folder_name.split(os.sep)[0])
-                )
-                progress.show()
-                length = response.info().get("Content-Length")
-                if length:
-                    length = int(length)
-                    blocksize = max(4096, length // 100)
-                    read = 0
-                    while True:
-                        buffer = response.read(blocksize)
-                        if not buffer:
-                            break
-                        read += len(buffer)
-                        out_file.write(buffer)
-                        progress.setValue(read * 100.0 / length)
-                        QApplication.processEvents()
-                shutil.copyfileobj(response, out_file)
-
-            # Unzip the file
-            with zipfile.ZipFile(temp_path, "r") as zip:
-                zip.extractall(out_path)
-
-            # Delete the zip file
-            os.remove(temp_path)
-
-        return out_path
-        
     def testFile(self):
-        url = "https://github.com/GaelleLeroux/SlicerAutomatedDentalTools/releases/download/testfileFlexReg/TestFiles.zip"
-        
+        '''
+        Fill this scan panel -- and the output folder, when it is still empty
+        -- with the published test files, then show the scan.
 
-        _ = self.DownloadUnzip(
-            url=url,
-            directory=os.path.join(self.SlicerDownloadPath),
-            folder_name=os.path.join("FlexReg"),
-            num_downl=1,
-            total_downloads=1,
-        )
-        model_folder = os.path.join(self.SlicerDownloadPath,"FlexReg", "TestFiles")
-        path_file = os.path.join(model_folder,f"T{self.title}_test_file.vtk")
+        The panel number picks the file: T1 for the fixed scan, T2 for the
+        moving one. The arch selector does not, and cannot: the published
+        archive holds a single pair of surfaces, with no segmentation labels
+        on them, so it says nothing about being an upper or a lower arch.
+        Both arches are served the same pair.
+
+        The dataset is downloaded only when it is missing; pressing the button
+        again makes no request.
+        '''
+        try:
+            dataset = testdata.ensure_with_progress(
+                FLEXREG_TEST_FILES, self.SlicerDownloadPath, TEST_FILES_DIRECTORY,
+                parent=self.parent,
+                title="Downloading the FlexReg test files...")
+        except testdata.TestDataError as error:
+            self.warning(str(error))
+            return
+        except OSError as error:
+            self.warning("The FlexReg test files could not be downloaded from\n%s\n\n%s"
+                         % (FLEXREG_TEST_FILES, error))
+            return
+
+        path_file = os.path.join(dataset, "TestFiles", f"T{self.title}_test_file.vtk")
+        if not os.path.isfile(path_file):
+            self.warning("The test dataset does not hold %s."
+                         % os.path.basename(path_file))
+            return
         self.lineedit.setText(path_file)
+
+        # La sortie n'était jamais remplie, et la registration la demande.
+        if self.output_line_edit is not None and not self.output_line_edit.text:
+            destination = os.path.join(self.SlicerDownloadPath, TEST_OUTPUT_DIRECTORY)
+            os.makedirs(destination, exist_ok=True)
+            self.output_line_edit.setText(destination)
+
         self.viewScan()
 
     def onProcessUpdateDelete(self):

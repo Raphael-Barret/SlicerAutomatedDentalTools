@@ -91,3 +91,27 @@ ALIDDM_TEST_FILES = "https://github.com/baptistebaquero/ALIDDM/releases/download
 #: Le meme scan sert a ALI CBCT et a AMASSS : un NIfTI **nu** de 99 Mo, pas une
 #: archive. Il etait recopie a l'identique dans AMASSS et deux fois dans ALI.
 AMASSS_TEST_SCAN = f"{CBCT_TEST_SCAN_RELEASE}/MG_test_scan.nii.gz"
+
+# ---------------------------------------------------------------------------
+# Les jeux d'essai publiés en un seul fichier. Contrairement aux bases
+# ci-dessus, ce sont des adresses complètes : un jeu d'essai est une archive,
+# pas un catalogue dans lequel chaque outil choisit.
+# ---------------------------------------------------------------------------
+
+#: Le jeu d'essai de MRI2CBCT. L'archive porte `TestFile/`, avec le CBCT et
+#: l'IRM d'origine (`CBCT_ori`, `MRI_ori`) et le triplet CBCT/IRM/segmentation
+#: déjà prétraité (`REG/CBCT`, `REG/MRI`, `REG/Seg`) qui nourrit les étapes
+#: suivantes.
+MRI2CBCT_TEST_FILES = f"{BASE}/test_files/TestFile.zip"
+
+#: Le jeu d'essai de FlexReg : `TestFiles/T1_test_file.vtk` et
+#: `T2_test_file.vtk`.
+#:
+#: Publié sur un dépôt personnel, et non sous DCBIA-OrthoLab comme tout le
+#: reste : la publication devrait migrer vers l'organisation, faute de quoi le
+#: bouton TestFile de FlexReg dépend d'un compte individuel. L'adresse reste
+#: celle qui répond aujourd'hui -- on ne peut pas republier à leur place.
+FLEXREG_TEST_FILES = (
+    "https://github.com/GaelleLeroux/SlicerAutomatedDentalTools"
+    "/releases/download/testfileFlexReg/TestFiles.zip"
+)

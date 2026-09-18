@@ -104,7 +104,7 @@ def MGLProcess(method, numberscan, areg_mode, request):
 
 
 class Auto_IOS(Method):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 3
     scan_type = "IOS"
     model_label = "Segmentation Model Folder"
@@ -600,9 +600,9 @@ class Auto_IOS(Method):
             numberlower = self.NumberScanLower(
                 request.input_t1_folder, request.input_t2_folder
             )
-            # Le recalage sur la bande muco-gingivale repart des arcades
-            # segmentees, pas des scans d origine : meme requete, deux dossiers
-            # d entree remplaces.
+            # Registration on the mucogingival band starts again from the
+            # segmented arches, not from the original scans: same request, two
+            # input folders swapped.
             mgl_request = request.with_(input_t1_folder=path_seg_t1,
                                         input_t2_folder=path_seg_t2)
             return seg_processes + MGLProcess(self, numberlower, "Auto_IOS", mgl_request)
@@ -687,8 +687,8 @@ class Auto_IOS(Method):
 
 
 class Semi_IOS(Auto_IOS):
-    # --- description de l'interface (voir `Method`) ---
-    # `Semi_IOS` herite d'`Auto_IOS` : seule l'etiquette ne s'applique pas.
+    # --- interface description (see `Method`) ---
+    # `Semi_IOS` inherits from `Auto_IOS`: only the label does not apply.
     model_label = None
     def TestProcess(self, request) -> str:
         out = ""
@@ -745,9 +745,9 @@ class Semi_IOS(Auto_IOS):
                 request.input_t1_folder, request.input_t2_folder
             )
             seg_processes, _path_tmp, path_seg_t1, path_seg_t2 = self.SegmentTeeth(request)
-            # Le recalage sur la bande muco-gingivale repart des arcades
-            # segmentees, pas des scans d origine : meme requete, deux dossiers
-            # d entree remplaces.
+            # Registration on the mucogingival band starts again from the
+            # segmented arches, not from the original scans: same request, two
+            # input folders swapped.
             mgl_request = request.with_(input_t1_folder=path_seg_t1,
                                         input_t2_folder=path_seg_t2)
             return seg_processes + MGLProcess(self, numberlower, "Semi_IOS", mgl_request)

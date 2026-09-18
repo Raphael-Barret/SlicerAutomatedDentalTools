@@ -66,10 +66,10 @@ else:
 # import ASO_IOS_utils
 
 def _register_one_file(args, dic_teeth, error_details, failed_indices, file, gold, icp, index, jaw, link, list_files, success_count):
-    """Recale un fichier sur la reference, et ecrit ce qui en sort.
+    """Register one file onto the reference, and write out what comes of it.
 
-    Chaque etape a son propre gestionnaire d erreur qui consigne la panne et
-    passe au fichier suivant : un scan illisible n arrete pas le lot."""
+    Each step has its own error handler, which logs the failure and moves on
+    to the next file: one unreadable scan does not stop the batch."""
     try:
         # Determine jaw and file path
         file_vtk = file
@@ -323,7 +323,7 @@ def _register_one_file(args, dic_teeth, error_details, failed_indices, file, gol
     return jaw, success_count
 
 def _build_icp_methods(dic_teeth):
-    """Une methode ICP par machoire, reglee sur ses dents de reference."""
+    """One ICP method per jaw, tuned on its own reference teeth."""
     method = [InitIcp(), vtkICP()]
     option_upper = vtkMeanTeeth(dic_teeth["Upper"],property="Universal_ID")
     option_lower = vtkMeanTeeth(dic_teeth["Lower"],property="Universal_ID")
@@ -334,7 +334,7 @@ def _build_icp_methods(dic_teeth):
     return icp
 
 def _discover_input_files(args, link, list_extension):
-    """Les fichiers a recaler, en paires si les arcades sont liees."""
+    """The files to register, in pairs when the arches are linked."""
     if not os.path.exists(args.input[0]):
         raise FileNotFoundError(f"Input folder does not exist: {args.input[0]}")
 
@@ -351,10 +351,10 @@ def _discover_input_files(args, link, list_extension):
     return list_files
 
 def _configure_jaws(args):
-    """Quelle machoire traiter, et faut-il garder les deux liees.
+    """Which jaw to treat, and whether to keep the two linked.
 
-    En occlusion, les deux arcades bougent ensemble : le recalage se calcule
-    sur l une et s applique aux deux."""
+    In occlusion the two arches move together: the registration is computed
+    on one and applied to both."""
     link = False
     jaw = None
 
@@ -384,7 +384,7 @@ def _configure_jaws(args):
     return jaw, link
 
 def _prepare_output_dirs(args):
-    """Cree les dossiers de sortie et remet le fichier de suivi a zero."""
+    """Create the output folders and reset the tracking file to empty."""
     if not os.path.exists(args.output_folder[0]):
         os.makedirs(args.output_folder[0], exist_ok=True)
         logger.debug(f"Created output folder: {args.output_folder[0]}")
@@ -404,7 +404,7 @@ def _prepare_output_dirs(args):
     logger.debug(f"Log file initialized: {args.log_path[0]}")
 
 def _load_gold_surfaces(args, gold, list_extension):
-    """Les deux surfaces de reference, superieure et inferieure."""
+    """The two reference surfaces, upper and lower."""
     if not os.path.exists(args.gold_folder[0]):
         raise FileNotFoundError(f"Gold folder does not exist: {args.gold_folder[0]}")
 
@@ -431,7 +431,7 @@ def _load_gold_surfaces(args, gold, list_extension):
     logger.info("Gold reference surfaces loaded successfully")
 
 def _build_teeth_dict(args, dic_teeth, lower):
-    """Les dents demandees, rangees par machoire d apres leur numero."""
+    """The requested teeth, sorted by jaw according to their number."""
     list_teeth = args.list_teeth[0].split(",")
     dic = {
         "UR8": 1, "UR7": 2, "UR6": 3, "UR5": 4, "UR4": 5, "UR3": 6, "UR2": 7, "UR1": 8,
@@ -455,7 +455,7 @@ def _build_teeth_dict(args, dic_teeth, lower):
     logger.info(f"Teeth dictionary built: Upper={dic_teeth['Upper']}, Lower={dic_teeth['Lower']}")
 
 def _validate_inputs(args):
-    """Les arguments dont l etape suivante a besoin sont-ils tous la ?"""
+    """Are all the arguments the next step needs actually there?"""
     if not hasattr(args, 'list_teeth') or not args.list_teeth or not args.list_teeth[0]:
         raise ValueError("list_teeth argument is missing or empty")
     if not hasattr(args, 'gold_folder') or not args.gold_folder or not args.gold_folder[0]:

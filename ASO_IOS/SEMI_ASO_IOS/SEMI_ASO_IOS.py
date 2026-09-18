@@ -55,10 +55,11 @@ from ASO_IOS_utils import (
 )
 
 def _register_one_file(args, dic_gold, error_details, failed_indices, file, icp, index, jaw, link, list_file, success_count):
-    """Recale une paire surface/reperes sur la reference, et ecrit ce qui en sort.
+    """Register one surface/landmark pair onto the reference, and write out
+    what comes of it.
 
-    Chaque etape a son propre gestionnaire d erreur qui consigne la panne et
-    passe a la paire suivante."""
+    Each step has its own error handler, which logs the failure and moves on
+    to the next pair."""
     try:
         # Determine jaw and file path
         file_jaw = file
@@ -299,7 +300,7 @@ def _register_one_file(args, dic_gold, error_details, failed_indices, file, icp,
     return jaw, success_count
 
 def _discover_input_files(args, link):
-    """Les paires surface/reperes a traiter."""
+    """The surface/landmark pairs to treat."""
     if not os.path.exists(args.input[0]):
         raise FileNotFoundError(f"Input folder does not exist: {args.input[0]}")
 
@@ -314,7 +315,7 @@ def _discover_input_files(args, link):
     return list_file
 
 def _configure_jaws(args):
-    """Quelle machoire traiter, et faut-il garder les deux liees."""
+    """Which jaw to treat, and whether to keep the two linked."""
     link = False
     jaw = None
 
@@ -333,7 +334,7 @@ def _configure_jaws(args):
     return jaw, link
 
 def _build_icp_methods(dic_landmark):
-    """Une methode ICP par machoire, reglee sur ses reperes."""
+    """One ICP method per jaw, tuned on its own landmarks."""
     method = [InitIcp(), vtkICP()]
     option_upper = SelectKey(dic_landmark["Upper"])
     option_lower = SelectKey(dic_landmark["Lower"])
@@ -345,7 +346,7 @@ def _build_icp_methods(dic_landmark):
     return icp
 
 def _prepare_output_dirs(args):
-    """Cree les dossiers de sortie et remet le fichier de suivi a zero."""
+    """Create the output folders and reset the tracking file to empty."""
     if not hasattr(args, 'output_folder') or not args.output_folder or not args.output_folder[0]:
         raise ValueError("output_folder argument is missing or empty")
     if not hasattr(args, 'log_path') or not args.log_path or not args.log_path[0]:
@@ -373,7 +374,7 @@ def _prepare_output_dirs(args):
     logger.debug(f"Log file initialized: {args.log_path[0]}")
 
 def _load_gold_landmarks(args, dic_gold):
-    """Les fichiers de reperes de reference, superieur et inferieur."""
+    """The reference landmark files, upper and lower."""
     if not hasattr(args, 'gold_folder') or not args.gold_folder or not args.gold_folder[0]:
         raise ValueError("gold_folder argument is missing or empty")
 
@@ -394,7 +395,7 @@ def _load_gold_landmarks(args, dic_gold):
     logger.info("Gold reference landmark files loaded successfully")
 
 def _selected_landmarks(args):
-    """Les reperes demandes, par machoire."""
+    """The requested landmarks, per jaw."""
     if not hasattr(args, 'list_landmark') or not args.list_landmark or not args.list_landmark[0]:
         raise ValueError("list_landmark argument is missing or empty")
 

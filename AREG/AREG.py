@@ -519,7 +519,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CBCTOrientRef = "Frankfurt Horizontal and Midsagittal Plane"
         self.SegmentationLabels = [0]
         """
-        exemple dic = {'teeth'=['A,....],'Type'=['O',...]}
+        example dic = {'teeth'=['A,....],'Type'=['O',...]}
         """
 
         self.log_path = os.path.join(slicer.util.tempDirectory(), "process.log")
@@ -1011,11 +1011,11 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.ButtonSearchModel3.setVisible(False)
 
 
-    #: Par type d'entree : les modes proposes dans l'ordre, la methode qui
-    #: repond a chacun, et la fonction qui ajuste le reste de l'interface.
-    #: Cette table remplace trois branches de `if/elif` imbriquees sur des
-    #: index de liste deroulante. Ajouter un mode se fait ici et dans
-    #: `MethodDic`, sans toucher au corps de `SwitchType`.
+    #: Per input type: the modes offered, in order, the method that answers
+    #: each one, and the function that adjusts the rest of the interface.
+    #: This table replaces three nested `if/elif` branches on combo box
+    #: indices. Adding a mode is done here and in `MethodDic`, without
+    #: touching the body of `SwitchType`.
     INPUT_TYPES = {
         0: {
             "modes": ["Orientation and Registration",
@@ -1039,10 +1039,10 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     }
 
     def SwitchType(self, source=None):
-        """Choisit la methode, puis applique la description qu'elle donne.
+        """Pick the method, then apply the description it gives of itself.
 
-        Ce que l'interface doit montrer -- page, type de scan, etiquette du
-        modele -- est lu sur la methode, plus decide ici. Voir
+        What the interface must show -- page, scan type, model label -- is
+        read off the method, no longer decided here. See
         `AREG_Method.Method`.
         """
         config = self.INPUT_TYPES[self.ui.CbInputType.currentIndex]
@@ -1110,9 +1110,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         six others that carried the same copy. What the copy here got wrong, and
         the shared one does not: it created the destination folder *before*
         downloading, so a cancelled or failed download left an empty folder that
-        every later call read as « already there ». And nothing checked what the
+        every later call read as "already there". And nothing checked what the
         server actually sent -- a mistyped release link answers 200 with a web
-        page, which then failed as « not a zip file ».
+        page, which then failed as "not a zip file".
         """
         return ensure_with_progress(
             url,
@@ -2583,7 +2583,7 @@ qMRMLNodeComboBox:focus {
         if hasattr(self.ui, 'AREG_Method') and hasattr(self.ui.AREG_Method, 'merge_seg_checkbox'):
           self.ui.AREG_Method.merge_seg_checkbox.setStyleSheet(checkbox_stylesheet)
       except (AttributeError, RuntimeError):
-          # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+          # A widget with no such method, or whose C++ object is already gone.
           pass
     
     def _styleAllCheckboxes(self, parent, stylesheet):
@@ -3325,9 +3325,9 @@ class AREGLogic(ScriptedLoadableModuleLogic):
                     for line in (stream or "").splitlines():
                         self.queueCondaOutput(line)
             except Exception:
-                # Dernier recours : il n y a plus rien a tenter apres, mais perdre la
-                # sortie du processus sans laisser de trace rend le diagnostic impossible.
-                logger.debug("Recuperation de la sortie conda impossible", exc_info=True)
+                # Last resort: there is nothing left to try after this, but losing
+                # the process output with no trace makes diagnosis impossible.
+                logger.debug("Could not recover the conda output", exc_info=True)
 
     def queueCondaOutput(self, line):
         """Hand one line of a conda tool's output to the main thread.

@@ -509,7 +509,7 @@ QRadioButton::indicator:checked {
             elif isinstance(widget, qt.QRadioButton):
                 widget.setStyleSheet(radio_stylesheet)
         except (AttributeError, RuntimeError):
-            # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+            # A widget with no such method, or whose C++ object is already gone.
             pass
     
     def _stylePopUpWidgets(self, parent):
@@ -671,7 +671,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.checkboxes2 = {}
         self.isDCMInput = False
         """
-        exemple dic = {'teeth'=['A,....],'Type'=['O',...]}
+        example dic = {'teeth'=['A,....],'Type'=['O',...]}
         """
 
         self.log_path = os.path.join(slicer.util.tempDirectory(), "process.log")
@@ -819,9 +819,9 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.ButtonSearchModelSegOr.setVisible(False)
                 self.ui.label_CBCTInputType.setVisible(True)
 
-    #: Quelle methode repond a quel couple (type d'entree, mode). La table
-    #: remplace une chaine de quatre `if/elif` sur des index : ajouter une
-    #: methode se fait ici et dans `MethodDic`, sans toucher au reste.
+    #: Which method answers which (input type, mode) pair. The table replaces
+    #: a chain of four `if/elif` on indices: adding a method is done here and
+    #: in `MethodDic`, and nowhere else.
     METHOD_FOR_COMBO = {
         (0, 1): "Semi_CBCT",
         (0, 0): "Auto_CBCT",
@@ -830,11 +830,11 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     }
 
     def SwitchType(self):
-        """Choisit la methode, puis applique la description qu'elle donne.
+        """Pick the method, then apply the description it gives of itself.
 
-        Ce que l'interface doit montrer n'est plus decide ici mais lu sur la
-        methode -- `stacked_page`, `scan_type`, `shows_cbct_input`,
-        `model_label`. Voir `ASO_Method.Method`.
+        What the interface must show is no longer decided here but read off
+        the method -- `stacked_page`, `scan_type`, `shows_cbct_input`,
+        `model_label`. See `ASO_Method.Method`.
         """
         key = (self.ui.CbInputType.currentIndex, self.ui.CbModeType.currentIndex)
         self.ActualMeth = self.MethodDic[self.METHOD_FOR_COMBO[key]]
@@ -885,9 +885,9 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         six others that carried the same copy. What the copy here got wrong, and
         the shared one does not: it created the destination folder *before*
         downloading, so a cancelled or failed download left an empty folder that
-        every later call read as « already there ». And nothing checked what the
+        every later call read as "already there". And nothing checked what the
         server actually sent -- a mistyped release link answers 200 with a web
-        page, which then failed as « not a zip file ».
+        page, which then failed as "not a zip file".
         """
         return ensure_with_progress(
             url,
@@ -1138,9 +1138,9 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     checkbox2.setCheckable(status[checkbox2.text])
 
                 except KeyError:
-                    # status est indexe par le libelle de la case : une case absente du
-                    # dictionnaire reste telle quelle, ce qui merite au moins une trace.
-                    logger.debug("Aucun etat pour %s ni %s", checkbox.text, checkbox2.text)
+                    # status is keyed by the checkbox label: a box missing from the
+                    # dictionary is left as it is, which deserves at least a trace.
+                    logger.debug("No status for %s nor %s", checkbox.text, checkbox2.text)
 
         if self.type == "CBCT":
             for checkboxs, checkboxs2 in zip(

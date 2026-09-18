@@ -8,37 +8,36 @@ logger = get_logger("ASO_Method")
 
 
 class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
-    """Le contrat d'une methode d'ASO, et la description de son interface.
+    """The contract of an ASO method, and the description of its interface.
 
-    Les quatre attributs ci-dessous disent ce que l'interface doit montrer
-    quand cette methode est choisie. Ils vivaient auparavant dans le widget,
-    sous la forme d'une chaine de `if/elif` sur des index de liste deroulante
-    et d'un `isinstance` : l'abstraction existait, et les appelants la
-    court-circuitaient. Ajouter une cinquieme methode demandait d'aller
-    modifier le widget.
+    The four attributes below say what the interface must show when this
+    method is picked. They used to live in the widget, as a chain of `if/elif`
+    on combo box indices plus an `isinstance`: the abstraction existed, and
+    the callers short-circuited it. Adding a fifth method meant going and
+    editing the widget.
 
-    Ce sont des donnees, pas des appels a Qt : la methode decrit, le widget
-    applique. Rien ici n'importe `qt`, et les methodes restent utilisables
-    hors interface.
+    They are data, not calls into Qt: the method describes, the widget
+    applies. Nothing here imports `qt`, and the methods stay usable outside
+    the interface.
     """
 
-    #: page du `stackedWidget` a afficher
+    #: page of the `stackedWidget` to show
     stacked_page = 0
-    #: ce que le widget range dans `self.type`
+    #: what the widget stores in `self.type`
     scan_type = "CBCT"
-    #: la liste deroulante du type d'entree CBCT est-elle montree
+    #: is the CBCT input type combo box shown
     shows_cbct_input = True
-    #: texte de `labelModelFolder`, ou None pour laisser celui qui s'y trouve
+    #: text of `labelModelFolder`, or None to leave whatever is already there
     model_label = None
-    #: la methode travaille-t-elle a partir d'un modele de segmentation
-    #: (ce que testait `isinstance(meth, (Auto_IOS, Semi_IOS))`)
+    #: does the method work from a segmentation model
+    #: (what `isinstance(meth, (Auto_IOS, Semi_IOS))` used to test)
     uses_segmentation_model = False
 
-    # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
-    # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La
-    # forme variadique dit cela sans mentir sur l'arite -- l'ABC de MRI2CBCT en
-    # annoncait deux la ou ses six sous-classes en prennent un. Chaque
-    # implementation declare l'arite qu'elle attend vraiment.
+    # The input folders depend on the tool: one for ASO and ALI, two timepoints
+    # for AREG and MRI2CBCT, patients and matrices for AutoMatrix. The variadic
+    # form says so without lying about the arity -- the MRI2CBCT ABC announced
+    # two where its six subclasses take one. Each implementation declares the
+    # arity it really expects.
     @abstractmethod
     def TestScan(self, *scan_folders) -> str:
         """Verify if the input folder seems good (have everything required to run the mode selected), if something is wrong the function return string with error message

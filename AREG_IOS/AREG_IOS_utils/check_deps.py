@@ -27,7 +27,7 @@ def remove_broken_image_so():
             image_so_path.unlink()
             return True
     except (ImportError, OSError):
-        # torchvision absent, ou le fichier deja retire par un autre passage.
+        # torchvision missing, or the file already removed by another pass.
         pass
 
     return False

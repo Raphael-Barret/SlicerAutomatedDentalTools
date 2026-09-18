@@ -2,7 +2,7 @@ import SimpleITK as sitk
 import numpy as np
 import vtk
 import os
-from ADTLib.geometry import ApplyTransform, RotationMatrix, TransformDict, TransformList, TransformSurf  # noqa: F401  (re-exporte)
+from ADTLib.geometry import ApplyTransform, RotationMatrix, TransformDict, TransformList, TransformSurf  # noqa: F401  (re-exported)
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 

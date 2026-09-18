@@ -1,7 +1,7 @@
-"""Le lecteur OFF vit maintenant dans ADTLib.
+"""The OFF reader now lives in ADTLib.
 
-Les deux exemplaires -- celui-ci et celui d'`ASO/ASO_Method/IOS_utils/Reader.py`
--- etaient identiques au caractere pres, preambule de journalisation mis a part.
-Ce module reste pour les appelants qui l'importent par son chemin d'origine.
+The two copies -- this one and the one in `ASO/ASO_Method/IOS_utils/Reader.py`
+-- were identical to the character, logging preamble aside. This module stays
+for the callers that import it by its original path.
 """
-from ADTLib.io.surface import OFFReader  # noqa: F401  (re-exporte)
+from ADTLib.io.surface import OFFReader  # noqa: F401  (re-exported)

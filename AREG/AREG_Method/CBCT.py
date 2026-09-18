@@ -25,7 +25,7 @@ logger = get_logger("AREG_Method_CBCT")
 
 
 class Semi_CBCT(Method):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 0
     scan_type = "CBCT"
     def __init__(self, widget):
@@ -391,7 +391,7 @@ class Semi_CBCT(Method):
 
 
 class Auto_CBCT(Semi_CBCT):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 1
     model_label = "Segmentation Model Folder"
     def getTestFileList(self):
@@ -611,7 +611,7 @@ class Auto_CBCT(Semi_CBCT):
 
 
 class Or_Auto_CBCT(Semi_CBCT):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 2
     model_label = "Segmentation Model Folder"
     def getModelUrl(self):
@@ -1121,5 +1121,5 @@ def ModifiedDictPatients(patients, todo_str):
 
 
 def search(path, *args):
-    """Délégué à ADTLib. Ce site trie : l'ordre des patients en dépend."""
+    """Delegated to ADTLib. This site sorts: the patient order depends on it."""
     return search_files(path, *args, sort=True)

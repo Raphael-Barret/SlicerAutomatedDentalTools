@@ -16,7 +16,7 @@ logger = get_logger("AREG_Method_IOSCBCT")
 
 
 class IOSCBCT(Method):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 4
     scan_type = "IOSCBCT"
     def __init__(self, widget):

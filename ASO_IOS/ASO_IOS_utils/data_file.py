@@ -161,10 +161,10 @@ class Files:
         return asdict(self.list_file[self.iter])
 
     def search(self, path, *args):
-        """Les fichiers de `path` par extension, repertoires exclus.
+        """The files under `path` by extension, directories excluded.
 
-        Le filtre `files_only` est ce qui distinguait cette variante des
-        quatorze autres : voir `ADTLib.io.fs`.
+        The `files_only` filter is what set this variant apart from the
+        fourteen others: see `ADTLib.io.fs`.
         """
         return search(path, *args, files_only=True)
 

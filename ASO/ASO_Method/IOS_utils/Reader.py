@@ -1,14 +1,13 @@
-"""Lecture et ecriture de maillages : le tout vit maintenant dans ADTLib.
+"""Mesh reading and writing: all of it now lives in ADTLib.
 
-Ce fichier portait une copie d'`OFFReader`, de `ReadSurf` et de `WriteSurf`.
-Les trois existaient a l'identique ou presque dans quatre autres modules ; le
-detail de ce qui divergeait et de ce qui a ete retenu est dans
-`ADTLib/io/surface.py`. Ce module reste pour les appelants qui l'importent par
-son chemin d'origine.
+This file carried a copy of `OFFReader`, `ReadSurf` and `WriteSurf`. All three
+existed identically, or nearly so, in four other modules; the detail of what
+diverged and what was kept is in `ADTLib/io/surface.py`. This module stays for
+the callers that import it by its original path.
 
-`WriteSurf` d'ici forcait la sortie en `.vtk` quelle que soit l'extension
-d'entree. Son unique appelant, le contournement de la segmentation dans
-`IOS.py`, voulait justement cette conversion : il demande desormais le `.vtk`
-dans le nom qu'il passe, au lieu que la fonction le decide pour tout le monde.
+The `WriteSurf` from here forced the output to `.vtk` whatever the input
+extension was. Its only caller, the segmentation bypass in `IOS.py`, wanted
+exactly that conversion: it now asks for the `.vtk` in the name it passes,
+instead of the function deciding it for everyone.
 """
-from ADTLib.io.surface import OFFReader, ReadSurf, WriteSurf  # noqa: F401  (re-exporte)
+from ADTLib.io.surface import OFFReader, ReadSurf, WriteSurf  # noqa: F401  (re-exported)

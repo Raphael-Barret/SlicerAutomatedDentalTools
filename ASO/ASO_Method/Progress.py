@@ -141,13 +141,13 @@ class DisplayALICBCT(Display):
         return self.progress_bar, self.message
 
     def isProgress(self, **kwds) -> bool:
-        """ATTENTION -- rien ne declenche jamais cette methode.
+        """WARNING -- nothing ever fires this method.
 
-        Elle attend les evenements que `emit_event` produit, mais le CLI qui
-        l'alimente, `ALI_CBCT.py`, envoie des pourcentages : la fenetre y voit
-        500 a 10000, jamais 100 ni 200. Voir la note dans
-        `ALI_CBCT.update_slicer_progress`. Le code est laisse tel quel parce
-        que le reparer demande de decider ce que la barre doit montrer.
+        It expects the events `emit_event` produces, but the CLI that feeds
+        it, `ALI_CBCT.py`, sends percentages: the window sees 500 to 10000
+        there, never 100 nor 200. See the note next to
+        `ALI_CBCT.update_slicer_progress`. The code is left as it is because
+        fixing it means deciding what the bar should show.
         """
         out = False
         if is_event(kwds["progress"], PATIENT_DONE):

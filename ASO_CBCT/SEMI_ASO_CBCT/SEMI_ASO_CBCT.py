@@ -40,7 +40,7 @@ from ASO_CBCT_utils import (
 
 
 def _register_one_patient(args, data, failed_patients, gold_file, gold_json_file, input_dir, list_landmark, out_dir, patient, processed_patients):
-    """Recale un patient sur la reference a partir de ses reperes."""
+    """Register one patient onto the reference from its landmarks."""
     patient_context = f"patient: {patient}"
     logger.info(f"Processing {patient_context}")
 

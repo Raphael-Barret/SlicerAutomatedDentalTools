@@ -3,7 +3,7 @@ import vtk
 from AREG_IOS_utils.transformation import RotationMatrix, TransformSurf
 from AREG_IOS_utils.vtkSegTeeth import vtkMeanTeeth
 
-from ADTLib.geometry import make_vector  # noqa: F401  (re-exporte)
+from ADTLib.geometry import make_vector  # noqa: F401  (re-exported)
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 

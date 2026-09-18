@@ -28,8 +28,8 @@ from vtkmodules.vtkFiltersGeneral import vtkTransformPolyDataFilter
 
 import dicom2nifti
 
-from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
-from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
+from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exported)
+from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exported)
 from ADTLib.io.fs import search as search_files
 from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_CLI_MARKERS
 
@@ -182,7 +182,7 @@ def FindOptimalLandmarks(source, target, nb_lmrk):
 
 
 def search(self, path, *args):
-    """Délégué à ADTLib ; la signature est gardée pour les appelants."""
+    """Delegated to ADTLib; the signature is kept for the callers."""
     return search_files(path, *args)
 
 

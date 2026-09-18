@@ -19,7 +19,7 @@ from ADTLib.naming import patient_id as read_patient_id
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
-from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exporte)
+from ADTLib.io.landmarks import WriteJson  # noqa: F401  (re-exported)
 from ADTLib.io.fs import search as search_files
 
 logger = get_logger("AREG_CBCT_utils")
@@ -244,7 +244,7 @@ def ModifiedDictPatients(patients, todo_str):
 
 
 def search(path, *args):
-    """Délégué à ADTLib. Ce site trie : l'ordre des patients en dépend."""
+    """Delegated to ADTLib. This site sorts: the patient order depends on it."""
     return search_files(path, *args, sort=True)
 
 
@@ -328,9 +328,9 @@ def LoadOnlyLandmarks(ldmk_path, ldmk_list=None):
             lm_coord = lm_ph_coord.astype(np.float64)
             landmarks[markup["label"]] = lm_coord
         except (KeyError, IndexError, TypeError):
-            # Un point de controle sans position lisible est saute. Le dire :
-            # un repere manquant deplace le recalage sans rien signaler.
-            logger.debug("Point de controle illisible dans %s", ldmk_path, exc_info=True)
+            # A control point with no readable position is skipped. Say so:
+            # a missing landmark shifts the registration without a word.
+            logger.debug("Unreadable control point in %s", ldmk_path, exc_info=True)
             continue
     if ldmk_list is not None:
         return {key: landmarks[key] for key in ldmk_list if key in landmarks.keys()}

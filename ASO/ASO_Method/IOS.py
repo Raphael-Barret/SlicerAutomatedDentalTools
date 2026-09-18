@@ -12,7 +12,11 @@ from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shar
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
-from ADTLib.model_registry import ASO_IOS_GOLD
+from ADTLib.model_registry import (
+    ASO_IOS_GOLD,
+    ASO_IOS_TEST_AUTO,
+    ASO_IOS_TEST_SEMI,
+)
 
 logger = get_logger("ASO_Method_IOS")
 
@@ -140,7 +144,7 @@ class Auto_IOS(Method):
     def getTestFileList(self):
         return (
             "Fully-Automated",
-            "https://github.com/HUTIN1/ASO/releases/download/v1.0.1/Test_file_Full-IOS.zip",
+            f"{ASO_IOS_TEST_AUTO}/Test_file_Full-IOS.zip",
         )
 
     def getSegOrModelList(self):
@@ -493,7 +497,7 @@ class Semi_IOS(Auto_IOS):
     def getTestFileList(self):
         return (
             "Semi-Automated",
-            "https://github.com/HUTIN1/ASO/releases/download/v1.0.2/Test_file_Semi-IOS.zip",
+            f"{ASO_IOS_TEST_SEMI}/Test_file_Semi-IOS.zip",
         )
 
     def TestScan(self, scan_folder: str):

@@ -34,6 +34,13 @@ ASO_CBCT_GOLD = (
 #: Les références et modèles d'ASO_IOS, partagés par ALI, ASO et AREG.
 ASO_IOS_GOLD = "https://github.com/HUTIN1/ASO/releases/download/v1.0.0"
 
+#: Les jeux d'essai d'ASO_IOS. Deux releases distinctes, une par mode : le jeu
+#: semi-automatique porte les json de repères que le mode réclame, le jeu
+#: automatique ne porte que les surfaces. Les deux liens étaient écrits en dur
+#: dans `ASO_Method/IOS.py`, seuls jeux d'essai à ne pas passer par ici.
+ASO_IOS_TEST_AUTO = "https://github.com/HUTIN1/ASO/releases/download/v1.0.1"
+ASO_IOS_TEST_SEMI = "https://github.com/HUTIN1/ASO/releases/download/v1.0.2"
+
 #: Les jeux d'essai publiés par Slicer, utilisés par `registerSampleData`.
 SLICER_TESTING_DATA = (
     "https://github.com/Slicer/SlicerTestingData/releases/download/SHA256"

@@ -1,16 +1,15 @@
-# Ce que les dataclasses de requete changent, et surtout ce qu elles ne
-# changent PAS.
+# What the request dataclasses change, and above all what they do NOT change.
 #
-# Le point qui compte : un champ non fourni doit lever exactement ce que
-# `kwargs["champ"]` levait -- meme type d erreur, meme message. Sans cela, le
-# passage a la dataclass transformerait une panne franche en valeur vide qui
-# traverse tout le traitement.
+# The point that matters: a field nobody supplied must raise exactly what
+# `kwargs["field"]` raised -- same error type, same message. Without that, the
+# move to a dataclass would turn an outright failure into an empty value that
+# travels through the whole run.
 import os
 import sys
 import unittest
 
-# ADTLib, que les paquets importent desormais : une suite de tests est un
-# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+# ADTLib, which the packages now import: a test suite is an entry point
+# like any other, nothing has put it on sys.path before it runs.
 _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
@@ -28,7 +27,7 @@ from ADTLib.requests import (  # noqa: E402
 class AbsentFieldTest(unittest.TestCase):
 
     def test_reading_a_field_nobody_gave_raises_what_the_dict_raised(self):
-        """`kwargs["log_path"]` levait KeyError('log_path'). Idem ici."""
+        """`kwargs["log_path"]` raised KeyError('log_path'). Same here."""
         request = ASORequest(input_folder="/in")
         with self.assertRaises(KeyError) as caught:
             _ = request.log_path
@@ -56,8 +55,8 @@ class AbsentFieldTest(unittest.TestCase):
         self.assertEqual(request.provided(), ["input_folder", "output_folder"])
 
     def test_an_absent_field_refuses_to_be_a_boolean(self):
-        """Le piege le plus discret : `if request.champ:` sur un champ absent
-        repondrait False au lieu de lever, et le traitement continuerait."""
+        """The quietest trap: `if request.field:` on an absent field would
+        answer False instead of raising, and the run would carry on."""
         with self.assertRaises(KeyError):
             bool(MISSING)
 
@@ -65,8 +64,8 @@ class AbsentFieldTest(unittest.TestCase):
 class UnknownKeyTest(unittest.TestCase):
 
     def test_a_key_the_family_does_not_declare_is_refused(self):
-        """Avant, une faute de frappe a l appel etait silencieusement ignoree :
-        la cle atterrissait dans le sac et personne ne la lisait."""
+        """Before, a typo at the call site was silently ignored: the key
+        landed in the bag and nobody ever read it."""
         with self.assertRaises(TypeError):
             ASORequest(input_folder="/in", ouput_folder="/typo")
 
@@ -78,8 +77,8 @@ class UnknownKeyTest(unittest.TestCase):
 class DefaultsTest(unittest.TestCase):
 
     def test_the_defaults_are_those_the_code_passed_to_kwargs_get(self):
-        """Ces valeurs ne sont pas choisies : ce sont celles qui etaient
-        ecrites dans les `kwargs.get(..., defaut)` remplaces."""
+        """These values are not chosen: they are the ones written in the
+        `kwargs.get(..., default)` calls being replaced."""
         self.assertEqual(AREGRequest().input_t1_folder, "")
         self.assertEqual(AREGRequest().input_t2_folder, "")
         self.assertEqual(AREGRequest().mgl_landmarks, "")
@@ -97,7 +96,7 @@ class WithTest(unittest.TestCase):
         self.assertEqual(copy.output_folder, "/out")
 
     def test_a_copy_keeps_absent_fields_absent(self):
-        """`dataclasses.replace` echouerait ici : il relit tous les champs."""
+        """`dataclasses.replace` would fail here: it reads every field back."""
         copy = AREGRequest(output_folder="/out").with_(output_folder="/other")
         with self.assertRaises(KeyError):
             _ = copy.log_path

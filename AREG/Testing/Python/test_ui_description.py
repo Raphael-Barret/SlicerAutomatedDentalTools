@@ -1,7 +1,7 @@
-# Ce que l interface doit montrer pour chaque methode d AREG.
+# What the interface has to show for each AREG method.
 #
-# Ces valeurs vivaient dans trois branches de `if/elif` imbriquees sur des
-# index de listes deroulantes. Les voici figees telles qu elles etaient.
+# These values used to live in three nested `if/elif` branches on dropdown
+# indices. Here they are, frozen as they stood.
 import os
 import sys
 import unittest
@@ -18,7 +18,7 @@ from AREG_Method.IOSCBCT import Auto_IOSCBCT, Reg_IOSCBCT, Semi_IOSCBCT  # noqa:
 
 SEG = "Segmentation Model Folder"
 
-# methode -> (page, type de scan, etiquette du modele)
+# method -> (page, scan type, model label)
 EXPECTED = {
     Semi_CBCT:    (0, "CBCT", None),
     Auto_CBCT:    (1, "CBCT", SEG),
@@ -30,7 +30,7 @@ EXPECTED = {
     Reg_IOSCBCT:  (4, "IOSCBCT", None),
 }
 
-# type d entree -> nombre de modes, et methode de chacun
+# input type -> how many modes, and the method of each
 COMBOS = {
     0: {0: Or_Auto_CBCT, 1: Auto_CBCT, 2: Semi_CBCT},
     1: {0: Auto_IOS, 1: Semi_IOS},
@@ -53,7 +53,7 @@ class UiDescriptionTest(unittest.TestCase):
     def test_the_three_input_types_land_on_three_scan_types(self):
         for input_type, modes in COMBOS.items():
             kinds = {m.scan_type for m in modes.values()}
-            self.assertEqual(len(kinds), 1, f"type d'entree {input_type} : {kinds}")
+            self.assertEqual(len(kinds), 1, f"input type {input_type}: {kinds}")
 
     def test_the_iosbct_family_shares_one_page(self):
         self.assertEqual({m.stacked_page for m in COMBOS[2].values()}, {4})

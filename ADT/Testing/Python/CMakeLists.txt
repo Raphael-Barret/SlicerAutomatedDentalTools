@@ -3,33 +3,33 @@
 # replaces: standard library only, no scan and no Slicer.
 slicer_add_python_unittest(SCRIPT test_naming.py)
 
-# check_lib_installed : les contraintes de version, et les orthographes heritees.
+# check_lib_installed: version constraints, and the inherited spellings.
 slicer_add_python_unittest(SCRIPT test_deps.py)
 
-# ReadSurf, WriteSurf et OFFReader : les cinq copies divergeaient, ces cas
-# figent ce qui a ete retenu et les quatre comportements qui changent.
+# ReadSurf, WriteSurf and OFFReader: the five copies had drifted apart, these
+# cases freeze what was kept and the four behaviours that change.
 slicer_add_python_unittest(SCRIPT test_surface.py)
 
-# search : les deux parametres qui portent ce que les quinze copies
-# faisaient differemment, et rien d autre.
+# search: the two parameters that carry what the fifteen copies did
+# differently, and nothing else.
 slicer_add_python_unittest(SCRIPT test_fs.py)
 
-# Le tableau de numerotation des dents : la preference etait ignoree des
-# qu elle n etait pas le dernier tableau du maillage.
+# The tooth numbering array: the preferred array was ignored as soon as it was
+# not the last array of the mesh.
 slicer_add_python_unittest(SCRIPT test_labels.py)
 
-# Le canal <filter-progress> : ce sont les octets emis qui comptent, la
-# fenetre comparant la valeur recue a des entiers en dur.
+# The <filter-progress> channel: the bytes emitted are what counts, the window
+# comparing the value it receives against hard-coded integers.
 slicer_add_python_unittest(SCRIPT test_progress_protocol.py)
 
-# Les requetes typees : ce qui compte est que le champ absent leve
-# exactement ce que le dictionnaire levait.
+# The typed requests: what matters is that an absent field raises exactly what
+# the dictionary raised.
 slicer_add_python_unittest(SCRIPT test_requests.py)
 
-# Balaye le depot : toute paire (bibliotheque, version) doit produire une
-# chaine que pip accepte. Ce que le grep avait manque deux fois.
+# Walks the repository: every (library, version) pair must produce a string
+# that pip accepts. What grepping had missed twice.
 slicer_add_python_unittest(SCRIPT test_pip_requirements.py)
 
-# Le rapatriement d un jeu de test : archive ou non, page HTML refusee,
-# et un telechargement interrompu qui ne doit pas passer pour complet.
+# Fetching a test data set: archive or not, an HTML page refused, and an
+# interrupted download that must not pass for a complete one.
 slicer_add_python_unittest(SCRIPT test_testdata.py)

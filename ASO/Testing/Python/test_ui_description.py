@@ -1,12 +1,12 @@
-# Ce que l interface doit montrer pour chaque methode d ASO.
+# What the interface has to show for each ASO method.
 #
-# Ces valeurs vivaient dans une chaine de quatre `if/elif` sur des index de
-# liste deroulante, et dans un `isinstance`. Les voici figees telles qu elles
-# etaient : si une page du `stackedWidget` ou une etiquette change, c est un
-# choix, et ce test le dit.
+# These values used to live in a chain of four `if/elif` branches on dropdown
+# indices, and in an `isinstance`. Here they are, frozen as they stood: if a
+# page of the `stackedWidget` or a label changes, that is a choice, and this
+# test says so.
 #
-# Les classes seules suffisent : la description est faite d attributs de
-# classe, sans Qt et sans instance.
+# The classes alone are enough: the description is made of class attributes,
+# with no Qt and no instance.
 import os
 import sys
 import unittest
@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(_HERE, "..", ".."))
 from ASO_Method.CBCT import Auto_CBCT, Semi_CBCT  # noqa: E402
 from ASO_Method.IOS import Auto_IOS, Semi_IOS  # noqa: E402
 
-# (type d entree, mode) -> methode, tel que la chaine de `if/elif` le decidait
+# (input type, mode) -> method, as the `if/elif` chain decided it
 COMBOS = {
     (0, 1): Semi_CBCT,
     (0, 0): Auto_CBCT,
@@ -28,7 +28,7 @@ COMBOS = {
     (1, 0): Auto_IOS,
 }
 
-# methode -> (page, type, entree CBCT visible, etiquette, modele de segmentation)
+# method -> (page, type, CBCT input shown, label, segmentation model)
 EXPECTED = {
     Semi_CBCT: (0, "CBCT", True, None, False),
     Auto_CBCT: (1, "CBCT", True, "Orientation Model Folder", False),
@@ -50,13 +50,13 @@ class UiDescriptionTest(unittest.TestCase):
         self.assertEqual(sorted(pages), [0, 1, 2, 3])
 
     def test_the_table_covers_every_combination_of_the_two_dropdowns(self):
-        """Deux listes de deux entrees : la table doit etre totale, sinon un
-        choix de l utilisateur ne changerait rien -- ce que faisait l ancienne
-        chaine sans `else`."""
+        """Two dropdowns of two entries: the table has to be total, otherwise
+        one of the user's choices would change nothing -- which is what the
+        old chain with no `else` did."""
         self.assertEqual(sorted(COMBOS), [(0, 0), (0, 1), (1, 0), (1, 1)])
 
     def test_the_segmentation_model_flag_says_what_isinstance_said(self):
-        """Le test etait `isinstance(meth, (Auto_IOS, Semi_IOS))`."""
+        """The test was `isinstance(meth, (Auto_IOS, Semi_IOS))`."""
         for method, expected in EXPECTED.items():
             self.assertEqual(method.uses_segmentation_model,
                              issubclass(method, Auto_IOS), method.__name__)

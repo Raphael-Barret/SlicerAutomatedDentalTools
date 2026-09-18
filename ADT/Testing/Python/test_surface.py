@@ -1,17 +1,17 @@
-# Ce que `ReadSurf` et `WriteSurf` font, maintenant qu'il n'y en a plus qu'un.
+# What `ReadSurf` and `WriteSurf` do, now that there is only one of each.
 #
-# Les cinq copies de ReadSurf et les quatre de WriteSurf divergeaient. Les cas
-# ci-dessous figent le comportement retenu, et en particulier les quatre points
-# ou l'ancien comportement d'au moins une copie n'est pas conserve : un fichier
-# absent, une extension inconnue, un maillage vide, et un `.vtp` qui recevait
-# des octets VTK herites.
+# The five copies of ReadSurf and the four of WriteSurf had drifted apart. The
+# cases below freeze the behaviour that was kept, and in particular the four
+# points where the former behaviour of at least one copy is not preserved: a
+# missing file, an unknown extension, an empty mesh, and a `.vtp` that was
+# getting legacy VTK bytes.
 import os
 import sys
 import tempfile
 import unittest
 
-# ADTLib, que les paquets importent desormais : une suite de tests est un
-# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+# ADTLib, which the packages now import: a test suite is an entry point
+# like any other, nothing has put it on sys.path before it runs.
 _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
@@ -22,7 +22,7 @@ from ADTLib.io.surface import OFFReader, ReadSurf, WriteSurf  # noqa: E402
 
 
 def a_triangle():
-    """Le plus petit maillage non vide : trois points, une face."""
+    """The smallest non-empty mesh: three points, one face."""
     points = vtk.vtkPoints()
     points.InsertNextPoint(0.0, 0.0, 0.0)
     points.InsertNextPoint(1.0, 0.0, 0.0)
@@ -75,13 +75,13 @@ class OFFReaderTest(unittest.TestCase):
         self.assertEqual(reader.GetOutput().GetNumberOfPoints(), 2)
 
     def test_output_is_none_before_update(self):
-        """Les deux copies affectaient des locales dans __init__, d'ou un
-        AttributeError la ou None etait manifestement voulu."""
+        """Both copies assigned locals in __init__, hence an AttributeError
+        where None was plainly what was meant."""
         self.assertIsNone(OFFReader().GetOutput())
 
     def test_a_bad_header_raises_a_real_exception(self):
-        """`raise ("...")` leve une chaine, donc un TypeError qui masque le
-        message. C'est un ValueError qui porte le nom du fichier."""
+        """`raise ("...")` raises a string, hence a TypeError that hides the
+        message. It is a ValueError, and it carries the file name."""
         reader = OFFReader()
         reader.SetFileName(self.write("NOTOFF\n0 0 0\n"))
         with self.assertRaises(ValueError) as caught:
@@ -119,8 +119,8 @@ class ReadSurfTest(unittest.TestCase):
         self.assertEqual(ReadSurf(path).GetNumberOfPoints(), 3)
 
     def test_reads_off_everywhere(self):
-        """Deux des cinq copies -- FlexReg_CLI et AREG_IOS -- ne lisaient pas
-        l'OFF du tout, alors que leurs jumelles le lisaient."""
+        """Two of the five copies -- FlexReg_CLI and AREG_IOS -- did not read
+        OFF at all, while their twins did."""
         path = self.path("a.off")
         with open(path, "w") as f:
             f.write(OFF_TRIANGLE)
@@ -131,8 +131,8 @@ class ReadSurfTest(unittest.TestCase):
         self.assertEqual(ReadSurf(path).GetNumberOfPoints(), 3)
 
     def test_a_missing_file_raises_instead_of_reading_an_empty_mesh(self):
-        """Les lecteurs vtk rendent un maillage vide sans rien dire : l'erreur
-        ne se voyait qu'au recalage, plusieurs etapes plus loin."""
+        """The vtk readers hand back an empty mesh without a word: the error
+        only showed at registration, several steps further on."""
         with self.assertRaises(FileNotFoundError):
             ReadSurf(self.path("absent.vtk"))
 
@@ -165,7 +165,7 @@ class WriteSurfTest(unittest.TestCase):
         self.assertTrue(os.path.exists(out))
 
     def test_the_infix_is_optional(self):
-        """ASO appelait sans, avec trois arguments."""
+        """ASO called without it, with three arguments."""
         out = WriteSurf(self.surf, self.tmp.name, "A2.vtk")
         self.assertEqual(os.path.basename(out), "A2.vtk")
 
@@ -174,7 +174,7 @@ class WriteSurfTest(unittest.TestCase):
         self.assertEqual(out, os.path.join(self.tmp.name, "A2.vtk"))
 
     def test_a_vtp_gets_xml_bytes_not_legacy_ones(self):
-        """Trois copies sur quatre ecrivaient du VTK herite sous un nom .vtp."""
+        """Three copies out of four wrote legacy VTK under a .vtp name."""
         out = WriteSurf(self.surf, self.tmp.name, "A2.vtp")
         with open(out, "rb") as f:
             head = f.read(64)
@@ -186,14 +186,14 @@ class WriteSurfTest(unittest.TestCase):
         self.assertEqual(os.path.basename(out), "A2.vtk")
 
     def test_a_missing_parent_directory_is_created(self):
-        """os.mkdir echouait des que le parent manquait."""
+        """os.mkdir failed as soon as the parent directory was missing."""
         nested = os.path.join(self.tmp.name, "out", "T1")
         out = WriteSurf(self.surf, nested, "A2.vtk")
         self.assertTrue(os.path.exists(out))
 
     def test_writing_twice_into_the_same_folder_is_fine(self):
-        """os.mkdir etait garde par un os.path.exists : deux processus qui
-        ecrivent dans le meme dossier pouvaient tomber sur FileExistsError."""
+        """os.mkdir was guarded by an os.path.exists: two processes writing
+        into the same folder could hit FileExistsError."""
         WriteSurf(self.surf, self.tmp.name, "A2.vtk")
         WriteSurf(self.surf, self.tmp.name, "A3.vtk")
 

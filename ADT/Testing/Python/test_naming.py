@@ -12,8 +12,8 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# ADTLib, que les paquets importent desormais : une suite de tests est un
-# point d entree comme un autre, rien ne l a mis sur sys.path avant elle.
+# ADTLib, which the packages now import: a test suite is an entry point
+# like any other, nothing has put it on sys.path before it runs.
 _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ADT")
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
@@ -80,10 +80,10 @@ class PatientIdTest(unittest.TestCase):
         self.assertEqual(patient_id("P001_T3.nii.gz"), "P001_T3")
 
 
-# Les quatre autres jeux de marqueurs du dépôt, transcrits depuis les chaînes
-# qu'ils remplacent. Ils ne donnent PAS le même identifiant que le jeu par
-# défaut sur le même nom -- c'est précisément pourquoi ils n'ont pas été fondus
-# avec lui, et ces cas le figent.
+# The four other marker sets of the repository, transcribed from the chains
+# they replace. They do NOT give the same identifier as the default set on the
+# same name -- which is precisely why they were not merged into it, and these
+# cases freeze that.
 
 def ASO_CBCT_CHAIN(name):
     return (name.split("_scan")[0].split("_Scanreg")[0].split("_Scan")[0]
@@ -122,7 +122,7 @@ WIDER_CORPUS = CORPUS + [
 
 
 class OtherMarkerSetsTest(unittest.TestCase):
-    """Chaque jeu rend ce que rendait la chaîne qu'il remplace, nom par nom."""
+    """Each set gives what the chain it replaces gave, name by name."""
 
     def _same_as(self, markers, chain):
         for name in WIDER_CORPUS:
@@ -145,18 +145,18 @@ class OtherMarkerSetsTest(unittest.TestCase):
         self._same_as(LANDMARK_SUFFIX_MARKERS, LANDMARK_SUFFIX_CHAIN)
 
     def test_the_sets_really_do_disagree(self):
-        """Si deux jeux donnaient toujours la même réponse, il faudrait les fondre.
+        """If two sets always gave the same answer, they should be merged.
 
-        Ce test échouerait alors, et ce serait la bonne nouvelle : il dirait
-        qu'une des listes est devenue inutile.
+        This test would then fail, and that would be the good news: it would
+        say that one of the lists has become useless.
         """
         answers = {
-            "défaut": patient_id("P001_MAND_T1.nii.gz"),
+            "default": patient_id("P001_MAND_T1.nii.gz"),
             "ASO_CBCT": patient_id("P001_MAND_T1.nii.gz", ASO_CBCT_MARKERS),
             "AREG_IOSCBCT": patient_id("P001_MAND_T1.nii.gz", AREG_IOSCBCT_MARKERS),
         }
-        self.assertEqual(answers["défaut"], "P001")
-        self.assertEqual(answers["ASO_CBCT"], "P001_MAND")       # n'a pas _MAND
+        self.assertEqual(answers["default"], "P001")
+        self.assertEqual(answers["ASO_CBCT"], "P001_MAND")     # has no _MAND
         self.assertEqual(answers["AREG_IOSCBCT"], "P001_MAND_T1.nii.gz")
 
 

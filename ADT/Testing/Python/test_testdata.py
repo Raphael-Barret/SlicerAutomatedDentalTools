@@ -60,18 +60,18 @@ class TestDataTest(unittest.TestCase):
         os.remove(os.path.join(out, MARKER))
         self.assertFalse(is_present(out))
 
-    # ------------------------------------------------- pas une archive
+    # -------------------------------------------------- not an archive
 
     def test_a_plain_file_is_kept_whole(self):
-        """ALI CBCT : MG_test_scan.nii.gz allait dans zipfile.ZipFile."""
+        """ALI CBCT: MG_test_scan.nii.gz was handed to zipfile.ZipFile."""
         out = ensure(_url(self._file("MG_test_scan.nii.gz")), self.root, "Scan")
         self.assertTrue(os.path.isfile(os.path.join(out, "MG_test_scan.nii.gz")))
         self.assertTrue(is_present(out))
 
-    # ------------------------------------------------------ page HTML
+    # --------------------------------------------------- an HTML page
 
     def test_a_web_page_is_refused_with_a_reason(self):
-        """ALI IOS : releases/tag/... sert une page et repond 200."""
+        """ALI IOS: releases/tag/... serves a page and answers 200."""
         page = self._file("v1.0.4.html", b"<!DOCTYPE html>\n<html><body>404</body></html>")
         with self.assertRaises(TestDataError) as caught:
             ensure(_url(page), self.root, "Set")
@@ -83,20 +83,21 @@ class TestDataTest(unittest.TestCase):
             ensure(_url(page), self.root, "Set")
         self.assertFalse(os.path.exists(os.path.join(self.root, "Set")))
         self.assertEqual([e for e in os.listdir(self.root)], [],
-                         "un dossier de travail est reste")
+                         "a working directory was left behind")
 
-    # ------------------------------------------------ deja telecharge
+    # --------------------------------------------- already downloaded
 
     def test_a_dataset_already_there_is_not_downloaded_again(self):
         source = self._zip()
         first = ensure(_url(source), self.root, "Set")
-        os.remove(source)                       # la source n existe plus
-        again = ensure(_url(source), self.root, "Set")   # ne doit rien demander
+        os.remove(source)                       # the source is gone
+        again = ensure(_url(source), self.root, "Set")   # must ask for nothing
         self.assertEqual(first, again)
         self.assertTrue(os.path.isfile(os.path.join(again, "scan.nii.gz")))
 
     def test_an_interrupted_download_is_not_taken_for_a_complete_one(self):
-        """Le defaut des sept copies : le dossier vide passait pour le jeu."""
+        """The defect of the seven copies: the empty folder passed for the
+        data set."""
         half = os.path.join(self.root, "Set")
         os.makedirs(half)
         self.assertFalse(is_present(half))
@@ -106,11 +107,11 @@ class TestDataTest(unittest.TestCase):
     def test_a_directory_left_by_an_interruption_is_replaced_not_merged(self):
         half = os.path.join(self.root, "Set")
         os.makedirs(half)
-        open(os.path.join(half, "moitie.tmp"), "w").close()
+        open(os.path.join(half, "half.tmp"), "w").close()
         out = ensure(_url(self._zip()), self.root, "Set")
-        self.assertFalse(os.path.exists(os.path.join(out, "moitie.tmp")))
+        self.assertFalse(os.path.exists(os.path.join(out, "half.tmp")))
 
-    # ------------------------------------------------------ progression
+    # --------------------------------------------------------- progress
 
     def test_progress_is_reported(self):
         seen = []

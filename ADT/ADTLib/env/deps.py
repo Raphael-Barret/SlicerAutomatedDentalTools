@@ -48,6 +48,24 @@ def normalise_spec(lib_name, required_version=None):
     return lib_name.strip(), (required_version.strip() if required_version else None)
 
 
+def requirement(lib_name, required_version=None):
+    """The string to hand pip, from the spellings the call sites use.
+
+    `('dicom2nifti', '>=2.6.2')` must become `dicom2nifti>=2.6.2`, not
+    `dicom2nifti==>=2.6.2`, which pip rejects outright:
+
+        Invalid requirement: 'dicom2nifti==>=2.6.2'
+
+    ALI and ASO used to glue `==` in unconditionally, which was correct only as
+    long as every entry of their list carried a bare version. It stopped being
+    correct the day one of them carried an operator, and the failure lands on a
+    machine that does not have the library at all -- a fresh install, that is.
+    FlexReg had the right test inline; this is that test, in one place.
+    """
+    lib_name, spec = normalise_spec(lib_name, required_version)
+    return lib_name + (spec or "")
+
+
 def check_lib_installed(lib_name, required_version=None):
     """Whether `lib_name` is installed and satisfies `required_version`."""
     lib_name, required_version = normalise_spec(lib_name, required_version)

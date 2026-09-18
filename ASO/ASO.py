@@ -54,7 +54,7 @@ from ASO_Method.Progress import Display
 
 from ADTLib.format import format_elapsed, elapsed_since
 from ADTLib.theming import update_line_edit_and_combo_box
-from ADTLib.env.deps import check_lib_installed as lib_satisfies
+from ADTLib.env.deps import check_lib_installed as lib_satisfies, requirement
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
@@ -107,7 +107,7 @@ def install_function(self):
         if libs_to_install:
             try:
                 message = "The following libraries are not installed or need updating:\n"
-                message += "\n".join([f"{lib}=={version}" if version else lib for lib, version in libs_to_install])
+                message += "\n".join([requirement(lib, version) for lib, version in libs_to_install])
                 message += "\n\nDo you want to install/update these libraries?\n Doing it could break other modules"
                 
                 logger.debug("Showing user confirmation dialog")
@@ -125,7 +125,7 @@ def install_function(self):
                     
                     for lib, version in libs_to_install:
                         try:
-                            lib_version = f'{lib}=={version}' if version else lib
+                            lib_version = requirement(lib, version)
                             logger.debug(f"Installing library: {lib_version}")
                             pip_install(lib_version)
                             logger.info(f"Successfully installed: {lib_version}")

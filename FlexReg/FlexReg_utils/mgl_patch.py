@@ -21,6 +21,7 @@ import re
 import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
+import json
 
 logger = logging.getLogger("FlexReg_mgl_patch")
 
@@ -162,7 +163,6 @@ def _isDoubtful(description):
 
 
 def _controlPoints(path):
-    import json
     with open(path) as f:
         data = json.load(f)
     return [point for point in data["markups"][0]["controlPoints"]
@@ -213,7 +213,6 @@ def WriteLandmarks(path, names, positions):
     the RAS ones Slicer displays. What is written reads back with
     ReadLandmarks and can join the training corpus as it is.
     """
-    import json
     content = {
         "@schema": "https://raw.githubusercontent.com/Slicer/Slicer/main/"
                    "Modules/Loadable/Markups/Resources/Schema/"

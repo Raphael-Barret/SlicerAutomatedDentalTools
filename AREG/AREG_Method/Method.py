@@ -7,6 +7,7 @@ import shutil
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 from ADTLib.method import ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod
+import platform
 
 logger = get_logger("AREG_Method")
 
@@ -40,7 +41,6 @@ def FindDentalModelSeg():
 
     try:
         from CondaSetUp import CondaSetUpCall, CondaSetUpCallWsl
-        import platform
         conda = (CondaSetUpCallWsl() if platform.system() == "Windows"
                  else CondaSetUpCall())
         answer = conda.condaRunCommand(["which", SEGMENTATION_EXECUTABLE],

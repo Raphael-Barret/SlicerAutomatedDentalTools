@@ -6,6 +6,10 @@ import shutil
 import vtk
 import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
+import platform
+import re
+import subprocess
+import tempfile
 
 
 class GreedyRegLogic(ScriptedLoadableModuleLogic):
@@ -47,7 +51,6 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   # ------------------------------------------------------------------ #
 
   def _platformBinDir(self):
-    import platform
     system = platform.system()
     if system == "Linux":
       return "linux", "greedy"
@@ -108,7 +111,6 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     into GreedyReg_CLI's bin folder. statusCallback, if given, is called
     with progress strings. Returns the path to the extracted binary;
     raises on failure or unsupported platform."""
-    import platform
 
     def report(text):
       if statusCallback:
@@ -207,7 +209,6 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
         os.remove(installerPath)
 
   def _installGreedyBinaryWindowsViaNsis(self, installerPath, destBinary, report):
-    import subprocess
 
     # NSIS's /D=dir switch cannot be quoted, so a path containing spaces
     # gets truncated at the first space. Pick a short, space-free
@@ -220,7 +221,6 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     try:
       os.makedirs(installDir, exist_ok=True)
     except OSError:
-      import tempfile
       installDir = os.path.join(tempfile.gettempdir(), "_greedyreg_nsis_tmp")
       if os.path.exists(installDir):
         shutil.rmtree(installDir, ignore_errors=True)
@@ -306,7 +306,6 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   def findBatchPairs(self, t1Folder, t2Folder, maskFolder=None):
     """Preview the pairs GreedyReg_CLI would find, for the 'Found N pairs'
     label. Matching logic must stay consistent with GreedyReg_CLI.py."""
-    import re
     id_pattern = re.compile(r'^([A-Za-z]+\d+)', re.IGNORECASE)
 
     def getNiftiFiles(folder):

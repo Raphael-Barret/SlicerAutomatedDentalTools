@@ -27,6 +27,8 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import tempfile
+import time
 
 logger = get_logger("GreedyReg")
 
@@ -1147,7 +1149,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
   #-- Registration methods (delegates the actual work to GreedyReg_CLI) --
 
   def onRunRegistration(self):
-    import tempfile
     fixed = self.fixedSelector.currentNode()
     moving = self.movingSelector.currentNode()
     if not fixed or not moving:
@@ -1212,7 +1213,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     self._regPollTimer.start()
 
   def checkRegistrationDone(self):
-    import time
     cliNode = self._regCliNode
     if not (cliNode.GetStatus() & cliNode.Completed):
       if not self._regStartTime:
@@ -1349,7 +1349,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     return None
 
   def onRunDistantRegistration(self):
-    import tempfile
     fixed = self.fixedSelector.currentNode()
     moving = self.movingSelector.currentNode()
     if not fixed or not moving:
@@ -1526,7 +1525,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     self._batchAutoPollTimer.start()
 
   def checkBatchAutoDone(self):
-    import time
     cliNode = self._batchAutoCliNode
     if not (cliNode.GetStatus() & cliNode.Completed):
       if not self._batchAutoStartTime:
@@ -1589,7 +1587,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     self._runNextBatchDistCase()
 
   def _runNextBatchDistCase(self):
-    import tempfile
     if self._batchDistIndex >= self._batchDistTotal:
       self._batchDistStatusLabel.setText(
         f"Batch complete! {self._batchDistTotal} cases aligned successfully.")

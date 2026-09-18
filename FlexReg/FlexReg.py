@@ -87,6 +87,7 @@ from FlexReg_utils.mgl_patch import (
     DEFAULT_HEIGHT, MIN_HEIGHT, MAX_HEIGHT, ReadLandmarks, WriteLandmarks,
     DoubtfulLandmarks,
 )
+import json
 
 # Travel of the joystick pads along the antero-posterior axis, in mm. Typing a
 # larger value in the line edit still works, the knob just saturates.
@@ -2205,7 +2206,6 @@ class WidgetParameter:
         # (a .vtk with no metadata is assumed LPS), while ReadLandmarks reads
         # the raw positions of the json. Flip LPS landmarks the way Slicer's
         # own markups loader would, or the curve is a mirror of the arch.
-        import json
         with open(path) as handle:
             system = json.load(handle)['markups'][0].get('coordinateSystem', 'LPS')
         if system.upper() == 'LPS':

@@ -34,6 +34,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+import shutil
 
 # ===== Logging Configuration =====
 logger = get_logger("CLIC")
@@ -90,7 +91,6 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 return path
             
             # Try to find conda in PATH
-            import shutil
             conda_in_path = shutil.which("conda")
             if conda_in_path and os.path.exists(conda_in_path):
                 logger.debug(f"[DEBUG] Using system conda from PATH: {conda_in_path}")

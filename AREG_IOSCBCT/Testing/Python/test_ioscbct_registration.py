@@ -29,6 +29,7 @@ if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
 
 import AREG_IOSCBCT as areg  # noqa: E402
+import tempfile
 
 
 def Rigid(axis, degrees, translation):
@@ -235,7 +236,6 @@ class RegistrationTest(unittest.TestCase):
         Read as upper, it takes the place of that patient's real upper
         landmarks.
         """
-        import tempfile
         folder = tempfile.mkdtemp()
         for name in ("P09_T1_U_SegOr_Upper_O_Pred.json",
                      "P09_T1_L_SegOr_Lower_O_Pred.json",
@@ -251,7 +251,6 @@ class RegistrationTest(unittest.TestCase):
         self.assertEqual(os.path.basename(lower), "P09_T1_L_SegOr_Lower_O_Pred.json")
 
     def test_two_markers_that_agree_are_read_normally(self):
-        import tempfile
         folder = tempfile.mkdtemp()
         for name in ("P09_T1_U_SegOr_Upper_O_Pred.json",
                      "P09_T1_L_SegOr_Lower_O_Pred.json"):

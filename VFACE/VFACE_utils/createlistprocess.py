@@ -31,6 +31,9 @@ except ImportError:
 import gc
 from ADTLib.naming import patient_id as read_patient_id
 from ADTLib.io.fs import search
+import ast
+import subprocess
+import time
 
 def check_memory_usage(threshold_percent=80):
     if psutil is None:
@@ -1393,7 +1396,6 @@ def run_aq3dc(t1_path, t2_path, list_measure, output_path, filename):
 
 def _ali_group_labels():
     """ALI's landmark-to-group map, read from its source without importing torch."""
-    import ast
 
     constants = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -2307,9 +2309,7 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
     on the C++ side (cell locators, BSP trees) that neither gc.collect() nor DeepCopy can
     fully free. Only a separate process guarantees memory release via the OS.
     """
-    import subprocess
     import tempfile
-    import time
     
     input_dir1 = Path(t1_dir)
     input_dir2 = Path(t2_dir)

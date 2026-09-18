@@ -26,6 +26,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+import re
 
 logger = get_logger("AREG_IOSCBCT")
 
@@ -1010,7 +1011,6 @@ def getPatients(ios_folder, cbct_folder, ios_lm_folder, cbct_lm_folder):
     
     Uses pattern matching to identify timepoints (T0, T1, T2) and jaws (U/u, L/l)
     """
-    import re
     
     patients = {}
     

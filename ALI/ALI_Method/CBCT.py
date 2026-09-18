@@ -13,6 +13,7 @@ logger = get_logger("ALI_CBCT_Process")
 import slicer
 import platform
 from ADTLib.model_registry import ADT_MODELS
+import re
 
 
 class Auto_CBCT(Method):
@@ -35,7 +36,6 @@ class Auto_CBCT(Method):
         return len(files)
     
     def NumberLandmark(self, landmarks: str):
-        import re
         cleaned = re.sub(r"[\[\]\"']", "", landmarks)
         teeth_list = re.split(r"[,\s]+", cleaned)
         teeth_list = [t for t in teeth_list if t]

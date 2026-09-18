@@ -4,12 +4,55 @@ from collections import deque
 
 import os
 
-from ALI_CBCT_utils.constants import bcolors, DEVICE
+from ALI_CBCT_utils.constants import bcolors
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
 
 logger = get_logger("ALI_CBCT_Agent")
+
+# How much work one search may spend, in STEPS -- one network forward pass
+# each. It used to be a number of SECONDS (15 on a GPU, 60 otherwise), which
+# made the result depend on the machine: the same scan converged or not
+# depending on whether the GPU was busy, the disk slow, or another module
+# running. A step count is the same everywhere, so two runs of the same scan
+# land on the same landmark.
+#
+# 1000 is about six times the longest search measured over ninety searches on
+# three scans with the shipped models (32 to 171 steps, median around 100),
+# and it is only ever reached by a search that is not converging.
+#
+# Override with ALI_SEARCH_MAX_STEPS. Raise it for an unusually large volume
+# or a fine spacing, where crossing the scan takes more steps.
+DEFAULT_MAX_STEPS = 1000
+
+# A guard rail, not a budget. Nothing below decides on it in the normal case;
+# it exists so that a machine slow enough to turn the step budget into hours
+# -- CPU-only inference, mainly -- still gives the operator its scan back.
+# Override with ALI_SEARCH_TIME_GUARD, in seconds.
+DEFAULT_TIME_GUARD = 900.0
+
+
+def _env_number(name, default, cast):
+    """An environment override, or the default if it is not a number."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return cast(raw)
+    except ValueError:
+        logger.warning(f"{name}={raw!r} is not a number, keeping {default}")
+        return default
+
+
+def SearchStepBudget():
+    """How many steps one search may take. See DEFAULT_MAX_STEPS."""
+    return _env_number("ALI_SEARCH_MAX_STEPS", DEFAULT_MAX_STEPS, int)
+
+
+def SearchTimeGuard():
+    """Seconds after which a search is cut short. See DEFAULT_TIME_GUARD."""
+    return _env_number("ALI_SEARCH_TIME_GUARD", DEFAULT_TIME_GUARD, float)
 
 def GetAgentLst(agents_param):
     """Generate a list of agents with error handling."""
@@ -251,16 +294,29 @@ class Agent :
         )
         radius = 4
         final_pos = np.array([0,0,0], dtype=np.float64)
+        # `while not found` with nothing else to stop it: a probe that keeps
+        # moving without ever landing twice inside the short memory hangs the
+        # whole run, with no budget above it to cut it short -- Focus is
+        # called after the search loop has ended. The same step budget bounds
+        # it. A probe normally settles in a handful of steps, so reaching the
+        # budget means this one is not converging; the others still vote.
+        max_steps = SearchStepBudget()
         for pos in explore_pos:
             found = False
+            step = 0
             self.position_shortmem[self.scale_state].clear()
             self.position = start_pos + radius*pos
-            while  not found:
+            while not found and step < max_steps:
+                step += 1
                 action = self.PredictAction()
                 self.Move(action)
                 if self.Visited():
                     found = True
                 self.SavePos()
+            if not found:
+                logger.warning(
+                    f"Focus probe {pos} for {self.target} did not settle "
+                    f"within {max_steps} steps; its last position is used")
             final_pos += self.position
         return final_pos/len(explore_pos)
 
@@ -284,16 +340,22 @@ class Agent :
             
             found = False
             tot_step = 0
-            # Each search step does a CPU/GPU forward pass; CPU-only inference
-            # needs much longer than a GPU to converge, so give it a bigger
-            # default budget. Override with the ALI_SEARCH_MAX_TIME env var
-            # if either default still doesn't fit your hardware.
-            default_max_time = 15 if DEVICE.type == "cuda" else 60
-            max_time = float(os.environ.get("ALI_SEARCH_MAX_TIME", default_max_time))  # seconds
-            
-            while not found and time.time() - tic < max_time:
+            max_steps = SearchStepBudget()
+            time_guard = SearchTimeGuard()
+
+            while not found and tot_step < max_steps:
                 tot_step += 1
-                
+
+                if time.time() - tic > time_guard:
+                    logger.error(
+                        f"Landmark {self.target} abandoned after {tot_step} "
+                        f"steps: the {time_guard}s guard rail fired before the "
+                        f"{max_steps} step budget. This machine is too slow "
+                        "for the budget it was given -- see ALI_SEARCH_MAX_STEPS "
+                        "and ALI_SEARCH_TIME_GUARD.")
+                    self.search_atempt = 0
+                    return -1
+
                 try:
                     action = self.PredictAction()
                     self.Move(action)
@@ -319,8 +381,10 @@ class Agent :
                     logger.error(f"Error during search step for {self.target}: {e}")
                     continue
 
-            if not found:  # Took too much time
-                logger.warning(f"Landmark {self.target} search timed out after {max_time} seconds")
+            if not found:  # Spent its whole budget without settling
+                logger.warning(
+                    f"Landmark {self.target} not found within its budget of "
+                    f"{max_steps} steps")
                 self.search_atempt = 0
                 return -1
 

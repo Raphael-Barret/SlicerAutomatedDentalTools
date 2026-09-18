@@ -37,3 +37,8 @@ slicer_add_python_unittest(SCRIPT test_testdata.py)
 # Ou l agent d ALI CBCT a le droit de se poser : la ligne qui en decidait
 # acceptait les coordonnees negatives et refusait la marge rembourree.
 slicer_add_python_unittest(SCRIPT test_ali_cbct_bounds.py)
+
+# Ce qui arrete une recherche d ALI CBCT : un nombre de pas, pas des
+# secondes de mur. Le meme scan doit rendre le meme repere sur une machine
+# chargee comme sur une machine au repos.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_budget.py)

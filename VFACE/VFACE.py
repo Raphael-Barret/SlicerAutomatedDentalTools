@@ -59,6 +59,7 @@ import qt
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.requests import VFACERequest
 from ADTLib.model_registry import AMASSS_CBCT, AREG_CBCT_TEST_FILES, ASO_CBCT_GOLD, AUTOMATRIX_MIRROR, SLICER_TESTING_DATA, VFACE_MODELS
+from ADTLib.testdata import TestDataError, ensure_with_progress
 import time
 import traceback
 
@@ -1299,89 +1300,151 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.OnEndProcess()
     
-    # VFACE has no test archive of its own, and its T1 input is a plain CBCT:
-    # AREG's orientation set holds exactly that, unoriented, which is what the
-    # full pipeline expects. Replace with a VFACE release asset if one is ever
+    # VFACE publishes no test archive of its own, and what it reads is one
+    # plain CBCT per patient: AREG's CBCT sets are exactly that. Which of the
+    # two fits depends on the mode, and the names inside say which is which --
+    # `Or_FullyAuto` is the set of AREG's "Orientation and Registration", so
+    # its scans are unoriented (C_0001_T1.nii.gz), and `FullyAuto` the set of
+    # the method that skips orientation, so its scans are already oriented
+    # (C_0001_T1_Or.nii.gz). Replace with a VFACE release asset if one is ever
     # published.
-    TEST_FILES_NAME = "Oriented-Automated"
-    TEST_FILES_URL = (
-        f"{AREG_CBCT_TEST_FILES}/"
-        "Or_FullyAuto.zip"
-    )
+    #
+    # The dataset names are AREG's own and the root is not this module's, so
+    # whichever module asks first pays the download and the other one finds it
+    # already there. Sharing only holds as long as nobody edits what was
+    # extracted: this button reads the set, it never writes into it. An
+    # earlier version deleted the T2 here -- the very folder a "Longitudinal
+    # studies" run needs, and the one AREG registers against.
+    TEST_FILES = {
+        "Full pipeline": (
+            "Oriented-Automated",
+            f"{AREG_CBCT_TEST_FILES}/Or_FullyAuto.zip",
+        ),
+        "File already Oriented": (
+            "Fully-Automated",
+            f"{AREG_CBCT_TEST_FILES}/FullyAuto.zip",
+        ),
+    }
+
+    def testFilesRoot(self) -> str:
+        """Where the shared test datasets live, one directory per dataset."""
+        return os.path.join(self.SlicerDownloadPath, "Test_Files")
+
+    def sampleTimepoint(self, dataset, timepoint):
+        """The folder of one timepoint of a sample set, None with a reason shown."""
+        folder = os.path.join(dataset, timepoint)
+        if not os.path.isdir(folder):
+            logger.error(f"No {timepoint} folder in the test files: {folder}")
+            PopUpWindow(
+                title="Test files incomplete",
+                text=f"The sample set holds no {timepoint} folder:\n\n{folder}",
+            ).exec_()
+            return None
+
+        if NumberScan(folder) == 0:
+            logger.error(f"No scan found in the test files: {folder}")
+            PopUpWindow(
+                title="No scan found",
+                text=f"No readable scan in the downloaded {timepoint} folder:\n\n{folder}",
+            ).exec_()
+            return None
+
+        return folder
 
     def onTestFilesButton(self) -> None:
         """
-        Download a sample CBCT and point the T1 input at it.
+        Fetch the sample set the selected mode needs and fill in its fields.
 
-        The archive carries a T1 and a T2; only the T1 is of any use here, so
-        that is the folder the input is set to.
+        Every input the mode asks for is pointed at the sample -- the T1, the
+        T2 of a longitudinal or already-registered run, the measurement lists
+        -- so that the only thing left to do is press Run. The output folder
+        is the exception: one the user already chose is theirs to keep.
         """
-        if not os.path.exists(self.SlicerDownloadPath):
-            os.makedirs(self.SlicerDownloadPath)
+        file_mode = self.ui.comboBox3.currentText
+        entry = self.TEST_FILES.get(file_mode)
+        if entry is None:
+            # "File already Registered" reads a T2 already brought onto its
+            # T1. No such pair is published -- the sets available are two
+            # timepoints as acquired -- and filling the fields with them would
+            # run the whole analysis on scans that are not aligned.
+            logger.error(f"No test set is published for the mode: {file_mode}")
+            PopUpWindow(
+                title="No sample for this mode",
+                text=(
+                    f'No sample is published for "{file_mode}": this mode reads a\n'
+                    "T2 already registered onto its T1, and the sets available are\n"
+                    "two timepoints as acquired.\n\n"
+                    'Pick "Full pipeline" or "File already Oriented" to try the\n'
+                    "module on a sample."
+                ),
+            ).exec_()
+            return
 
-        # Under V_FACE, next to DefaultList: the archive is borrowed from AREG
-        # but the copy belongs to this module, and uninstalling one must not
-        # take the other's sample away.
-        folder_name = os.path.join("V_FACE", "Test_Files", self.TEST_FILES_NAME)
+        name, url = entry
         try:
-            self.DownloadUnzip(
-                url=self.TEST_FILES_URL,
-                directory=self.SlicerDownloadPath,
-                folder_name=folder_name,
-                check_file="T1",
+            dataset = ensure_with_progress(
+                url,
+                self.testFilesRoot(),
+                name,
+                parent=self.parent,
+                title=f"Downloading the {name} test files...",
             )
-        except Exception as e:
+        except (TestDataError, OSError, zipfile.BadZipFile) as e:
             logger.error(f"Could not download the test files: {e}")
             PopUpWindow(
                 title="Download failed",
-                text=f"The sample scan could not be downloaded:\n\n{e}",
+                text=f"The sample scans could not be downloaded:\n\n{e}",
             ).exec_()
             return
 
-        # The archive is AREG's, so it carries a second timepoint. VFACE makes
-        # its own T2 by mirroring the T1 and never reads one from disk, so that
-        # half is dropped rather than left to take up room for nothing.
-        t2_folder = os.path.join(self.SlicerDownloadPath, folder_name, "T2")
-        if os.path.isdir(t2_folder):
-            try:
-                shutil.rmtree(t2_folder)
-                logger.info("Test files: dropped the T2 this module has no use for")
-            except OSError as e:
-                logger.warning(f"Could not remove the unused T2 folder: {e}")
-
-        t1_folder = os.path.join(self.SlicerDownloadPath, folder_name, "T1")
-        if not os.path.isdir(t1_folder):
-            logger.error(f"No T1 folder in the test files: {t1_folder}")
-            PopUpWindow(
-                title="Test files incomplete",
-                text=f"The archive holds no T1 folder:\n\n{t1_folder}",
-            ).exec_()
+        t1_folder = self.sampleTimepoint(dataset, "T1")
+        if t1_folder is None:
             return
 
-        nb_scan = NumberScan(t1_folder)
-        if nb_scan == 0:
-            logger.error(f"No scan found in the test files: {t1_folder}")
-            PopUpWindow(
-                title="No scan found",
-                text=f"No readable scan in the downloaded folder:\n\n{t1_folder}",
-            ).exec_()
-            return
+        # A second timepoint is read in exactly the two cases the interface
+        # shows the field in: a study over time, and a pair registered
+        # beforehand. The other modes build their T2 by mirroring the T1.
+        needs_t2 = (file_mode == "File already Registered"
+                    or self.ui.comboBox4.currentText == "Longitudinal studies")
+        t2_folder = None
+        if needs_t2:
+            t2_folder = self.sampleTimepoint(dataset, "T2")
+            if t2_folder is None:
+                return
 
         self.ui.PathLineEdit.setCurrentPath(t1_folder)
-        logger.info(f"Test files ready: {nb_scan} patient(s) in {t1_folder}")
+        logger.info(f"Test files ready: {NumberScan(t1_folder)} patient(s) in {t1_folder}")
+        if t2_folder:
+            self.ui.PathLineEdit_4.setCurrentPath(t2_folder)
+            logger.info(f"Test files: T2 set to {t2_folder}")
 
-        # Somewhere to write, beside the scans it will read, so the sample runs
-        # on a single click. A folder the user already chose is left alone.
-        if not self._parameterNode.OutputFolder:
-            output = os.path.join(self.SlicerDownloadPath, folder_name, "Output")
+        # Somewhere to write, outside the sample: what was extracted is shared
+        # with the other modules and with the next click on this button, so
+        # nothing of ours is written inside it. A folder the user already chose
+        # is left alone.
+        if not self.ui.PathLineEdit_2.currentPath:
+            output = os.path.join(self.SlicerDownloadPath, "V_FACE", "Test_Output")
+            os.makedirs(output, exist_ok=True)
             self.ui.PathLineEdit_2.setCurrentPath(output)
             logger.info(f"Test files: output set to {output}")
 
-        # The sample is only runnable with the measurement lists beside it, so
-        # fetch those too rather than leaving the user one unexplained click
-        # short. A folder they already chose is left alone.
-        if not self.ui.PathLineEdit_3.currentPath:
-            self.onDefaultButton()
+        # Every analysis but the heatmaps reads a list of measurements, and the
+        # sample is not runnable without one: fetch the default list rather
+        # than leave the user one unexplained click short.
+        if self.ui.comboBox2.currentText != "Visualization (Heatmaps)":
+            try:
+                self.onDefaultButton()
+            except (OSError, zipfile.BadZipFile) as e:
+                logger.error(f"Could not download the default measurement list: {e}")
+                PopUpWindow(
+                    title="Measurement list missing",
+                    text=(
+                        "The sample scans are ready, but the default list of\n"
+                        f"measurements could not be downloaded:\n\n{e}"
+                    ),
+                ).exec_()
+
+        self._checkCanApply()
 
     def onDefaultButton(self):
         if not os.path.exists(self.SlicerDownloadPath):

@@ -33,6 +33,7 @@ from collections import deque
 from ADTLib.logging_setup import get_logger
 import gc
 import json
+from ADTLib.model_registry import NASOMAXILLA_DENT_SEG, PEDIATRIC_DENTAL_SEG, UNIVERSAL_LAB
 
 logger = get_logger("BatchDentalSeg_SegmentationWidget")
 
@@ -1739,9 +1740,9 @@ class SegmentationWidget(qt.QWidget):
             pediatricCheckpoint = fold_path.joinpath("checkpoint_final.pth")
             # If checkpoint doesn't exist, download checkpoint and dataset.json and plans.json inside basePath
             if not pediatricCheckpoint.exists():
-                url_checkpoint = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/checkpoint_final.pth"
-                url_dataset = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/dataset.json"
-                url_plans = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/plans.json"
+                url_checkpoint = f"{PEDIATRIC_DENTAL_SEG}/checkpoint_final.pth"
+                url_dataset = f"{PEDIATRIC_DENTAL_SEG}/dataset.json"
+                url_plans = f"{PEDIATRIC_DENTAL_SEG}/plans.json"
                 self.onProgressInfo("Downloading pediatricdentalseg model...")
                 # Download checkpoint; convert Path to string for downloadFile
                 slicer.util.downloadFile(url_checkpoint, str(pediatricCheckpoint))
@@ -1764,9 +1765,9 @@ class SegmentationWidget(qt.QWidget):
             NasoMaxillaDentSegCheckpoint = fold_path.joinpath("checkpoint_final.pth")
             # If checkpoint doesn't exist, download checkpoint and dataset.json and plans.json inside basePath
             if not NasoMaxillaDentSegCheckpoint .exists():
-                url_checkpoint = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/checkpoint_final.pth"
-                url_dataset = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/dataset.json"
-                url_plans = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/plans.json"
+                url_checkpoint = f"{NASOMAXILLA_DENT_SEG}/checkpoint_final.pth"
+                url_dataset = f"{NASOMAXILLA_DENT_SEG}/dataset.json"
+                url_plans = f"{NASOMAXILLA_DENT_SEG}/plans.json"
                 self.onProgressInfo("Downloading NasoMaxillaDentSeg model...")
                 # Download checkpoint; convert Path to string for downloadFile
                 slicer.util.downloadFile(url_checkpoint, str(NasoMaxillaDentSegCheckpoint))
@@ -1790,9 +1791,9 @@ class SegmentationWidget(qt.QWidget):
             pediatricCheckpoint = fold_path.joinpath("checkpoint_final.pth")
             # If checkpoint doesn't exist, download checkpoint and dataset.json and plans.json inside basePath
             if not pediatricCheckpoint.exists():
-                url_checkpoint = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/checkpoint_final.pth"
-                url_dataset = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/dataset.json"
-                url_plans = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/plans.json"
+                url_checkpoint = f"{UNIVERSAL_LAB}/checkpoint_final.pth"
+                url_dataset = f"{UNIVERSAL_LAB}/dataset.json"
+                url_plans = f"{UNIVERSAL_LAB}/plans.json"
                 self.onProgressInfo("Downloading pediatricdentalseg model...")
                 # Download checkpoint; convert Path to string for downloadFile
                 slicer.util.downloadFile(url_checkpoint, str(pediatricCheckpoint))

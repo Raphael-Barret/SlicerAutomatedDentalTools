@@ -39,7 +39,7 @@ import io
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 from ADTLib.format import format_timer
-from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.model_registry import AUTOMATRIX_MIRROR, SLICER_TESTING_DATA
 
 # ===== Logging Configuration =====
 logger = get_logger("AutoMatrix")
@@ -382,7 +382,7 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     def DownloadMirror(self) -> None:
-        url = "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror/Mirror.zip"
+        url = f"{AUTOMATRIX_MIRROR}/Mirror.zip"
         name = "Mirror_matrix"
 
         documentsLocation = qt.QStandardPaths.DocumentsLocation

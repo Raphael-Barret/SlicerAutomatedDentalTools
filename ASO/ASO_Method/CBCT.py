@@ -7,7 +7,7 @@ import qt
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_MARKERS, LANDMARK_SUFFIX_MARKERS
-from ADTLib.model_registry import ASO_CBCT_GOLD
+from ADTLib.model_registry import ASO_CBCT_GOLD, ASO_CBCT_PRE, ASO_CBCT_TEST_FILES
 
 logger = get_logger("ASO_Method_CBCT")
 
@@ -112,7 +112,7 @@ class CBCT(Method):
     def getSegOrModelList(self):
         return (
             "PreASOModels",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels/PreASOModels.zip",
+            f"{ASO_CBCT_PRE}/PreASOModels.zip",
         )
 
     def getALIModelList(self):
@@ -286,13 +286,13 @@ class Semi_CBCT(CBCT):
     def getTestFileList(self):
         return (
             "Semi-Automated",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles/SemiAuto.zip",
+            f"{ASO_CBCT_TEST_FILES}/SemiAuto.zip",
         )
 
     def getTestFileListDCM(self):
         return (
             "Semi-Automated",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles/SemiAuto_DCM.zip",
+            f"{ASO_CBCT_TEST_FILES}/SemiAuto_DCM.zip",
         )
 
     def TestScan(self, scan_folder: str):
@@ -409,7 +409,7 @@ class Auto_CBCT(CBCT):
     def getTestFileList(self):
         return (
             "Fully-Automated",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles/FullyAuto.zip",
+            f"{ASO_CBCT_TEST_FILES}/FullyAuto.zip",
         )
 
     def TestScan(self, scan_folder: str) -> str:
@@ -427,7 +427,7 @@ class Auto_CBCT(CBCT):
     def getTestFileListDCM(self):
         return (
             "Fully-Automated",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles/FullyAuto_DCM.zip",
+            f"{ASO_CBCT_TEST_FILES}/FullyAuto_DCM.zip",
         )
 
     def TestScanDCM(self, scan_folder: str) -> str:

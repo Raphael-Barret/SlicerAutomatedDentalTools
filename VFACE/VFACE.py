@@ -58,7 +58,7 @@ from slicer import vtkMRMLScalarVolumeNode
 import qt
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.requests import VFACERequest
-from ADTLib.model_registry import ASO_CBCT_GOLD, SLICER_TESTING_DATA
+from ADTLib.model_registry import AMASSS_CBCT, AREG_CBCT_TEST_FILES, ASO_CBCT_GOLD, AUTOMATRIX_MIRROR, SLICER_TESTING_DATA, VFACE_MODELS
 import time
 import traceback
 
@@ -970,13 +970,13 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def DownloadAllFiles(self) -> None:
 
         dic_url = {
-            "Mirror_matrix": "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror/Mirror.zip",
+            "Mirror_matrix": f"{AUTOMATRIX_MIRROR}/Mirror.zip",
 
             "ASO/ASO_CBCT/Reference": {
                 "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
                 "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip"},
 
-            "AREG/AREG_CBCT/Models/Segmentation": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AMASSS_CBCT/AMASSS_Models.zip",
+            "AREG/AREG_CBCT/Models/Segmentation": f"{AMASSS_CBCT}/AMASSS_Models.zip",
 
             
             "ALI/ALI_CBCT/Models/Landmark": {
@@ -989,7 +989,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
                 "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
             },
-            "V_FACE": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/VFACE/V_FACE_Models.zip",
+            "V_FACE": f"{VFACE_MODELS}/V_FACE_Models.zip",
         }
 
         # A file each archive is known to contain. Without it the folder alone is
@@ -1305,7 +1305,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # published.
     TEST_FILES_NAME = "Oriented-Automated"
     TEST_FILES_URL = (
-        "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/"
+        f"{AREG_CBCT_TEST_FILES}/"
         "Or_FullyAuto.zip"
     )
 
@@ -1388,7 +1388,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             os.makedirs(self.SlicerDownloadPath)
 
         self.DownloadUnzip(
-            url="https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/VFACE/DefaultList.zip",
+            url=f"{VFACE_MODELS}/DefaultList.zip",
             directory=self.SlicerDownloadPath,
             folder_name="V_FACE/DefaultList",
         )

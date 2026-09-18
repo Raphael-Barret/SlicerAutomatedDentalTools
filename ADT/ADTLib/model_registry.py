@@ -38,3 +38,38 @@ ASO_IOS_GOLD = "https://github.com/HUTIN1/ASO/releases/download/v1.0.0"
 SLICER_TESTING_DATA = (
     "https://github.com/Slicer/SlicerTestingData/releases/download/SHA256"
 )
+
+
+# ---------------------------------------------------------------------------
+# Les autres bases de release, chacune recopiée deux à dix fois. Publier une
+# nouvelle version d'un de ces jeux se fait ici, et nulle part ailleurs.
+#
+# Ce module ne dit toujours pas *quels* modèles un outil propose : les
+# dictionnaires `getModelUrl` gardent leur sélection, et c'est voulu -- la
+# fondre serait décider quels modèles chaque outil offre.
+# ---------------------------------------------------------------------------
+
+BASE = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download"
+
+#: Les trois jeux de segmentation dentaire, partagés par BATCHDENTALSEG et VFACE.
+PEDIATRIC_DENTAL_SEG = f"{BASE}/PEDIATRICDENTALSEG_MODEL"
+NASOMAXILLA_DENT_SEG = f"{BASE}/NASOMAXILLADENTSEG_MODEL"
+UNIVERSAL_LAB = f"{BASE}/UNIVERSALLAB_MODEL"
+
+#: Segmentation CBCT, repères IOS, recalage IOS/CBCT, découpe TMJ, VFACE.
+AMASSS_CBCT = f"{BASE}/AMASSS_CBCT"
+ALI_IOS_MODELS = f"{BASE}/ALI_IOS_models"
+AREG_IOSCBCT_MODELS = f"{BASE}/AREG_IOSCBCT"
+TMJ_CROP_MODEL = f"{BASE}/TMJ_CROP_MODEL"
+VFACE_MODELS = f"{BASE}/VFACE"
+
+#: Jeux publiés hors de l'organisation.
+ASO_CBCT_PRE = "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels"
+ASO_CBCT_TEST_FILES = "https://github.com/lucanchling/ASO_CBCT/releases/download/TestFiles"
+AREG_CBCT_TEST_FILES = "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles"
+AMASSS_CBCT_UPSTREAM = "https://github.com/lucanchling/AMASSS_CBCT/releases/download/v1.0.2"
+ALIDDM = "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3"
+AREG_IOS_MODELS = "https://github.com/HUTIN1/AREG/releases/download/v1.0.0"
+AUTOMATRIX_MIRROR = (
+    "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror"
+)

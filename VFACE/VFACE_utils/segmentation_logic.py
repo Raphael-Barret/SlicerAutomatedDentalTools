@@ -14,6 +14,7 @@ import qt
 from ADTLib.logging_setup import get_logger
 import gc
 import time
+from ADTLib.model_registry import NASOMAXILLA_DENT_SEG, PEDIATRIC_DENTAL_SEG, UNIVERSAL_LAB
 
 logger = get_logger("VFACE_segmentation_logic")
 
@@ -460,19 +461,19 @@ class SegmentationLogic:
             
             urls = {
                 "pediatricdentalseg": {
-                    "checkpoint": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/checkpoint_final.pth",
-                    "dataset": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/dataset.json",
-                    "plans": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/PEDIATRICDENTALSEG_MODEL/plans.json"
+                    "checkpoint": f"{PEDIATRIC_DENTAL_SEG}/checkpoint_final.pth",
+                    "dataset": f"{PEDIATRIC_DENTAL_SEG}/dataset.json",
+                    "plans": f"{PEDIATRIC_DENTAL_SEG}/plans.json"
                 },
                 "nasomaxilladentseg": {
-                    "checkpoint": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/checkpoint_final.pth",
-                    "dataset": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/dataset.json",
-                    "plans": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/NASOMAXILLADENTSEG_MODEL/plans.json"
+                    "checkpoint": f"{NASOMAXILLA_DENT_SEG}/checkpoint_final.pth",
+                    "dataset": f"{NASOMAXILLA_DENT_SEG}/dataset.json",
+                    "plans": f"{NASOMAXILLA_DENT_SEG}/plans.json"
                 },
                 "universallab": {
-                    "checkpoint": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/checkpoint_final.pth",
-                    "dataset": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/dataset.json",
-                    "plans": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/UNIVERSALLAB_MODEL/plans.json"
+                    "checkpoint": f"{UNIVERSAL_LAB}/checkpoint_final.pth",
+                    "dataset": f"{UNIVERSAL_LAB}/dataset.json",
+                    "plans": f"{UNIVERSAL_LAB}/plans.json"
                 }
             }
             

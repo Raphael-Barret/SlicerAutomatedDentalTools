@@ -10,8 +10,11 @@ ils ne se recouvrent pas au hasard -- trois grappes ressortent, nettes :
     cases      ASO AREG                                5 méthodes
     DICOM      ASO AREG ALI MRI2CBCT                   3 méthodes
 
-D'où un noyau et des mixins, plutôt qu'une classe unique où MedX hériterait de
-`getcheckbox` et de `DicLandmark`. Un module compose ce qu'il offre vraiment ;
+(MedX figure dans cette mesure parce qu'il était là quand elle a été prise ; il
+a depuis été archivé dans la branche `archive/medx` et retiré de l'arbre.)
+
+D'où un noyau et des mixins, plutôt qu'une classe unique où MedX aurait hérité
+de `getcheckbox` et de `DicLandmark`. Un module compose ce qu'il offre vraiment ;
 ce qu'il déclare reste vrai.
 
 Ce qui n'est PAS ici, et pourquoi : `TestScan` et `TestModel` ont des arités

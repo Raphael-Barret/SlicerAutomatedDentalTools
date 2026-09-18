@@ -23,6 +23,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit_fraction
 
 logger = get_logger("AMASSS_CLI")
 
@@ -673,7 +674,7 @@ def _predict_one_structure(device, failed_structures, model_folder, nnunet_input
     try:
         step = struct_idx * scan_count
         fraction = step / total_steps
-        print(f"<filter-progress>{fraction:.4f}</filter-progress>", flush=True)
+        emit_fraction(fraction)
         sys.stdout.flush()
         logger.debug(f"Progress: {fraction:.4f}")
     except Exception as e:

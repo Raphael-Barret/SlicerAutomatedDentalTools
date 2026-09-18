@@ -4,6 +4,7 @@ from typing import Tuple
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import PATIENT_DONE, STEP_DONE, is_event
 
 logger = get_logger("AREG_Progress")
 
@@ -119,7 +120,7 @@ class DisplayAREGCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], PATIENT_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
     
@@ -137,7 +138,7 @@ class DisplayAREGIOSCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], PATIENT_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -162,9 +163,9 @@ class DisplayAMASSS(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200:
+        if is_event(kwds["progress"], PATIENT_DONE):
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out
@@ -184,7 +185,7 @@ class DisplayASOCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], PATIENT_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -207,9 +208,9 @@ class DisplayALICBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200:
+        if is_event(kwds["progress"], PATIENT_DONE):
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out
@@ -232,9 +233,9 @@ class DisplayALIIOS(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200:
+        if is_event(kwds["progress"], PATIENT_DONE):
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out

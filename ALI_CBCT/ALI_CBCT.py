@@ -22,6 +22,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit
 
 logger = get_logger("ALI_CBCT")
 
@@ -44,8 +45,25 @@ except ImportError as e:
     sys.exit(1)
 
 def update_slicer_progress(value):
-    """Utility to update Slicer progress bar."""
-    print(f"<filter-progress>{value}</filter-progress>", flush=True)
+    """Envoie une valeur sur le canal de progression.
+
+    ATTENTION -- ce que ce CLI envoie n'arrive nulle part. Il passe des
+    pourcentages (5, 20, puis 20 a 100) alors que Slicer multiplie par cent ce
+    qu'il lit : la fenetre recoit donc 500, 2000, jusqu'a 10000. Or
+    `DisplayALICBCT.isProgress`, a l'autre bout, ne reagit qu'a 100 et a 200 --
+    c'est-a-dire aux valeurs 1 et 2. **La barre de progression d'ALI CBCT et son
+    compteur de reperes ne bougent donc jamais.**
+
+    Mesure a l'appui : un CLI qui imprime 0.42 donne `GetProgress() == 42`, 1
+    donne 100, 2 donne 200, 20 donne 2000. Voir
+    `DEBUG/adt-validation/probe_progress_scale/`.
+
+    Le corriger demande de decider ce que la barre doit montrer -- une fraction
+    d'avancement, ou un evenement par patient comme le font les quatre autres
+    CLI (`emit_event(PATIENT_DONE)`). C'est une decision, pas un nettoyage,
+    donc rien n'est change ici : les octets emis sont ceux d'avant.
+    """
+    emit(value)
     time.sleep(0.05)
 
 def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size):

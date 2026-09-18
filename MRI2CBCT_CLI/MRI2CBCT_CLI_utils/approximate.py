@@ -15,6 +15,7 @@ from MRI2CBCT_CLI_utils.condyle_segmentation import segment_condyle
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit_fraction
 
 logger = get_logger("MRI2CBCT_CLI_utils_approximate")
 
@@ -158,7 +159,7 @@ def approximation(cbct_folder, mri_folder, output_folder, model_folder, tmp_fold
         patient_count += 1
         if total_patients > 0:
             progress = patient_count / total_patients
-            print(f"<filter-progress>{progress}</filter-progress>")
+            emit_fraction(progress)
             sys.stdout.flush()
             time.sleep(0.5)
 

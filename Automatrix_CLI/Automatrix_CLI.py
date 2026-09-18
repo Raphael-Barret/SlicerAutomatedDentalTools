@@ -1,7 +1,7 @@
 #!/usr/bin/env python-real
 import argparse
 import json
-import sys, os, time
+import sys, os
 import SimpleITK as sitk
 
 
@@ -24,6 +24,7 @@ logger = get_logger("AutoMatrix_CLI")
 from pathlib import Path
 
 from ADTLib.io.fs import search  # noqa: F401  (re-exporte)
+from ADTLib.progress_protocol import PATIENT_DONE, emit_event
 
 fpath = os.path.join(os.path.dirname(__file__), "..")
 sys.path.append(fpath)
@@ -283,15 +284,7 @@ def main(args):
                     logger.error(f"ERROR processing {scan} with matrix {matrix}: {e}")
                     continue
                             
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{2}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
+            emit_event(PATIENT_DONE)
 
 
 if __name__ == "__main__":

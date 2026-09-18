@@ -2,7 +2,7 @@
 
 import argparse
 import SimpleITK as sitk
-import sys, os, time
+import sys, os
 import numpy as np
 
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
@@ -18,6 +18,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import PATIENT_DONE, emit_event
 
 logger = get_logger("PRE_ASO_CBCT")
 
@@ -164,15 +165,7 @@ def _preprocess_one_file(failed_files, i, input_dir, input_files, out_dir, proce
 
         # ===== PROGRESS REPORTING =====
         try:
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{2}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
+            emit_event(PATIENT_DONE)
             logger.debug("Progress reported")
         except Exception as e:
             logger.warning(f"Error reporting progress: {e}")

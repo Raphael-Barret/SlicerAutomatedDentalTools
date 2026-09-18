@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import os
 from typing import Tuple
+from ADTLib.progress_protocol import PATIENT_DONE, STEP_DONE, is_event
 
 
 class Display(ABC):
@@ -63,7 +64,7 @@ class DisplayALIIOS(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -86,9 +87,9 @@ class DisplayALICBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200:
+        if is_event(kwds["progress"], PATIENT_DONE):
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out

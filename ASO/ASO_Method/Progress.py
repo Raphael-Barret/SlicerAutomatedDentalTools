@@ -4,6 +4,7 @@ from typing import Tuple
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import PATIENT_DONE, STEP_DONE, is_event
 
 logger = get_logger("ASO_Progress")
 
@@ -68,7 +69,7 @@ class DisplayALIIOS(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -118,7 +119,7 @@ class DisplayASOCBCT(Display):
 
     def isProgress(self, **kwds) -> bool:
         out = False
-        if kwds["progress"] == 200 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], PATIENT_DONE) and kwds["updateProgressBar"] == False:
             out = True
         return out
 
@@ -140,10 +141,18 @@ class DisplayALICBCT(Display):
         return self.progress_bar, self.message
 
     def isProgress(self, **kwds) -> bool:
+        """ATTENTION -- rien ne declenche jamais cette methode.
+
+        Elle attend les evenements que `emit_event` produit, mais le CLI qui
+        l'alimente, `ALI_CBCT.py`, envoie des pourcentages : la fenetre y voit
+        500 a 10000, jamais 100 ni 200. Voir la note dans
+        `ALI_CBCT.update_slicer_progress`. Le code est laisse tel quel parce
+        que le reparer demande de decider ce que la barre doit montrer.
+        """
         out = False
-        if kwds["progress"] == 200:
+        if is_event(kwds["progress"], PATIENT_DONE):
             self.pred_step += 1
-        if kwds["progress"] == 100 and kwds["updateProgressBar"] == False:
+        if is_event(kwds["progress"], STEP_DONE) and kwds["updateProgressBar"] == False:
             if self.pred_step > 3:
                 out = True
         return out

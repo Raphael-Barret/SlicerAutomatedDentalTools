@@ -15,6 +15,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit_fraction
 
 logger = get_logger("CNE_CLI")
 
@@ -94,7 +95,7 @@ def main(args):
     # ---------------------------------------------------------
     # STEP 1 : Model Path Validation
     # ---------------------------------------------------------
-    print("<filter-progress>0.05</filter-progress>", flush=True)
+    emit_fraction(0.05)
     print("<filter-comment>Validating model path...</filter-comment>", flush=True)
     
     try:
@@ -126,7 +127,7 @@ def main(args):
     # ---------------------------------------------------------
     # STEP 2 : Verification
     # ---------------------------------------------------------
-    print("<filter-progress>0.10</filter-progress>", flush=True)
+    emit_fraction(0.10)
     print("<filter-comment>Scanning input folder...</filter-comment>", flush=True)
 
     files_to_process = []
@@ -136,13 +137,13 @@ def main(args):
     if not files_to_process:
         supported = ", ".join(SUPPORTED_EXTENSIONS)
         logger.warning(f"WARNING: No supported files ({supported}) found in {notesFolder_input}")
-        print("<filter-progress>1.00</filter-progress>", flush=True)
+        emit_fraction(1.00)
         sys.exit(0)
 
     # ---------------------------------------------------------
     # STEP 3 : Loading the model in memory
     # ---------------------------------------------------------
-    print("<filter-progress>0.20</filter-progress>", flush=True)
+    emit_fraction(0.20)
     print(f"<filter-comment>Loading model...</filter-comment>", flush=True)
     
     try:
@@ -183,7 +184,7 @@ def main(args):
             
             try:
                 progress = 0.20 + (0.75 * (i / total_files))
-                print(f"<filter-progress>{progress:.2f}</filter-progress>", flush=True)
+                emit_fraction(progress)
                 print(f"<filter-comment>Processing {filename} ({i+1}/{total_files})...</filter-comment>", flush=True)
 
                 clinical_text = extract_text(file_path)
@@ -254,7 +255,7 @@ def main(args):
     # ---------------------------------------------------------
     # FINISH : Progress to 100%
     # ---------------------------------------------------------
-    print("<filter-progress>1.00</filter-progress>", flush=True)
+    emit_fraction(1.00)
     print("<filter-comment>All files processed successfully!</filter-comment>", flush=True)
 
     print("<filter-end><filter-name>Clinical Notes Extraction</filter-name></filter-end>", flush=True)

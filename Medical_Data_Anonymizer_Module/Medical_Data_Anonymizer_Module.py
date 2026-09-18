@@ -53,8 +53,8 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
 
-        # L'anonymisation elle-meme vit dans le Logic : elle ne touche a aucun
-        # widget et se teste sans lancer Slicer.
+        # The anonymisation itself lives in the Logic: it touches no widget
+        # and is tested without launching Slicer.
         self.logic = Medical_Data_Anonymizer_ModuleLogic()
 
         # Detect dark mode
@@ -569,9 +569,9 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                                             for row in table:
                                                 full_text += " ".join([str(cell) if cell else "" for cell in row]) + "\n"
                         except Exception:
-                            # Deuxieme echec d affilee : aucun texte n a pu etre extrait de ce PDF,
-                            # et le fichier ressortira donc non anonymise. A dire.
-                            logger.warning(f"Aucun texte extrait de {file}, il ressort tel quel")
+                            # Second failure in a row: no text could be extracted from this
+                            # PDF, so the file comes out unanonymised. Worth saying.
+                            logger.warning(f"No text extracted from {file}, it comes out as is")
                 
                 elif file_ext == ".csv":
                     full_text = ""

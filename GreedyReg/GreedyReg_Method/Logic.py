@@ -256,8 +256,8 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
           subprocess.run([uninstaller, "/S", f"_?={install_dir}"],
                          capture_output=True, timeout=60)
         except (OSError, subprocess.SubprocessError):
-            # Le desinstalleur est un nettoyage : le repertoire est efface juste
-            # apres de toute facon.
+            # The uninstaller is a cleanup: the directory is erased right
+            # afterwards anyway.
             pass
       shutil.rmtree(install_dir, ignore_errors=True)
 
@@ -343,7 +343,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
 
     This one was a tenth copy, out of reach of the sweep that replaced the
     others because it sits in the method package rather than at the module
-    root. It compared bare strings, so `2.2.0+cu118` read as « wrong version »
+    root. It compared bare strings, so `2.2.0+cu118` read as "wrong version"
     and a constraint such as `>=2.6.2` could never be satisfied at all.
     """
     from ADTLib.env.deps import check_lib_installed

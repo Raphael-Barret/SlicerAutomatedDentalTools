@@ -10,12 +10,12 @@ set(MODULE_PYTHON_SCRIPTS
   ${FOLDER_LIBRARY}/parameter_validator.py
   )
 
-# Agent_CLI est un CLI : `Agent.py` l'appelle par `slicer.modules.agent_cli`.
-# Slicer ne le reconnait comme tel que s'il trouve sa description XML a cote du
-# script. Elle manquait ici : dans un build installe, le script se retrouvait
-# seul, Slicer tentait de le charger comme un module scripte, echouait faute de
-# classe widget, et `slicer.modules.agent_cli` n'existait pas. Le defaut ne se
-# voit pas en arbre de developpement, ou le .xml est la.
+# Agent_CLI is a CLI: `Agent.py` calls it through `slicer.modules.agent_cli`.
+# Slicer only recognises it as such if it finds its XML description next to
+# the script. It was missing here: in an installed build, the script ended up
+# alone, Slicer tried to load it as a scripted module, failed for want of a
+# widget class, and `slicer.modules.agent_cli` did not exist. The fault does
+# not show in a development tree, where the .xml is there.
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/UI/${MODULE_NAME}.ui

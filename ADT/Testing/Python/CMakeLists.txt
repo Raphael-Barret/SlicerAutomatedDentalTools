@@ -33,3 +33,7 @@ slicer_add_python_unittest(SCRIPT test_pip_requirements.py)
 # Fetching a test data set: archive or not, an HTML page refused, and an
 # interrupted download that must not pass for a complete one.
 slicer_add_python_unittest(SCRIPT test_testdata.py)
+
+# The button sheet VFACE carried four times: one template, two accents.
+# Pinned because it is what the user sees.
+slicer_add_python_unittest(SCRIPT test_button_style.py)

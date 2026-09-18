@@ -11,7 +11,6 @@ import os
 import glob
 import time
 import shutil
-import subprocess
 import sys
 
 import vtk, qt, slicer
@@ -37,6 +36,8 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 from ADTLib.logging_setup import get_logger
 
+from ADTLib.model_registry import AMASSS_CBCT, AMASSS_TEST_SCAN
+from ADTLib.testdata import TestDataError, ensure_with_progress
 from ADTLib.theming import update_line_edit_and_combo_box
 from ADTLib.env.deps import (
     TORCH_FAMILY, check_lib_installed as lib_satisfies, requirement,
@@ -233,9 +234,11 @@ def createProgressDialog(parent=None, value=0, maximum=100, windowTitle="Startin
 
 #========= GLOBAL VARIABLES =========
 
-# MODEL_LINK = 'https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.0-alpha/ALL_MODELS.zip'
-MODEL_LINK = 'https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/tag/AMASSS_CBCT'
-SCAN_LINK = 'https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1/MG_test_scan.nii.gz'
+# L'archive des modeles nnUNet, celle qu'AREG et VFACE telechargent deja. Le
+# lien precedent pointait sur `releases/tag/...`, la page web de la release :
+# GitHub la sert en 200, et rien n'en sort qu'un onglet de navigateur.
+MODEL_LINK = f"{AMASSS_CBCT}/AMASSS_Models.zip"
+SCAN_LINK = AMASSS_TEST_SCAN
 
 GROUPS_FF_SEG = {
   "Bones" : ["Mandible","Maxilla","Cranial base","Cervical vertebra"],
@@ -387,7 +390,8 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Download model
     self.ui.DownloadButton.connect('clicked(bool)',self.onDownloadButton)
-    self.ui.DownloadScanButton.connect('clicked(bool)',self.onDownloadScanButton)
+    self.ui.TestFilesButton.connect('clicked(bool)',self.onTestFilesButton)
+    self.UpdateTestFilesButton()
 
     #endregion
 
@@ -551,6 +555,10 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if index == 2: # Segmentation Files
       self.isSegmentInputFunction(True)
 
+    # Apres les trois branches : `isDCMInput` n'est pose qu'a la fin de la
+    # deuxieme, et l'etat du bouton depend des deux drapeaux.
+    self.UpdateTestFilesButton()
+
   def isSegmentInputFunction(self,seg_input):
 
     # Set the value to True when checked and vice-versa
@@ -572,7 +580,9 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.PrePredInfo.setText("Number of scans to process : 0")
     # Set to invisble all the unnecessary input
 
-    self.ui.DownloadScanButton.setVisible(not seg_input)
+    # Le bouton « Test Files » reste visible : desactive et avec la raison en
+    # infobulle, il dit pourquoi ce mode n'a pas de jeu d'essai, la ou le
+    # cacher laissait croire a une disparition.
     self.ui.DownloadButton.setVisible(not seg_input)
     self.ui.label_model_select.setVisible(not seg_input)
     self.ui.lineEditModelPath.setVisible(not seg_input)
@@ -646,22 +656,105 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.lineEditModelPath.setText(model_folder)
         self.model_ready = True
 
-  def openUrlInBrowser(self,url):
-    # on choisit firefox si dispo
-    browser = 'firefox' if shutil.which('firefox') else 'xdg-open'
-    env = os.environ.copy()
-    env['NO_AT_BRIDGE'] = '1'
-    subprocess.Popen(
-        [browser, url],
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-  def onDownloadButton(self):
-        self.openUrlInBrowser(MODEL_LINK)
+  def DownloadPath(self):
+    """Ou AMASSS garde ce qu'il telecharge, a cote des autres modules."""
+    documents = qt.QStandardPaths.writableLocation(qt.QStandardPaths.DocumentsLocation)
+    return os.path.join(documents, slicer.app.applicationName + "Downloads", "AMASSS")
 
-  def onDownloadScanButton(self):
-        self.openUrlInBrowser(SCAN_LINK)
+  def FindModelRoot(self, directory):
+    """Le dossier que le CLI attend : celui qui porte les codes de structure.
+
+    `AMASSS_Models.zip` se deplie dans un `AMASSS_Models/`, donc le dossier
+    d'extraction est un cran au-dessus de ce que `FindModelFolder` cherche
+    (`<racine>/<CODE>/**/...__nnUNetPlans__3d_fullres/fold_0`). Pointer le
+    champ sur le cran du dessus donne « no nnUNet model found ».
+    """
+    codes = set(TRANSLATE.values())
+    for root, dirs, _files in os.walk(directory):
+      if codes.intersection(dirs):
+        return root
+    return directory
+
+  def DownloadModels(self):
+    """Les modeles nnUNet, telecharges une seule fois. None en cas d'echec."""
+    try:
+      bundle = ensure_with_progress(
+        MODEL_LINK, os.path.join(self.DownloadPath(), "Models"), "Segmentation",
+        parent=self.parent, title="Downloading the AMASSS models (2 GB)...")
+    except (TestDataError, OSError) as error:
+      qt.QMessageBox.warning(self.parent, 'Warning',
+        'The AMASSS models could not be downloaded:\n%s' % error)
+      return None
+
+    model_folder = self.FindModelRoot(bundle)
+    self.ui.lineEditModelPath.setText(model_folder)
+    self.model_ready = True
+    return model_folder
+
+  def onDownloadButton(self):
+    self.DownloadModels()
+
+  def onTestFilesButton(self):
+    """Fetch the published test set for the current mode, and fill the fields.
+
+    Le bouton qui etait la ouvrait firefox sur le lien de la release et ne
+    remplissait rien : l'utilisateur devait retrouver le fichier, le ranger,
+    puis parcourir trois champs a la main.
+    """
+    if self.isSegmentInput:
+      qt.QMessageBox.warning(self.parent, 'Warning',
+        'No test set is published for the Segmentation input mode.')
+      return
+    if self.isDCMInput:
+      qt.QMessageBox.warning(self.parent, 'Warning',
+        'No DICOM test set is published for AMASSS. Switch the input type to '
+        '"NIFTI, GIPL, NRRD" to get the published test scan.')
+      return
+
+    download_path = self.DownloadPath()
+    try:
+      scan_folder = ensure_with_progress(
+        SCAN_LINK, os.path.join(download_path, "Test_Files"), "MG_test_scan",
+        parent=self.parent, title="Downloading the AMASSS test scan (99 MB)...")
+    except (TestDataError, OSError) as error:
+      qt.QMessageBox.warning(self.parent, 'Warning',
+        'The AMASSS test scan could not be downloaded:\n%s' % error)
+      return
+
+    if self.DownloadModels() is None:
+      return
+
+    # Le scan d'essai est un dossier : sans ce passage en « Folder as input »,
+    # le champ obligatoire qu'on vient de remplir reste invisible et c'est le
+    # noeud MRML, vide, que la prediction lirait.
+    self.ui.input_type_select.setCurrentIndex(1)
+    self.input_path = scan_folder
+    self.ui.lineEditScanPath.setText(scan_folder)
+    self.scan_count = self.logic.CountFileWithExtention(scan_folder)
+    self.ui.PrePredInfo.setText(
+      "Number of scans to process : " + str(self.scan_count))
+
+    # Une sortie deja choisie est celle de l'utilisateur, on n'y touche pas.
+    if self.ui.SaveFolderLineEdit.text == "":
+      output_folder = os.path.join(download_path, "Test_Files", "Segmentations")
+      os.makedirs(output_folder, exist_ok=True)
+      self.ui.SaveFolderLineEdit.setText(output_folder)
+
+  def UpdateTestFilesButton(self):
+    """Le bouton ne s'offre que pour les modes dont le jeu est publie."""
+    if self.isSegmentInput:
+      enabled, reason = False, (
+        'AMASSS publishes no test set for the Segmentation input mode.')
+    elif self.isDCMInput:
+      enabled, reason = False, (
+        'AMASSS publishes no DICOM test set. Switch the input type to '
+        '"NIFTI, GIPL, NRRD" to use the published test scan.')
+    else:
+      enabled, reason = True, (
+        'Download the published test scan (99 MB) and the segmentation models '
+        '(2 GB) once, then fill every required field')
+    self.ui.TestFilesButton.setEnabled(enabled)
+    self.ui.TestFilesButton.setToolTip(reason)
 
     #endregion
 

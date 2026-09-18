@@ -304,7 +304,7 @@ class CNEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onRunTestFilesButton(self) -> None:
         """Run test files when user clicks 'Run Test Files' button."""
-        with slicer.util.tryWithErrorDisplay(_("Failed to download test files."), waitCursor=True):
+        with slicer.util.tryWithErrorDisplay(_("Failed to prepare the test files."), waitCursor=True):
             # Get the selected notes type from parameter node
             self._updateParameterNodeFromGUI()
             notes_type = self._parameterNode.notesType
@@ -312,9 +312,11 @@ class CNEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Copy test files and get the paths
             input_path, output_path = self.logic.copyTestFiles(notes_type)
             
-            # Update the folder paths in the UI
+            # Update the folder paths in the UI. Une sortie deja choisie est
+            # celle de l'utilisateur : on ne la remplace pas par la notre.
             self.ui.notesFolderLineEdit_input.currentPath = input_path
-            self.ui.notesFolderLineEdit_output.currentPath = output_path
+            if not self.ui.notesFolderLineEdit_output.currentPath:
+                self.ui.notesFolderLineEdit_output.currentPath = output_path
             self._updateParameterNodeFromGUI()
 
 
@@ -407,21 +409,41 @@ class CNELogic(ScriptedLoadableModuleLogic):
         return CNEParameterNode(super().getParameterNode())
     
     def copyTestFiles(self, notesType: str) -> tuple:
-        """Copy test files for the selected notes type from Resources/testfiles to SlicerDownloads/CNE/testfiles/{notesType}.
-        
+        """Les notes d'exemple de ce mode, et le dossier ou ecrire leurs resumes.
+
+        Les notes vivent dans le depot : c'est une copie, pas un
+        telechargement. Elle est refaite a chaque appel, ce qui rend le bouton
+        idempotent -- une note effacee par un essai precedent revient.
+
+        Le dossier de sortie, lui, n'est pas dans le depot : c'en est un, et
+        rien n'y est copie. La version precedente le cherchait a cote des
+        notes, ne le trouvait pas (`logger.warning` puis `continue`), et posait
+        malgre tout son chemin inexistant dans le champ -- que l'utilisateur
+        voyait rouge sans savoir pourquoi.
+
         Args:
             notesType: Either 'TMJ' or 'Ortho' to specify which test files to copy
-            
+
         Returns:
             tuple: (input_folder_path, output_folder_path)
         """
+        folders = {
+            "Ortho": ("input_Ortho", "output_Ortho"),
+            "TMJ": ("input_TMJ", "output_TMJ"),
+        }
+        if notesType not in folders:
+            raise ValueError(f"Unknown notes type: {notesType}")
+        input_folder, output_folder = folders[notesType]
+
         # Get the path to the testfiles directory (relative to this module)
         module_dir = os.path.dirname(__file__)
-        source_test_files_path = os.path.join(module_dir, "Resources", "testfiles")
-        
-        if not os.path.exists(source_test_files_path):
-            raise FileNotFoundError(f"Test files directory not found: {source_test_files_path}")
-        
+        source_folder = os.path.join(module_dir, "Resources", "testfiles", input_folder)
+
+        if not os.path.isdir(source_folder):
+            raise FileNotFoundError(
+                f"The {notesType} example notes are missing from the module: "
+                f"{source_folder}")
+
         # Define destination path in SlicerDownloads/CNE/testfiles/{notesType}
         documents = qt.QStandardPaths.writableLocation(qt.QStandardPaths.DocumentsLocation)
         dest_base_path = os.path.join(
@@ -431,48 +453,18 @@ class CNELogic(ScriptedLoadableModuleLogic):
             "testfiles",
             notesType
         )
-        
-        # Create destination directory if it doesn't exist
-        if not os.path.exists(dest_base_path):
-            os.makedirs(dest_base_path)
-        
-        # Determine which folders to copy based on notesType
-        if notesType == "Ortho":
-            folders_to_copy = ["input_Ortho", "output_Ortho"]
-        elif notesType == "TMJ":
-            folders_to_copy = ["input_TMJ", "output_TMJ"]
-        else:
-            raise ValueError(f"Unknown notes type: {notesType}")
-        
-        # Copy only the relevant folders
-        for folder_name in folders_to_copy:
-            source_folder = os.path.join(source_test_files_path, folder_name)
-            dest_folder = os.path.join(dest_base_path, folder_name)
-            
-            if not os.path.exists(source_folder):
-                logger.warning(f"Source folder not found: {source_folder}")
-                continue
-            
-            # Remove destination if it already exists
-            if os.path.exists(dest_folder):
-                shutil.rmtree(dest_folder)
-            
-            # Copy the folder
-            shutil.copytree(source_folder, dest_folder)
-            logger.info(f"Test folder copied from {source_folder} to {dest_folder}")
-            logger.info(f"Test folder download: {dest_folder}")
-        
-        # Determine input and output paths
-        if notesType == "Ortho":
-            input_folder = "input_Ortho"
-            output_folder = "output_Ortho"
-        else:  # TMJ
-            input_folder = "input_TMJ"
-            output_folder = "output_TMJ"
-        
+
         input_path = os.path.join(dest_base_path, input_folder)
         output_path = os.path.join(dest_base_path, output_folder)
-        
+
+        # `dirs_exist_ok` remet les notes en place sans jeter le dossier :
+        # le `rmtree` d'avant effacait aussi ce que l'utilisateur y avait mis.
+        shutil.copytree(source_folder, input_path, dirs_exist_ok=True)
+        logger.info(f"Test notes copied from {source_folder} to {input_path}")
+
+        os.makedirs(output_path, exist_ok=True)
+        logger.info(f"Test output folder ready: {output_path}")
+
         return input_path, output_path
     
     def getModelPath(self, notesType: str):

@@ -14,7 +14,7 @@ import slicer
 import platform
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.model_registry import (
-    ALI_CBCT_TEST_FILES, AMASSS_CBCT_UPSTREAM, ASO_CBCT_GOLD)
+    AMASSS_CBCT_UPSTREAM, AMASSS_TEST_SCAN, ASO_CBCT_GOLD)
 import re
 
 
@@ -180,7 +180,7 @@ class Auto_CBCT(Method):
         """Le scan d'essai : un .nii.gz, pas une archive."""
         return (
             "ALI_test_scan",
-            f"{ALI_CBCT_TEST_FILES}/MG_test_scan.nii.gz",
+            AMASSS_TEST_SCAN,
         )
 
     def Process(self, request):

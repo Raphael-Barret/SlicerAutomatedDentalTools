@@ -85,5 +85,9 @@ AUTOMATRIX_MIRROR = (
 #: qui le propose : c'est lui qui sait s'il lui en faut un ou deux.
 #: Ces bases portent /download/, pas /tag/ -- /tag/ est la page web de la
 #: release, que GitHub sert en 200 et que les copies essayaient de dezipper.
-ALI_CBCT_TEST_FILES = "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1"
+CBCT_TEST_SCAN_RELEASE = "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1"
 ALIDDM_TEST_FILES = "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.4"
+
+#: Le meme scan sert a ALI CBCT et a AMASSS : un NIfTI **nu** de 99 Mo, pas une
+#: archive. Il etait recopie a l'identique dans AMASSS et deux fois dans ALI.
+AMASSS_TEST_SCAN = f"{CBCT_TEST_SCAN_RELEASE}/MG_test_scan.nii.gz"

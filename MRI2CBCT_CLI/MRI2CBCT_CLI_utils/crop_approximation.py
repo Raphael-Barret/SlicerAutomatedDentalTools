@@ -277,7 +277,7 @@ def get_transformation(cbct_folder, mean_folder, output_folder):
                     logger.info(f"Best parameters: {best_params}")
                     logger.info(f"Best NMI loss: {best_loss}")
                     
-def crop_volume(ROI_file, transformation_folder, first_approximation_folder, cbct_folder, cropped_cbct_folder):
+def crop_volume(roi_file, transformation_folder, first_approximation_folder, cbct_folder, cropped_cbct_folder):
     """
     Crops the CBCT volumes and first approximated MRIs based on the ROI and saves the results.
 
@@ -289,7 +289,7 @@ def crop_volume(ROI_file, transformation_folder, first_approximation_folder, cbc
         cropped_cbct_folder (str): Path to the folder where the cropped images will be saved.
     """
     # Load the ROI file
-    roi_image = sitk.ReadImage(ROI_file)
+    roi_image = sitk.ReadImage(roi_file)
 
     # Iterate over the files in the first approximation folder
     for root, _, files in os.walk(first_approximation_folder):

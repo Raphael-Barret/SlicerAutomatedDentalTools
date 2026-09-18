@@ -93,7 +93,7 @@ def delete_folder(folder_path):
     else:
         logger.info(f"The folder '{folder_path}' does not exist.")
         
-def run_script_crop_volumes(ROI_file, transformation_folder, first_approximation_folder, cbct_folder, output_folder):
+def run_script_crop_volumes(roi_file, transformation_folder, first_approximation_folder, cbct_folder, output_folder):
     """
     Crops the CBCT volumes and MRI volumes based on the ROI and saves the results.
 
@@ -110,7 +110,7 @@ def run_script_crop_volumes(ROI_file, transformation_folder, first_approximation
     
     cropped_cbct_folder = os.path.join(output_folder, "cropped_cbct")
     create_folder(cropped_cbct_folder)
-    crop_volume(ROI_file, transformation_folder, first_approximation_folder, cbct_folder, cropped_cbct_folder)
+    crop_volume(roi_file, transformation_folder, first_approximation_folder, cbct_folder, cropped_cbct_folder)
 
 def main():
     parser = argparse.ArgumentParser(description="Run multiple Python scripts with arguments")

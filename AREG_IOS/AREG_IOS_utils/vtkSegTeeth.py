@@ -14,13 +14,13 @@ class vtkTeeth:
             property = self.GetLabelSurface(surf)
         self.property = property
 
-    def GetLabelSurface(self, surf, Preference="Universal_ID"):
+    def GetLabelSurface(self, surf, preference="Universal_ID"):
         """Le tableau de numerotation a utiliser : voir `ADTLib.labels`.
 
         Quatre des cinq copies faisaient `continue` la ou il fallait `break`,
         et ne rendaient donc `Preference` que s il etait le dernier tableau.
         """
-        return label_array(surf, Preference)
+        return label_array(surf, preference)
 
     def isLabelSurface(self, surf, property):
         return has_label_array(surf, property)

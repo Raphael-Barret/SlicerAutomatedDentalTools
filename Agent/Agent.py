@@ -571,12 +571,12 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.modeagent = "Agent (Automated)"
 
 
-    def setParameterNode(self, inputParameterNode: AgentParameterNode | None) -> None:
+    def setParameterNode(self, input_parameter_node: AgentParameterNode | None) -> None:
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
         """
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
 
         if self._parameterNode:
             self.ui.textEdit_2.blockSignals(True)

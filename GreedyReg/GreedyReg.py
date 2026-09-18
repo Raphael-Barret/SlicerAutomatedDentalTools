@@ -165,20 +165,20 @@ class StandaloneRotationWheel(qt.QFrame):
     # Reposition the marker after every resize, even before the first drag.
     self._placeIndicatorAtAngle(self._lastAngle if self._lastAngle is not None else 0.0)
 
-  def _normalizedDeltaDegrees(self, oldAngle, newAngle):
-    delta = math.degrees(newAngle - oldAngle)
+  def _normalizedDeltaDegrees(self, old_angle, newAngle):
+    delta = math.degrees(newAngle - old_angle)
     while delta > 180.0:
       delta -= 360.0
     while delta < -180.0:
       delta += 360.0
     return delta
 
-  def _placeIndicatorAtAngle(self, angleRadians):
+  def _placeIndicatorAtAngle(self, angle_radians):
     cx, cy = self._center()
     radius = self._size / 2.0 - self.RING_THICKNESS - max(10, self.indicator.width / 2.0)
     half = self.indicator.width / 2.0
-    x = cx + radius * math.cos(angleRadians) - half
-    y = cy + radius * math.sin(angleRadians) - half
+    x = cx + radius * math.cos(angle_radians) - half
+    y = cy + radius * math.sin(angle_radians) - half
     self.indicator.move(int(x), int(y))
 
   def mousePressEvent(self, event):
@@ -609,13 +609,13 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     reg_layout.addRow(self.saveVolumeButton)
 
     # Batch automatic registration
-    def makeFolderRow(placeholder, browseSlot):
+    def makeFolderRow(placeholder, browse_slot):
       row = qt.QHBoxLayout()
       edit = qt.QLineEdit()
       edit.setPlaceholderText(placeholder)
       row.addWidget(edit)
       btn = qt.QPushButton("Browse")
-      btn.clicked.connect(browseSlot)
+      btn.clicked.connect(browse_slot)
       row.addWidget(btn)
       w = qt.QWidget()
       w.setLayout(row)
@@ -753,10 +753,10 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneCleared)
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndImportEvent, self.onSceneCleared)
 
-  def _emphasizeEffectButtons(self, effectNames, scale=2.0):
+  def _emphasizeEffectButtons(self, effect_names, scale=2.0):
     """Enlarge specific Segment Editor effect buttons (by their internal
     effect name) so they stand out, e.g. Paint and Surface cut."""
-    for effect_name in effectNames:
+    for effect_name in effect_names:
       effect_button = self.segmentEditorWidget.findChild(qt.QToolButton, effect_name)
       if not effect_button:
         continue
@@ -997,7 +997,7 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
       for pad in self.demoDragPads.values():
         pad.setOpacityFraction(value / 100.0)
 
-  def onSensitivityDemoRotate(self, deltaAngleDegrees, sliceName="Red"):
+  def onSensitivityDemoRotate(self, delta_angle_degrees, sliceName="Red"):
     """Apply an angle-based wheel rotation around the current slice normal."""
     moving = self.movingSelector.currentNode()
     if not moving:
@@ -1006,7 +1006,7 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     moving.SetAndObserveTransformNodeID(self.transformNode.GetID())
 
     scale = self.demoSensitivitySlider.value / 100.0
-    applied_degrees = deltaAngleDegrees * scale
+    applied_degrees = delta_angle_degrees * scale
     axis_name = self.logic._rotationAxisForSlice(sliceName)
 
     current_matrix = vtk.vtkMatrix4x4()
@@ -1318,22 +1318,22 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     if folder:
       self._aliModelEdit.setText(folder)
 
-  def _ensureAliModelsReady(self, statusLabel, regions=None):
+  def _ensureAliModelsReady(self, status_label, regions=None):
     """Returns the ALI models folder to use (the one typed/browsed into
     _aliModelEdit, or a default under Documents), downloading any missing
     region models into it first. Returns None (after updating statusLabel)
     if the download fails or is declined."""
     models_dir = self._aliModelEdit.text.strip() or self.logic.defaultAliModelsDir()
     if not self.logic.aliModelsReady(models_dir, regions):
-      statusLabel.setText("Downloading ALI landmark models...")
+      status_label.setText("Downloading ALI landmark models...")
       slicer.app.processEvents()
       def reportStatus(text):
-        statusLabel.setText(text)
+        status_label.setText(text)
         slicer.app.processEvents()
       try:
         self.logic.downloadAliModels(models_dir, regions, statusCallback=reportStatus)
       except Exception as e:
-        statusLabel.setText(f"Failed to download ALI models: {e}")
+        status_label.setText(f"Failed to download ALI models: {e}")
         logger.error(str(e))
         return None
     self._aliModelEdit.setText(models_dir)
@@ -1387,16 +1387,16 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     self._distantStatusLabel.setText(f"Distant registration failed: {message}")
     self._runDistantButton.setEnabled(True)
 
-  def _onDistantAliAllDone(self, landmarksAcc):
+  def _onDistantAliAllDone(self, landmarks_acc):
     import numpy as np
     landmarks = self.logic.REGION_CONFIG[self._currentAliRegion]["landmarks"]
-    common = [lm for lm in landmarks if lm in landmarksAcc["fixed"] and lm in landmarksAcc["moving"]]
+    common = [lm for lm in landmarks if lm in landmarks_acc["fixed"] and lm in landmarks_acc["moving"]]
     if len(common) < 3:
       self._onDistantAliError(
         f"only {len(common)} matched landmarks (need >= 3): {common}")
       return
-    fixed_pts = np.array([landmarksAcc["fixed"][lm] for lm in common])
-    moving_pts = np.array([landmarksAcc["moving"][lm] for lm in common])
+    fixed_pts = np.array([landmarks_acc["fixed"][lm] for lm in common])
+    moving_pts = np.array([landmarks_acc["moving"][lm] for lm in common])
     mat4_ras = self.logic.rigidFromLandmarks(fixed_pts, moving_pts)
 
     vtk_mat = vtk.vtkMatrix4x4()
@@ -1426,12 +1426,12 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
   #  a region can need ALI_CBCT run on more than one model subdirectory
   #  and on both the fixed and moving scan. ----------------------------
 
-  def _startAliJobQueue(self, jobs, onAllDone, onError):
+  def _startAliJobQueue(self, jobs, on_all_done, on_error):
     self._aliJobs = jobs
     self._aliJobIndex = 0
     self._aliLandmarksAcc = {"fixed": {}, "moving": {}}
-    self._aliOnAllDone = onAllDone
-    self._aliOnError = onError
+    self._aliOnAllDone = on_all_done
+    self._aliOnError = on_error
     self._runNextAliJob()
 
   def _runNextAliJob(self):
@@ -1471,12 +1471,12 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
 
   #-- Batch Processing methods ----------------------------------
 
-  def _browseBatchFolder(self, lineEdit, pairsLabel):
+  def _browseBatchFolder(self, lineEdit, pairs_label):
     folder = qt.QFileDialog.getExistingDirectory(None, "Select Folder")
     if folder:
       lineEdit.setText(folder)
-      if pairsLabel:
-        pairsLabel.setText(f"Selected: {folder}")
+      if pairs_label:
+        pairs_label.setText(f"Selected: {folder}")
 
   def onRunBatchAuto(self):
     t1_folder = self._batchAutoT1Edit.text.strip()
@@ -1613,20 +1613,20 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     self._runBatchDistButton.setEnabled(True)
     logger.error(f"Batch Dist FAILED on {patient_id}: {message}")
 
-  def _onBatchDistCaseAliDone(self, landmarksAcc):
+  def _onBatchDistCaseAliDone(self, landmarks_acc):
     import numpy as np
     import nibabel as nib
 
     region = self._batchDistRegion
     landmarks = self.logic.REGION_CONFIG[region]["landmarks"]
-    common = [lm for lm in landmarks if lm in landmarksAcc["fixed"] and lm in landmarksAcc["moving"]]
+    common = [lm for lm in landmarks if lm in landmarks_acc["fixed"] and lm in landmarks_acc["moving"]]
     patient_id = self._batchDistCurrentCase["patientId"]
     if len(common) < 3:
       self._onBatchDistCaseAliError(f"only {len(common)} matched landmarks (need >= 3)")
       return
 
-    fixed_pts = np.array([landmarksAcc["fixed"][lm] for lm in common])
-    moving_pts = np.array([landmarksAcc["moving"][lm] for lm in common])
+    fixed_pts = np.array([landmarks_acc["fixed"][lm] for lm in common])
+    moving_pts = np.array([landmarks_acc["moving"][lm] for lm in common])
     mat4_ras = self.logic.rigidFromLandmarks(fixed_pts, moving_pts)
 
     moving_path = self._batchDistCurrentCase["movingPath"]

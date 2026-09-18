@@ -55,18 +55,18 @@ class ManualApproximation_MRI2CBCT:
     #  UI injection
     # ------------------------------------------------------------------ #
 
-    def injectUI(self, collapsibleButton):
+    def injectUI(self, collapsible_button):
         """Add manual alignment UI to the approxCollapsibleButton."""
         # Get the layout - handle both direct and container layouts
-        layout = collapsibleButton.layout()
+        layout = collapsible_button.layout()
         if layout is None:
-            for child in collapsibleButton.children():
+            for child in collapsible_button.children():
                 if hasattr(child, 'layout') and callable(child.layout) and child.layout() is not None:
                     layout = child.layout()
                     break
         if layout is None:
             layout = qt.QFormLayout()
-            collapsibleButton.setLayout(layout)
+            collapsible_button.setLayout(layout)
         if not hasattr(layout, 'addRow'):
             container = qt.QWidget()
             form = qt.QFormLayout(container)

@@ -8,7 +8,7 @@ from ADTLib.logging_setup import get_logger
 logger = get_logger("Autocrop3D_CropCBCT")
 #import multiprocessing as mp
 
-def Crop(ScanList, InputPath, ROI_Path, OutputPath, suffix_namefile ):
+def Crop(scan_list, input_path, roi_path, output_path, suffix_namefile ):
     '''
     !!! UNUSED  !!! This code is directly in the CLI of the extension
 
@@ -19,17 +19,17 @@ def Crop(ScanList, InputPath, ROI_Path, OutputPath, suffix_namefile ):
     Output: Cropped Scan in the folder OutputPath
     '''
 
-    for key,data in ScanList.items():
+    for key,data in scan_list.items():
         for patient_path in data:
             patient = os.path.basename(patient_path).split('_Scan')[0].split('_scan')[0].split('_Or')[0].split('_OR')[0].split('_MAND')[0].split('_MD')[0].split('_MAX')[0].split('_MX')[0].split('_CB')[0].split('_lm')[0].split('_T2')[0].split('_T1')[0].split('_Cl')[0].split('.')[0]
 
-            scan_out_path = OutputPath+"/"+patient+suffix_namefile+key
+            scan_out_path = output_path+"/"+patient+suffix_namefile+key
 
             img = sitk.ReadImage(patient_path)
 
             str_patient = str(patient)
             logger.info(f"working on patient: {str_patient}")
-            ROI = json.load(open(ROI_Path))['markups'][0]
+            ROI = json.load(open(roi_path))['markups'][0]
             roi_center = np.array(ROI['center'])
             roi_size = np.array(ROI['size'])
 

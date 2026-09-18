@@ -65,9 +65,9 @@ def findMatFiles(folder):
     return ids
 
 
-def findPairs(t1Folder, t2Folder, maskFolder, initFolder):
-    t1s = findNiftiFiles(t1Folder)
-    t2s = findNiftiFiles(t2Folder)
+def findPairs(t1_folder, t2_folder, maskFolder, initFolder):
+    t1s = findNiftiFiles(t1_folder)
+    t2s = findNiftiFiles(t2_folder)
     masks = findNiftiFiles(maskFolder) if maskFolder else {}
     inits = findMatFiles(initFolder) if initFolder else {}
 
@@ -93,24 +93,24 @@ def writeIdentityInit(initPath):
             f.write(' '.join(str(v) for v in row) + '\n')
 
 
-def binarizeMaskFile(srcPath, destPath):
-    mask_img = nib.load(srcPath)
+def binarizeMaskFile(src_path, dest_path):
+    mask_img = nib.load(src_path)
     mask_data = (mask_img.get_fdata() > 0).astype(np.float32)
     new_mask = nib.Nifti1Image(mask_data, mask_img.affine)
     new_mask.header.set_data_dtype(np.float32)
-    nib.save(new_mask, destPath)
+    nib.save(new_mask, dest_path)
 
 
-def buildRegistrationCommand(greedyBinary, fixedPath, movingPath, warpPath, initPath,
-                              metric, transformType, maskPath=None):
-    dof = "6" if transformType == "Rigid" else "12"
+def buildRegistrationCommand(greedy_binary, fixedPath, movingPath, warpPath, initPath,
+                              metric, transform_type, maskPath=None):
+    dof = "6" if transform_type == "Rigid" else "12"
     if metric == "NMI":
         metric_args = ["-m", "NMI"]
     elif metric == "NCC":
         metric_args = ["-m", "NCC", "4x4x4"]
     else:
         metric_args = ["-m", "SSD"]
-    cmd = [greedyBinary]
+    cmd = [greedy_binary]
     cmd.extend(["-d", "3", "-a"])
     cmd.extend(metric_args)
     cmd.extend(["-i", fixedPath, movingPath])
@@ -125,15 +125,15 @@ def buildRegistrationCommand(greedyBinary, fixedPath, movingPath, warpPath, init
     return cmd
 
 
-def runGreedyCase(greedyBinary, fixedPath, movingPath, outputPath, warpPath, initPath,
-                   metric, transformType, maskPath, timeout=600):
+def runGreedyCase(greedy_binary, fixedPath, movingPath, outputPath, warpPath, initPath,
+                   metric, transform_type, maskPath, timeout=600):
     cmd = buildRegistrationCommand(
-        greedyBinary, fixedPath, movingPath, warpPath, initPath, metric, transformType, maskPath)
+        greedy_binary, fixedPath, movingPath, warpPath, initPath, metric, transform_type, maskPath)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "Greedy affine registration failed")
 
-    resample_cmd = [greedyBinary, "-d", "3",
+    resample_cmd = [greedy_binary, "-d", "3",
                    "-rf", fixedPath,
                    "-rm", movingPath, outputPath,
                    "-r", warpPath]

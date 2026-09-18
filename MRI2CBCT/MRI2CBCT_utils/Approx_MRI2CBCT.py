@@ -178,15 +178,15 @@ class Approximation_MRI2CBCT(Method):
                 if transform_node is not None:
                     slicer.mrmlScene.RemoveNode(transform_node)
 
-    def _matchPointsWithFiducialRegistration(self, fixedPoint, movingPoint):
+    def _matchPointsWithFiducialRegistration(self, fixed_point, moving_point):
         """Use Slicer's own FiducialRegistration CLI module to compute the
         translation that matches a single fixed/moving point pair."""
         fixed_fid = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", "ApproxFixedPoint")
         moving_fid = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", "ApproxMovingPoint")
         reg_transform = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", "ApproxFidRegTransform")
         try:
-            fixed_fid.AddControlPoint(vtk.vtkVector3d(*fixedPoint))
-            moving_fid.AddControlPoint(vtk.vtkVector3d(*movingPoint))
+            fixed_fid.AddControlPoint(vtk.vtkVector3d(*fixed_point))
+            moving_fid.AddControlPoint(vtk.vtkVector3d(*moving_point))
 
             params = {
                 "fixedLandmarks": fixed_fid,

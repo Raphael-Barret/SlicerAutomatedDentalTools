@@ -2759,11 +2759,11 @@ qMRMLNodeComboBox:focus {
         layout.addWidget(Method.merge_seg_checkbox)
 
     def CreateMiniTab(
-        self, tabWidget: QTabWidget, name: str, index: int, numberItems=None
+        self, tab_widget: QTabWidget, name: str, index: int, number_items=None
     ):
         new_widget = QWidget()
-        if numberItems is not None:
-            tabWidget.setMinimumHeight(46 * numberItems)
+        if number_items is not None:
+            tab_widget.setMinimumHeight(46 * number_items)
 
         layout = QGridLayout(new_widget)
 
@@ -2777,7 +2777,7 @@ qMRMLNodeComboBox:focus {
         scr_box.setWidgetResizable(True)
         scr_box.setWidget(new_widget2)
 
-        tabWidget.insertTab(index, new_widget, name)
+        tab_widget.insertTab(index, new_widget, name)
 
         return layout2
 
@@ -2964,7 +2964,7 @@ qMRMLNodeComboBox:focus {
         # Parameter node stores all user choices in parameter values, node selections, etc.
         # so that when the scene is saved and reloaded, these settings are restored.
 
-    def setParameterNode(self, inputParameterNode):
+    def setParameterNode(self, input_parameter_node):
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -2982,7 +2982,7 @@ qMRMLNodeComboBox:focus {
                 vtk.vtkCommand.ModifiedEvent,
                 self.updateGUIFromParameterNode,
             )
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
         if self._parameterNode is not None:
             self.addObserver(
                 self._parameterNode,

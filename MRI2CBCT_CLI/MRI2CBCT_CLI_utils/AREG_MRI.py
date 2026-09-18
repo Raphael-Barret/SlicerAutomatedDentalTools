@@ -66,9 +66,9 @@ def ElastixReg(fixed_image, moving_image, initial_transform=None):
 
     return trans_param_obj
 
-def MatrixRetrieval(TransformParameterMapObject):
+def MatrixRetrieval(transform_parameter_map_object):
     """Retrieve the matrix from the transform parameter map"""
-    parameter_map = TransformParameterMapObject.GetParameterMap(0)
+    parameter_map = transform_parameter_map_object.GetParameterMap(0)
 
     if parameter_map["Transform"][0] == "AffineTransform":
         matrix = [float(i) for i in parameter_map["TransformParameters"]]

@@ -68,8 +68,8 @@ class OFFReader:
         self.FileName = None
         self.Output = None
 
-    def SetFileName(self, fileName):
-        self.FileName = fileName
+    def SetFileName(self, file_name):
+        self.FileName = file_name
 
     def GetOutput(self):
         return self.Output
@@ -116,10 +116,10 @@ class OFFReader:
             self.Output = surf
 
 
-def _read_obj_with_material(fileName, fname):
+def _read_obj_with_material(file_name, fname):
     """Un `.obj` accompagné de son `.mtl`, importé puis aplati en un maillage."""
     obj_import = vtk.vtkOBJImporter()
-    obj_import.SetFileName(fileName)
+    obj_import.SetFileName(file_name)
     obj_import.SetFileNameMTL(fname + ".mtl")
     textures_path = os.path.normpath(os.path.dirname(fname) + "/../images")
     if os.path.exists(textures_path):
@@ -136,7 +136,7 @@ def _read_obj_with_material(fileName, fname):
     return append.GetOutput()
 
 
-def ReadSurf(fileName):
+def ReadSurf(file_name):
     """Le maillage contenu dans `fileName`, quel qu'en soit le format.
 
     Formats lus : `.vtk`, `.vtp`, `.stl`, `.off`, `.obj` (avec son `.mtl` s'il
@@ -145,14 +145,14 @@ def ReadSurf(fileName):
     vtk renvoyant un maillage vide plutôt qu'une erreur, c'est le seul moyen de
     distinguer « illisible » de « vide ».
     """
-    if not os.path.exists(fileName):
-        raise FileNotFoundError(f"File does not exist: {fileName}")
+    if not os.path.exists(file_name):
+        raise FileNotFoundError(f"File does not exist: {file_name}")
 
-    fname, extension = os.path.splitext(fileName)
+    fname, extension = os.path.splitext(file_name)
     extension = extension.lower()
 
     if extension == ".obj" and os.path.exists(fname + ".mtl"):
-        surf = _read_obj_with_material(fileName, fname)
+        surf = _read_obj_with_material(file_name, fname)
     else:
         if extension == ".vtk":
             reader = vtk.vtkPolyDataReader()
@@ -167,16 +167,16 @@ def ReadSurf(fileName):
         else:
             raise ValueError(
                 f"Unsupported file format: {extension}. Supported formats: "
-                f".vtk, .vtp, .stl, .off, .obj. File: {fileName}"
+                f".vtk, .vtp, .stl, .off, .obj. File: {file_name}"
             )
-        reader.SetFileName(fileName)
+        reader.SetFileName(file_name)
         reader.Update()
         surf = reader.GetOutput()
 
     if surf.GetNumberOfPoints() == 0:
-        raise ValueError(f"Surface has no points: {fileName}")
+        raise ValueError(f"Surface has no points: {file_name}")
 
-    logger.debug("Read %d points from %s", surf.GetNumberOfPoints(), fileName)
+    logger.debug("Read %d points from %s", surf.GetNumberOfPoints(), file_name)
     return surf
 
 

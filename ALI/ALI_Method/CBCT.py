@@ -13,7 +13,7 @@ logger = get_logger("ALI_CBCT_Process")
 import slicer
 import platform
 from ADTLib.model_registry import ADT_MODELS
-from ADTLib.model_registry import ASO_CBCT_GOLD
+from ADTLib.model_registry import AMASSS_CBCT_UPSTREAM, ASO_CBCT_GOLD
 import re
 
 
@@ -89,8 +89,8 @@ class Auto_CBCT(Method):
     def getModelUrl(self):
         return {
             "Segmentation": {
-                "Full Face Models": "https://github.com/lucanchling/AMASSS_CBCT/releases/download/v1.0.2/AMASSS_Models.zip",
-                "Mask Models": "https://github.com/lucanchling/AMASSS_CBCT/releases/download/v1.0.2/Masks_Models.zip",
+                "Full Face Models": f"{AMASSS_CBCT_UPSTREAM}/AMASSS_Models.zip",
+                "Mask Models": f"{AMASSS_CBCT_UPSTREAM}/Masks_Models.zip",
             },
             
             "Landmark": {

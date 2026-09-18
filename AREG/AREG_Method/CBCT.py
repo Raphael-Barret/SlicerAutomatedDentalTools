@@ -19,7 +19,7 @@ from ADTLib.naming import patient_id as read_patient_id
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 from ADTLib.io.fs import search as search_files
-from ADTLib.model_registry import ASO_CBCT_GOLD
+from ADTLib.model_registry import AMASSS_CBCT, AREG_CBCT_TEST_FILES, ASO_CBCT_GOLD, ASO_CBCT_PRE
 
 logger = get_logger("AREG_Method_CBCT")
 
@@ -117,7 +117,7 @@ class Semi_CBCT(Method):
 
     def getModelUrl(self):
         return {
-            "Segmentation": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AMASSS_CBCT/AMASSS_Models.zip",
+            "Segmentation": f"{AMASSS_CBCT}/AMASSS_Models.zip",
         }
 
     def getALIModelList(self):
@@ -248,7 +248,7 @@ class Semi_CBCT(Method):
     def getTestFileList(self):
         return (
             "Semi-Automated",
-            "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/SemiAuto.zip",
+            f"{AREG_CBCT_TEST_FILES}/SemiAuto.zip",
         )
 
     def getReviewSteps(self, request) -> list:
@@ -397,7 +397,7 @@ class Auto_CBCT(Semi_CBCT):
     def getTestFileList(self):
         return (
             "Fully-Automated",
-            "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/FullyAuto.zip",
+            f"{AREG_CBCT_TEST_FILES}/FullyAuto.zip",
         )
 
     def TestScan(self, scan_folder_t1: str, scan_folder_t2: str, mask_folder_t1: str = None):
@@ -616,9 +616,9 @@ class Or_Auto_CBCT(Semi_CBCT):
     model_label = "Segmentation Model Folder"
     def getModelUrl(self):
         return {
-            "Segmentation": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AMASSS_CBCT/AMASSS_Models.zip",
+            "Segmentation": f"{AMASSS_CBCT}/AMASSS_Models.zip",
             "Orientation": {
-                "PreASO": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels/PreASOModels.zip",
+                "PreASO": f"{ASO_CBCT_PRE}/PreASOModels.zip",
                 "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
                 "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
             },
@@ -635,13 +635,13 @@ class Or_Auto_CBCT(Semi_CBCT):
     def getTestFileList(self):
         return (
             "Oriented-Automated",
-            "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/Or_FullyAuto.zip",
+            f"{AREG_CBCT_TEST_FILES}/Or_FullyAuto.zip",
         )
 
     def getTestFileListDCM(self):
         return (
             "Oriented-Automated",
-            "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/Or_FullyAuto_DCM.zip",
+            f"{AREG_CBCT_TEST_FILES}/Or_FullyAuto_DCM.zip",
         )
 
     def TestScan(self, scan_folder_t1: str, scan_folder_t2: str, mask_folder_t1: str = None):

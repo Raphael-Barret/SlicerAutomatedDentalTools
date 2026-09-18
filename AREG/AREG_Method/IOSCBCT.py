@@ -10,7 +10,7 @@ import platform
 from ADTLib.logging_setup import get_logger
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.naming import patient_id as read_patient_id, AREG_IOSCBCT_MARKERS
-from ADTLib.model_registry import ASO_CBCT_GOLD, ASO_IOS_GOLD
+from ADTLib.model_registry import ALIDDM, AREG_IOSCBCT_MODELS, ASO_CBCT_GOLD, ASO_CBCT_PRE, ASO_IOS_GOLD
 
 logger = get_logger("AREG_Method_IOSCBCT")
 
@@ -111,7 +111,7 @@ class IOSCBCT(Method):
     def getSegOrModelList(self):
         return (
             "PreASOModels",
-            "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels/PreASOModels.zip",
+            f"{ASO_CBCT_PRE}/PreASOModels.zip",
         )
 
     def getALIModelList(self):
@@ -150,7 +150,7 @@ class Semi_IOSCBCT(IOSCBCT):
     def getTestFileList(self):
         return (
             "Semi-Automated-Registration",
-            "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AREG_IOSCBCT/TestFile.zip",
+            f"{AREG_IOSCBCT_MODELS}/TestFile.zip",
         )
 
     def TestScan(self,scan_folder_t1: str,scan_folder_t2: str,mask_folder_t1: str = None) -> str:
@@ -197,7 +197,7 @@ class Semi_IOSCBCT(IOSCBCT):
                 "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
                 "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
         },
-            "IOS": "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3/Models.zip",
+            "IOS": f"{ALIDDM}/Models.zip",
         }
     
     def getReferenceList(self):
@@ -384,7 +384,7 @@ class Reg_IOSCBCT(IOSCBCT):
     def getTestFileList(self):
         return (
             "Registration",
-            "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AREG_IOSCBCT/RegTestFiles.zip",
+            f"{AREG_IOSCBCT_MODELS}/RegTestFiles.zip",
         )
 
     def TestScan(self,scan_folder_t1: str,scan_folder_t2: str,mask_folder_t1: str = None) -> str:
@@ -461,7 +461,7 @@ class Auto_IOSCBCT(IOSCBCT):
     def getTestFileList(self):
         return (
             "Fully-Automated-Registration",
-            "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AREG_IOSCBCT/TestFile.zip",
+            f"{AREG_IOSCBCT_MODELS}/TestFile.zip",
         )
 
     def TestScan(self,scan_folder_t1: str,scan_folder_t2: str,mask_folder_t1: str = None) -> str:
@@ -502,7 +502,7 @@ class Auto_IOSCBCT(IOSCBCT):
     def getModelUrl(self):
         return {
             "Orientation": {
-                "PreASO": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels/PreASOModels.zip",
+                "PreASO": f"{ASO_CBCT_PRE}/PreASOModels.zip",
                 "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
                 "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
                 "IOS":f"{ASO_IOS_GOLD}/Gold_file.zip"
@@ -517,7 +517,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 "Upper Left Teeth v2": f"{ADT_MODELS}/Upper_Left_Teeth_v2.zip",
                 "Upper Right Teeth v2": f"{ADT_MODELS}/Upper_Right_Teeth_v2.zip",
         },
-            "IOS": "https://github.com/baptistebaquero/ALIDDM/releases/download/v1.0.3/Models.zip",
+            "IOS": f"{ALIDDM}/Models.zip",
         }
     
     def getReferenceList(self):

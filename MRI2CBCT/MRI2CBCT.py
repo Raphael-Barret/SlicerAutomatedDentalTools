@@ -48,7 +48,7 @@ from pathlib import Path
 from slicer import vtkMRMLScalarVolumeNode
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
-from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.model_registry import SLICER_TESTING_DATA, TMJ_CROP_MODEL
 
 # ===== Logging Configuration =====
 logger = get_logger("MRI2CBCT")
@@ -1048,9 +1048,9 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         plans_json_path = basePath.joinpath("plans.json")
 
         # Define URLs
-        url_checkpoint = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/TMJ_CROP_MODEL/checkpoint_final.pth"
-        url_dataset = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/TMJ_CROP_MODEL/dataset.json"
-        url_plans = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/TMJ_CROP_MODEL/plans.json"
+        url_checkpoint = f"{TMJ_CROP_MODEL}/checkpoint_final.pth"
+        url_dataset = f"{TMJ_CROP_MODEL}/dataset.json"
+        url_plans = f"{TMJ_CROP_MODEL}/plans.json"
 
         # Download files if missing
         if not checkpoint_path.exists():

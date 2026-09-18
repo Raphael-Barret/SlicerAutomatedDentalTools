@@ -3,9 +3,9 @@ import re
 import numpy as np
 import json
 import SimpleITK as sitk
-from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
-from ADTLib.io.fs import search  # noqa: F401  (re-exporte)
-from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exporte)
+from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exported)
+from ADTLib.io.fs import search  # noqa: F401  (re-exported)
+from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exported)
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
@@ -82,10 +82,10 @@ def UpperOrLower(path_filename):
     """tell if the file is for upper jaw of lower
 
     Args:
-        path_filename (str): exemple /home/..../landmark_upper.json
+        path_filename (str): example /home/..../landmark_upper.json
 
     Returns:
-        str: Upper or Lower, for the following exemple if Upper
+        str: Upper or Lower, for the example above Upper
     """
     return JawFromFileName(path_filename, default="Lower")
 

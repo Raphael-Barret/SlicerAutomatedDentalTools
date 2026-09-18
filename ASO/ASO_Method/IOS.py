@@ -22,7 +22,7 @@ logger = get_logger("ASO_Method_IOS")
 
 
 class Auto_IOS(Method):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 3
     scan_type = "IOS"
     shows_cbct_input = False
@@ -207,8 +207,8 @@ class Auto_IOS(Method):
             else:
                 if extension != ".vtk" and extension != ".stl":
                     surf = ReadSurf(file)
-                    # La conversion existe pour produire un .vtk : c est ici
-                    # qu on le dit, pas dans WriteSurf.
+                    # The conversion exists to produce a .vtk: this is where
+                    # that is said, not inside WriteSurf.
                     WriteSurf(surf, folder_toseg, f"{name}.vtk")
                 else:
                     shutil.copy(file, os.path.join(folder_toseg, basename))
@@ -473,7 +473,7 @@ class Auto_IOS(Method):
             writer = csv.writer(fichier)
             writer.writerow(["surf"])
 
-            # Parcourir le dossier et ses sous-dossiers
+            # Walk the folder and its subfolders
             for root, dirs, files in os.walk(input_dir):
                 for file in files:
                     if file.endswith(".vtk") or file.endswith(".stl"):
@@ -490,8 +490,8 @@ class Auto_IOS(Method):
 
 
 class Semi_IOS(Auto_IOS):
-    # --- description de l'interface (voir `Method`) ---
-    # `Semi_IOS` herite d'`Auto_IOS` : seules la page et l'etiquette changent.
+    # --- interface description (see `Method`) ---
+    # `Semi_IOS` inherits from `Auto_IOS`: only the page and the label change.
     stacked_page = 2
     model_label = None
     def getTestFileList(self):

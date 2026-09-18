@@ -79,7 +79,7 @@ def ResampleImage(image, transform):
 
 
 def _preprocess_one_file(failed_files, i, input_dir, input_files, out_dir, processed_files):
-    """Oriente et reechantillonne un scan avant le recalage."""
+    """Orient and resample one scan before the registration."""
     input_file = input_files[i]
     file_context = f"file {i+1}/{len(input_files)}: {os.path.basename(input_file)}"
     logger.info(f"Processing {file_context}")

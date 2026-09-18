@@ -75,23 +75,23 @@ def FindDentalModelSeg():
 
 
 class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
-    # --- description de l'interface, lue par le widget --------------------
-    # Ces trois attributs disaient auparavant leur mot dans une chaine de
-    # `if/elif` sur des index de liste deroulante, repartie sur trois branches
-    # de `AREGWidget.SwitchType`. Ce sont des donnees : la methode decrit, le
-    # widget applique. Rien ici n'importe `qt`.
+    # --- interface description, read by the widget ------------------------
+    # These three attributes used to have their say in a chain of `if/elif` on
+    # combo box indices, spread over three branches of `AREGWidget.SwitchType`.
+    # They are data: the method describes, the widget applies. Nothing here
+    # imports `qt`.
 
-    #: page du `stackedWidget` a afficher
+    #: page of the `stackedWidget` to show
     stacked_page = 0
-    #: ce que le widget range dans `self.type`
+    #: what the widget stores in `self.type`
     scan_type = "CBCT"
-    #: texte de `labelModelFolder`, ou None pour laisser celui qui s'y trouve
+    #: text of `labelModelFolder`, or None to leave whatever is already there
     model_label = None
-    # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
-    # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La
-    # forme variadique dit cela sans mentir sur l'arite -- l'ABC de MRI2CBCT en
-    # annoncait deux la ou ses six sous-classes en prennent un. Chaque
-    # implementation declare l'arite qu'elle attend vraiment.
+    # The input folders depend on the tool: one for ASO and ALI, two timepoints
+    # for AREG and MRI2CBCT, patients and matrices for AutoMatrix. The variadic
+    # form says so without lying about the arity -- the MRI2CBCT ABC announced
+    # two where its six subclasses take one. Each implementation declares the
+    # arity it really expects.
     @abstractmethod
     def TestScan(self, *scan_folders) -> str:
         """Verify if the input folder seems good (have everything required to run the mode selected), if something is wrong the function return string with error message

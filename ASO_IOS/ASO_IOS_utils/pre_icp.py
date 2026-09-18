@@ -2,7 +2,7 @@ import numpy as np
 import vtk
 from ASO_IOS_utils.icp import vtkMeanTeeth
 from ASO_IOS_utils.transformation import RotationMatrix, TransformSurf
-from ADTLib.geometry import make_vector  # noqa: F401  (re-exporte)
+from ADTLib.geometry import make_vector  # noqa: F401  (re-exported)
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

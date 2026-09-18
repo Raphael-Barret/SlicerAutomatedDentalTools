@@ -263,7 +263,7 @@ def sort(T1_files: list, T2_files: list) -> list[dict]:
         T2_files (list): contain list of T2 files
 
     Returns:
-        list[dict]: exemple : [{'T1':'path/patient5T1.vtk','T2':'path/patient5T2},...,{'T1':'path/patient90T1.vtk','T2':'path/patient90T2}]
+        list[dict]: example: [{'T1':'path/patient5T1.vtk','T2':'path/patient5T2},...,{'T1':'path/patient90T1.vtk','T2':'path/patient90T2}]
     """
     list_reg = []
 

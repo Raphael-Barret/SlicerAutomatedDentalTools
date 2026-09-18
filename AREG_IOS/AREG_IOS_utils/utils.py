@@ -1,9 +1,9 @@
 import vtk
 import numpy as np
 
-from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exporte)
-from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exporte)
-from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exporte)
+from ADTLib.geometry import VTKMatrixToNumpy  # noqa: F401  (re-exported)
+from ADTLib.io.landmarks import LoadJsonLandmarks  # noqa: F401  (re-exported)
+from ADTLib.io.surface import ReadSurf, WriteSurf  # noqa: F401  (re-exported)
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 

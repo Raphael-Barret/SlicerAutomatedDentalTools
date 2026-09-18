@@ -37,7 +37,7 @@ from AREG_CBCT_utils import (
 
 
 def _register_one_patient(Approx, SegLabel, add_name, data, failed_patients, output_dir, patient, processed_patients, reg_type, temp_folder):
-    """Recale un patient et ecrit le volume et la matrice obtenus."""
+    """Register one patient and write the volume and the matrix it yields."""
     patient_context = f"patient: {patient}"
     logger.info(f"Processing {patient_context}")
 

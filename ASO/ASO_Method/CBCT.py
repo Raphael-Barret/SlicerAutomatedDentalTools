@@ -279,7 +279,7 @@ class CBCT(Method):
 
 
 class Semi_CBCT(CBCT):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 0
     scan_type = "CBCT"
     shows_cbct_input = True
@@ -401,7 +401,7 @@ class Semi_CBCT(CBCT):
 
 
 class Auto_CBCT(CBCT):
-    # --- description de l'interface (voir `Method`) ---
+    # --- interface description (see `Method`) ---
     stacked_page = 1
     scan_type = "CBCT"
     shows_cbct_input = True

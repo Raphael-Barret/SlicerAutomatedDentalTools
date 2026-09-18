@@ -187,10 +187,10 @@ def RunMGL(args, icp):
 
 
 def _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower, processed_samples):
-    """Recale un couple T1/T2 et ecrit les surfaces et la matrice.
+    """Register one T1/T2 pair and write the surfaces and the matrix.
 
-    Une erreur ici est consignee et le couple suivant est traite : un patient
-    illisible n arrete pas le lot."""
+    An error here is logged and the next pair is handled: one unreadable
+    patient does not stop the batch."""
     sample_context = f"sample {idx+1}/{len(dataset)}"
     logger.info(f"Processing {sample_context}")
 

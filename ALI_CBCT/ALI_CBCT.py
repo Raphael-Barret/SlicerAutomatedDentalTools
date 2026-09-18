@@ -4,6 +4,7 @@ import sys
 import time
 import argparse
 import ast
+import json
 from pathlib import Path
 
 import numpy as np
@@ -66,9 +67,57 @@ def update_slicer_progress(value):
     emit(value)
     time.sleep(0.05)
 
+def _report_missing_landmarks(patient_id, missing, out_dir):
+    """Rend visible ce que le fichier de sortie ne dit pas.
+
+    Quand `Search` rend -1, aucun `AddPredictedLandmark` n'est fait : le
+    repere est simplement ABSENT du `.mrk.json`, et rien ne distingue un
+    repere qu'on n'a pas demande d'un repere que la recherche n'a pas
+    trouve. Le seul signe etait une ligne d'avertissement perdue au milieu
+    du journal du CLI.
+
+    Ici la liste part dans un fichier pose a cote des predictions -- meme
+    dossier, meme prefixe de patient, donc on tombe dessus en allant
+    chercher ses resultats -- et un bloc encadre part sur la sortie du CLI,
+    ou Slicer l'affiche.
+    """
+    if not missing:
+        return None
+
+    stem = str(patient_id).split(".")[0]
+    report = {
+        "patient": str(patient_id),
+        "not_found": [{"landmark": lm, "reason": reason}
+                      for lm, reason in sorted(missing.items())],
+    }
+
+    file_path = None
+    if out_dir:
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            file_path = os.path.join(out_dir, f"{stem}_lm_NotFound.json")
+            with open(file_path, "w", encoding="utf-8") as handle:
+                json.dump(report, handle, ensure_ascii=False, indent=4)
+        except OSError as e:
+            logger.error(f"Could not write the not-found report for "
+                         f"{patient_id}: {e}")
+            file_path = None
+
+    logger.warning("=" * 70)
+    logger.warning(f"{len(missing)} LANDMARK(S) NOT PLACED for {patient_id} "
+                   "-- they are absent from the output files:")
+    for lm, reason in sorted(missing.items()):
+        logger.warning(f"    {lm} : {reason}")
+    if file_path:
+        logger.warning(f"  listed in {file_path}")
+    logger.warning("=" * 70)
+    return file_path
+
+
 def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size):
     """Deplace les agents sur un scan jusqu a ce qu ils se posent."""
     logger.info(f"Processing patient: {environment.patient_id}")
+    missing = {}
 
     for agent in agent_lst:
         try:
@@ -96,17 +145,26 @@ def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, e
 
                     if search_result == -1:
                         fails[agent.target] = fails.get(agent.target, 0) + 1
+                        missing[agent.target] = (
+                            agent.failure_reason or "the search did not place it")
                         logger.warning(f"Agent failed to find {agent.target}")
                     else:
                         tot_step += search_result
                 except Exception as e:
                     logger.error(f"Error loading model weights for {agent.target}: {e}")
                     fails[agent.target] = fails.get(agent.target, 0) + 1
+                    missing[agent.target] = f"could not load its model: {e}"
             else:
+                # Counted as a failure like the others: without it the
+                # end-of-run summary stayed silent about a landmark that was
+                # asked for and never even searched.
                 logger.error(f"No model found for landmark: {agent.target}")
+                fails[agent.target] = fails.get(agent.target, 0) + 1
+                missing[agent.target] = "no model for it in the model folder"
 
         except Exception as e:
             logger.error(f"Error during agent search for {agent.target}: {e}")
+            missing[agent.target] = f"the search raised: {e}"
         finally:
             # Cleanup to free GPU memory
             agent.SetBrain(None)
@@ -118,6 +176,8 @@ def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, e
         environment.SavePredictedLandmarks(scale_keys[-1], args.output_dir)
     except Exception as e:
         logger.error(f"Failed to save predictions for patient {environment.patient_id}: {e}")
+
+    _report_missing_landmarks(environment.patient_id, missing, args.output_dir)
 
     # Update Slicer Progress
     progress = 20 + int((env_idx + 1) / len(environment_lst) * 80)
@@ -275,8 +335,14 @@ def main(args):
     logger.info(f"Total steps taken: {tot_step}")
     logger.info(f"Execution time: {end_time - start_time:.2f}s")
     
-    for lm, count in fails.items():
-        logger.warning(f"Landmark '{lm}': {count}/{len(environment_lst)} failures")
+    if fails:
+        logger.warning(
+            f"{len(fails)} landmark(s) were not placed on at least one scan. "
+            "They are ABSENT from the output files, not misplaced in them; "
+            "each scan concerned has a <patient>_lm_NotFound.json next to "
+            "its predictions saying which and why.")
+        for lm, count in sorted(fails.items()):
+            logger.warning(f"Landmark '{lm}': {count}/{len(environment_lst)} failures")
 
 if __name__ == "__main__":
     try:

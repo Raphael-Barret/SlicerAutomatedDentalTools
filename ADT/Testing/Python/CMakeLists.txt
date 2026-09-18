@@ -42,3 +42,7 @@ slicer_add_python_unittest(SCRIPT test_button_style.py)
 # The same scan must place the same landmark on a busy machine and on an idle
 # one.
 slicer_add_python_unittest(SCRIPT test_ali_cbct_budget.py)
+
+# Un repere qu ALI CBCT n a pas trouve est absent du fichier de sortie,
+# sans rien pour le dire : la liste part desormais a cote des predictions.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_missing.py)

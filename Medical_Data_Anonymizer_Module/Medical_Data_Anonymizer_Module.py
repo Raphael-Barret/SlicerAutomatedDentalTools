@@ -58,14 +58,14 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
         self.logic = Medical_Data_Anonymizer_ModuleLogic()
 
         # Detect dark mode
-        isDarkMode = self._isDarkMode()
+        is_dark_mode = self._isDarkMode()
         
         # Apply stylesheet to parent based on theme
-        styleSheet = self._getStyleSheet(isDarkMode)
-        self.parent.setStyleSheet(styleSheet)
+        style_sheet = self._getStyleSheet(is_dark_mode)
+        self.parent.setStyleSheet(style_sheet)
         
         # Store reference for potential theme changes
-        self.isDarkMode = isDarkMode
+        self.isDarkMode = is_dark_mode
         
         # Add margins to left and right
         self.layout.setContentsMargins(15, 0, 15, 0)
@@ -123,7 +123,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
         self.advancedCollapsible.collapsed = True
         self.layout.addWidget(self.advancedCollapsible)
         
-        advancedLayout = qt.QFormLayout(self.advancedCollapsible)
+        advanced_layout = qt.QFormLayout(self.advancedCollapsible)
 
         # Anonymization method dropdown
         self.anonymizationMethodCombo = qt.QComboBox()
@@ -132,7 +132,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
         self.anonymizationMethodCombo.addItem("Hash", "hash")
         self.anonymizationMethodCombo.addItem("Mask", "mask")
         self.anonymizationMethodCombo.setToolTip("Choose how to anonymize detected entities")
-        advancedLayout.addRow("Anonymization Method:", self.anonymizationMethodCombo)
+        advanced_layout.addRow("Anonymization Method:", self.anonymizationMethodCombo)
 
         # Score threshold slider
         self.scoreThresholdSlider = ctk.ctkSliderWidget()
@@ -141,7 +141,7 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
         self.scoreThresholdSlider.value = 0.5
         self.scoreThresholdSlider.singleStep = 0.05
         self.scoreThresholdSlider.setToolTip("Confidence threshold for entity detection (0.0-1.0). Higher = more strict.")
-        advancedLayout.addRow("Confidence Threshold:", self.scoreThresholdSlider)
+        advanced_layout.addRow("Confidence Threshold:", self.scoreThresholdSlider)
 
         # Install Dependencies Button
         self.installDependenciesButton = qt.QPushButton("Install Dependencies")
@@ -173,8 +173,8 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
             # Get the palette of the main application
             palette = slicer.app.palette()
             # Check if the background is dark by checking luminance
-            bgColor = palette.color(qt.QPalette.Window)
-            luminance = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
+            bg_color = palette.color(qt.QPalette.Window)
+            luminance = (0.299 * bg_color.red() + 0.587 * bg_color.green() + 0.114 * bg_color.blue()) / 255.0
             return luminance < 0.5
         except Exception:
             return False

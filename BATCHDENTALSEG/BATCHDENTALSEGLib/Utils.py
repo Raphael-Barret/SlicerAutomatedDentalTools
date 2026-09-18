@@ -31,13 +31,13 @@ def addInCollapsibleLayout(childWidget, parentLayout, collapsibleText, isCollaps
     (collapsed by default)
     """
     import ctk
-    collapsibleButton = ctk.ctkCollapsibleButton()
-    collapsibleButton.text = collapsibleText
-    collapsibleButton.collapsed = isCollapsed
-    parentLayout.addWidget(collapsibleButton)
-    collapsibleButtonLayout = qt.QVBoxLayout()
-    collapsibleButtonLayout.addWidget(childWidget)
-    collapsibleButton.setLayout(collapsibleButtonLayout)
+    collapsible_button = ctk.ctkCollapsibleButton()
+    collapsible_button.text = collapsibleText
+    collapsible_button.collapsed = isCollapsed
+    parentLayout.addWidget(collapsible_button)
+    collapsible_button_layout = qt.QVBoxLayout()
+    collapsible_button_layout.addWidget(childWidget)
+    collapsible_button.setLayout(collapsible_button_layout)
 
 
 def set3DViewBackgroundColors(topColor, bottomColor):
@@ -47,21 +47,21 @@ def set3DViewBackgroundColors(topColor, bottomColor):
     :param bottomColor: (r, g, b) floats between 0 and 1
     """
     import slicer
-    viewNode = slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()
-    viewNode.SetBackgroundColor(bottomColor)
-    viewNode.SetBackgroundColor2(topColor)
+    view_node = slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()
+    view_node.SetBackgroundColor(bottomColor)
+    view_node.SetBackgroundColor2(topColor)
 
 
 def setBoxAndTextVisibilityOnThreeDViews(isVisible):
     import slicer
-    layoutManager = slicer.app.layoutManager()
-    for i in range(layoutManager.threeDViewCount):
-        threeDViewNode = layoutManager.threeDWidget(i).mrmlViewNode()
-        threeDViewNode.SetBoxVisible(isVisible)
-        threeDViewNode.SetAxisLabelsVisible(isVisible)
+    layout_manager = slicer.app.layoutManager()
+    for i in range(layout_manager.threeDViewCount):
+        three_d_view_node = layout_manager.threeDWidget(i).mrmlViewNode()
+        three_d_view_node.SetBoxVisible(isVisible)
+        three_d_view_node.SetAxisLabelsVisible(isVisible)
 
 
 def setConventionalWideScreenView():
     import slicer
-    layoutManager = slicer.app.layoutManager()
-    layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
+    layout_manager = slicer.app.layoutManager()
+    layout_manager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)

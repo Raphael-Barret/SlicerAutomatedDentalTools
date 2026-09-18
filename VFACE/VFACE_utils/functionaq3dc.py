@@ -136,7 +136,7 @@ def registerSampleData():
 
     import SampleData
 
-    iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+    icons_path = os.path.join(os.path.dirname(__file__), "Resources/Icons")
 
     # To ensure that the source code repository remains small (can be downloaded and installed quickly)
     # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -148,7 +148,7 @@ def registerSampleData():
         sampleName="AQ3DC1",
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "AQ3DC1.png"),
+        thumbnailFileName=os.path.join(icons_path, "AQ3DC1.png"),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         fileNames="AQ3DC1.nrrd",
@@ -164,7 +164,7 @@ def registerSampleData():
         # Category and sample name displayed in Sample Data module
         category="AQ3DC",
         sampleName="AQ3DC2",
-        thumbnailFileName=os.path.join(iconsPath, "AQ3DC2.png"),
+        thumbnailFileName=os.path.join(icons_path, "AQ3DC2.png"),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         fileNames="AQ3DC2.nrrd",
@@ -202,14 +202,14 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/AQ3DC.ui"))
-        self.layout.addWidget(uiWidget)
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath("UI/AQ3DC.ui"))
+        self.layout.addWidget(ui_widget)
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -614,8 +614,8 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 dic_stats["Rotation"].append(str(yaw))
 
                 #3D
-                ThreeD = patient_compute["3D Distance"][i]
-                dic_stats["3D"].append(str(ThreeD))
+                three_d = patient_compute["3D Distance"][i]
+                dic_stats["3D"].append(str(three_d))
 
                 dic_stats["Yaw"].append(str("x"))
                 dic_stats["Pitch"].append(str("x"))
@@ -679,8 +679,8 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 dic_stats["Roll"].append(str(roll))
 
                 #3D
-                ThreeD = patient_compute["3D Distance"][i]
-                dic_stats["3D"].append(str(ThreeD))
+                three_d = patient_compute["3D Distance"][i]
+                dic_stats["3D"].append(str(three_d))
 
 
         keys_to_delete = []
@@ -907,9 +907,9 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Update Combobox containing landmarks
     """
         enable_landmark = self.logic.getEnableLandmarks(self.list_LandMarkCheck, self.GROUPS_LANDMARKS)
-        for Cb in self.list_CbLandmark:
-            Cb.clear()
-            Cb.addItems(enable_landmark)
+        for cb in self.list_CbLandmark:
+            cb.clear()
+            cb.addItems(enable_landmark)
 
 
 
@@ -1006,31 +1006,31 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.ui.combineWithOriginal.isChecked():
             # Save directly in original folders
             for patient, landmarks in self.dict_patient_T1.items():
-                originalFile = self.logic.findOriginalJson(self.ui.LineEditPathT1.text, patient)
-                if originalFile:
-                    self.logic.appendMidpointsToJson(originalFile, landmarks, self.mid_point)
+                original_file = self.logic.findOriginalJson(self.ui.LineEditPathT1.text, patient)
+                if original_file:
+                    self.logic.appendMidpointsToJson(original_file, landmarks, self.mid_point)
 
             if self.ui.LineEditPathT2.text != "":
                 for patient, landmarks in self.dict_patient_T2.items():
-                    originalFile = self.logic.findOriginalJson(self.ui.LineEditPathT2.text, patient)
-                    if originalFile:
-                        self.logic.appendMidpointsToJson(originalFile, landmarks, self.mid_point)
+                    original_file = self.logic.findOriginalJson(self.ui.LineEditPathT2.text, patient)
+                    if original_file:
+                        self.logic.appendMidpointsToJson(original_file, landmarks, self.mid_point)
         else:
-            out_path_T1 = os.path.join(self.ui.LineEditPathMidpoint.text, "T1")
-            out_path_T2 = os.path.join(self.ui.LineEditPathMidpoint.text, "T2")
-            if not os.path.exists(out_path_T1):
-                os.makedirs(out_path_T1)
+            out_path_t1 = os.path.join(self.ui.LineEditPathMidpoint.text, "T1")
+            out_path_t2 = os.path.join(self.ui.LineEditPathMidpoint.text, "T2")
+            if not os.path.exists(out_path_t1):
+                os.makedirs(out_path_t1)
             self.logic.saveMidpoint(
                 self.dict_patient_T1,
-                out_path_T1,
+                out_path_t1,
                 self.mid_point,
             )
             if self.ui.LineEditPathT2.text != "":
-                if not os.path.exists(out_path_T2):
-                    os.makedirs(out_path_T2)
+                if not os.path.exists(out_path_t2):
+                    os.makedirs(out_path_t2)
                 self.logic.saveMidpoint(
                     self.dict_patient_T2,
-                    out_path_T2,
+                    out_path_t2,
                     self.mid_point,
                 )
     
@@ -1053,7 +1053,7 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       This function is called by self.ui.CbListMeasurement and self.UpdateComboboxListMeasurement
       """
         text = self.ui.CbListMeasurement.currentText
-        currentTab = self.ui.TabMeasure.currentWidget().name
+        current_tab = self.ui.TabMeasure.currentWidget().name
         indexes = {
             "TabDistance": {
                 False: {"Distance point line": 1, "Distance between 2 points": 0},
@@ -1066,7 +1066,7 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         }
 
         self.ui.StackedMeasure.setCurrentIndex(
-            indexes[currentTab][self.ui.CheckBoxT1T2.isChecked()][text]
+            indexes[current_tab][self.ui.CheckBoxT1T2.isChecked()][text]
         )
 
     def updateComboboxListMeasurement(self):
@@ -1076,11 +1076,11 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     This function is calld by TabMeasure and CheckBoxT1T2
     """
-        currentTab = self.ui.TabMeasure.currentWidget().name
+        current_tab = self.ui.TabMeasure.currentWidget().name
         for i in range(self.ui.CbListMeasurement.count):
             self.ui.CbListMeasurement.removeItem(0)
 
-        if currentTab == "TabDistance":
+        if current_tab == "TabDistance":
             self.ui.CbListMeasurement.addItems(
                 ["Distance point line", "Distance between 2 points"]
             )
@@ -1233,13 +1233,13 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             ],
         }
 
-        dict_page2namemeasure_T1= {
+        dict_page2namemeasure_t1= {
             "PageDistancePointLineT1": ["Distance point line T1"],
             "PageAngleBetween2LinesT1": ["Angle between 2 lines T1"],
             "PageDistance2Points": ["Distance between 2 points T1"]
         }
 
-        dict_page2namemeasure_T1T2 = {
+        dict_page2namemeasure_t1_t2 = {
             "PageDistancePointLineT1": ["Distance point line T1","Distance point line T2"],
             "PageAngleBetween2LinesT1": ["Angle between 2 lines T1","Angle between 2 lines T2"],
             "PageDistance2Points": ["Distance between 2 points T1","Distance between 2 points T2"]
@@ -1261,9 +1261,9 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if page == "PageDistance2Points" and self.ui.CheckBoxT1T2.isChecked():
             page = "PageDistance2PointsT1T2"
 
-        dict_page_to_namemeasure = dict_page2namemeasure_T1
+        dict_page_to_namemeasure = dict_page2namemeasure_t1
         if self.ui.LineEditPathT2.text != '':
-            dict_page_to_namemeasure = dict_page2namemeasure_T1T2
+            dict_page_to_namemeasure = dict_page2namemeasure_t1_t2
             if self.ui.CheckBoxT1T2.isChecked():
                 dict_page_to_namemeasure = dict_page2namemeasure_checkbox
         out = self.logic.createMeasurement(dict_page_to_namemeasure[page], list_point)
@@ -1338,12 +1338,12 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     def warningMessage(self, message):
-        messageBox = ctk.ctkMessageBox()
-        messageBox.setWindowTitle(" /!\\ WARNING /!\\ ")
-        messageBox.setIcon(messageBox.Warning)
-        messageBox.setText(message)
-        messageBox.setStandardButtons(messageBox.Ok)
-        messageBox.exec_()
+        message_box = ctk.ctkMessageBox()
+        message_box.setWindowTitle(" /!\\ WARNING /!\\ ")
+        message_box.setIcon(message_box.Warning)
+        message_box.setText(message)
+        message_box.setStandardButtons(message_box.Ok)
+        message_box.exec_()
 
 
 
@@ -1486,10 +1486,10 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
                 # ~20x faster than building a DataFrame just to pull one cell out.
                 with open(jsonfile, encoding="utf-8") as f:
                     markups = json.load(f)["markups"][0]
-                controlPoints = markups["controlPoints"]
-                for i in range(len(controlPoints)):
-                    landmark_name = controlPoints[i]["label"]
-                    position = controlPoints[i]["position"]
+                control_points = markups["controlPoints"]
+                for i in range(len(control_points)):
+                    landmark_name = control_points[i]["label"]
+                    position = control_points[i]["position"]
 
                     # check the patient have many times the same landmark
                     if landmark_name in patients_dict[patient]:
@@ -1537,14 +1537,14 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
         # compare landmark patient T1 and T2
         dif_landmark = {}
-        for patientT1, landmarks in dict_patinetT1.items():
-            if patientT1 in dict_patientT2:
-                if set(landmarks) != set(dict_patientT2[patientT1]):
-                    dif = set(landmarks) - set(dict_patientT2[patientT1])
-                    dif.union(set(dict_patientT2[patientT1]) - set(landmarks))
-                    dif_landmark[patientT1] = dif
+        for patient_t1, landmarks in dict_patinetT1.items():
+            if patient_t1 in dict_patientT2:
+                if set(landmarks) != set(dict_patientT2[patient_t1]):
+                    dif = set(landmarks) - set(dict_patientT2[patient_t1])
+                    dif.union(set(dict_patientT2[patient_t1]) - set(landmarks))
+                    dif_landmark[patient_t1] = dif
                     logger.warning(
-                        f"T1 and T2 of this patient {patientT1} doesnt have the same landmark, landmark dif {dif}"
+                        f"T1 and T2 of this patient {patient_t1} doesnt have the same landmark, landmark dif {dif}"
                     )
 
         # compare the name patient T1 and T2
@@ -1633,14 +1633,14 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
         for patient in patients_dict.keys():
             lst_mid_point = []
             for mid_point in midpoints:
-                P1_name = mid_point[0]
-                P2_name = mid_point[1]
-                if P1_name and P2_name in patients_dict[patient]:
+                p1_name = mid_point[0]
+                p2_name = mid_point[1]
+                if p1_name and p2_name in patients_dict[patient]:
                     try:
-                        P1_pos = patients_dict[patient][P1_name]
-                        P2_pos = patients_dict[patient][P2_name]
+                        p1_pos = patients_dict[patient][p1_name]
+                        p2_pos = patients_dict[patient][p2_name]
                         midpoint_position = self.computeMidPoint(
-                            np.array(P1_pos), np.array(P2_pos)
+                            np.array(p1_pos), np.array(p2_pos)
                         )
                     except Exception:
                         logger.warning(
@@ -1648,7 +1648,7 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
                         )
                         continue
                     controle_point = self.generateControlePoint(
-                        f"Mid_{P1_name}_{P2_name}", midpoint_position
+                        f"Mid_{p1_name}_{p2_name}", midpoint_position
                     )
                     lst_mid_point.append(controle_point)
                     patients_dict[patient][controle_point["label"]] = controle_point[
@@ -1674,14 +1674,14 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
         with open(filePath, 'r') as f:
             data = json.load(f)
 
-        controlPoints = data['markups'][0]['controlPoints']
+        control_points = data['markups'][0]['controlPoints']
 
         for P1, P2 in midpoints:
             if P1 in patientLandmarks and P2 in patientLandmarks:
-                midpointPos = self.computeMidPoint(np.array(patientLandmarks[P1]), np.array(patientLandmarks[P2]))
-                controlPoints.append(self.generateControlePoint(f"Mid_{P1}_{P2}", midpointPos))
+                midpoint_pos = self.computeMidPoint(np.array(patientLandmarks[P1]), np.array(patientLandmarks[P2]))
+                control_points.append(self.generateControlePoint(f"Mid_{P1}_{P2}", midpoint_pos))
 
-        data['markups'][0]['controlPoints'] = controlPoints
+        data['markups'][0]['controlPoints'] = control_points
 
         with open(filePath, 'w') as f:
             json.dump(data, f, indent=4)
@@ -2161,9 +2161,9 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
                 try:
                     measure.computation()
-                except ZeroDivisionError as Zero:
+                except ZeroDivisionError as zero:
                     logger.warning(
-                        f"impossible to compute this measure {measure} for this patient {patient} a reason divide by 0 {Zero}"
+                        f"impossible to compute this measure {measure} for this patient {patient} a reason divide by 0 {zero}"
                     )
                     continue
 
@@ -2339,14 +2339,14 @@ class AQ3DCTest(ScriptedLoadableModuleTest):
                                     'LL6MB', 'Me', 'UL6MB', 'UR6R', 'LMCo']
 
         self.delayDisplay(' Test Creation Dictionnary Patient')
-        patient_T1 , patient_T2 = self.testCreateDictPatient(tmp_folder,list_landmark_exist_groundthruth)
+        patient_t1 , patient_t2 = self.testCreateDictPatient(tmp_folder,list_landmark_exist_groundthruth)
 
 
         self.delayDisplay(' Test Create Measure')
         list_measure = self.testCreateMeasure()
 
         self.delayDisplay(' Test Compute Measure')
-        compute = self.testComputeMeasure(patient_T1,patient_T2,list_measure)
+        compute = self.testComputeMeasure(patient_t1,patient_t2,list_measure)
 
         self.delayDisplay(' Test Write Measure')
         self.testWriteMeasure(compute,tmp_folder)
@@ -2355,7 +2355,7 @@ class AQ3DCTest(ScriptedLoadableModuleTest):
         self.testImportExport(tmp_folder,list_measure)
 
         self.delayDisplay(' Test Midpoint')
-        self.testMidpoint(tmp_folder,patient_T1,patient_T2,list_landmark_exist_groundthruth+['Mid_RPCo_LOr','Mid_Mid_RACo_RPCo_LMCo'])
+        self.testMidpoint(tmp_folder,patient_t1,patient_t2,list_landmark_exist_groundthruth+['Mid_RPCo_LOr','Mid_Mid_RACo_RPCo_LMCo'])
 
 
         # except AssertionError :
@@ -2372,14 +2372,14 @@ class AQ3DCTest(ScriptedLoadableModuleTest):
 
         logic = AQ3DCLogic()
         group_landmark = Group_landmark(widget.resourcePath("name_landmark.xlsx"))
-        patient_T1,x = logic.createDictPatient(os.path.join(folder,'T1'))
-        patient_T2,x = logic.createDictPatient(os.path.join(folder,'T2'))
+        patient_t1,x = logic.createDictPatient(os.path.join(folder,'T1'))
+        patient_t2,x = logic.createDictPatient(os.path.join(folder,'T2'))
 
-        dif_landmark , dif_patient = logic.compareT1T2(patient_T1,patient_T2)
+        dif_landmark , dif_patient = logic.compareT1T2(patient_t1,patient_t2)
         assert dif_landmark == {} and dif_patient == None
 
-        list_landmark_exist, group_landmark = logic.updateGroupLandmark(patient_T1,group_landmark)
-        list_landmark_exist, group_landmark = logic.updateGroupLandmark(patient_T2,group_landmark)
+        list_landmark_exist, group_landmark = logic.updateGroupLandmark(patient_t1,group_landmark)
+        list_landmark_exist, group_landmark = logic.updateGroupLandmark(patient_t2,group_landmark)
 
         list_landmark_exist.sort()
         landmark_exist.sort()
@@ -2387,7 +2387,7 @@ class AQ3DCTest(ScriptedLoadableModuleTest):
         assert list_landmark_exist== landmark_exist, f'ground truth : {landmark_exist} \n \n landmark list create : {list_landmark_exist} \n \n  difference : {list(set(landmark_exist).difference(set(list_landmark_exist)))+ list(set(list_landmark_exist).difference(set(landmark_exist))) }'
 
 
-        return patient_T1, patient_T2
+        return patient_t1, patient_t2
 
     def testCreateMeasure(self) -> list[Measure]:
         logic = AQ3DCLogic()

@@ -39,8 +39,8 @@ def orientation(source,target,landmarks):
     right = landmarks[3]
 
          
-    meanTeeth = vtkMeanTeeth([int(left),int(middle1),int(middle2),int(right)],property='Universal_ID')
-    mean_source = meanTeeth(source)
+    mean_teeth = vtkMeanTeeth([int(left),int(middle1),int(middle2),int(right)],property='Universal_ID')
+    mean_source = mean_teeth(source)
 
     left_source, middle1_source, middle2_source , right_source = mean_source[left], mean_source[middle1], mean_source[middle2],mean_source[right]
     left_target, middle_target , right_target = np.array(target[0]), np.array(target[1]), np.array(target[2])

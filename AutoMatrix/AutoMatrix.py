@@ -87,7 +87,7 @@ def registerSampleData():
     # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
 
     import SampleData
-    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+    icons_path = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
 
     # To ensure that the source code repository remains small (can be downloaded and installed quickly)
     # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -99,7 +99,7 @@ def registerSampleData():
         sampleName='AutoMatrix1',
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, 'AutoMatrix1.png'),
+        thumbnailFileName=os.path.join(icons_path, 'AutoMatrix1.png'),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         fileNames='AutoMatrix1.nrrd',
@@ -115,7 +115,7 @@ def registerSampleData():
         # Category and sample name displayed in Sample Data module
         category='AutoMatrix',
         sampleName='AutoMatrix2',
-        thumbnailFileName=os.path.join(iconsPath, 'AutoMatrix2.png'),
+        thumbnailFileName=os.path.join(icons_path, 'AutoMatrix2.png'),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         fileNames='AutoMatrix2.nrrd',
@@ -195,9 +195,9 @@ class PopUpWindow(qt.QDialog):
             button.setChecked(False)
 
     def onClickedCheckbox(self):
-        TrueFalse = [button.isChecked() for button in self.ListButtons]
+        true_false = [button.isChecked() for button in self.ListButtons]
         self.checked = [
-            self.listename[i] for i in range(len(self.listename)) if TrueFalse[i]
+            self.listename[i] for i in range(len(self.listename)) if true_false[i]
         ]
         self.accept()
 
@@ -244,14 +244,14 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath('UI/AutoMatrix.ui'))
-        self.layout.addWidget(uiWidget)
-        self.uiWidget = uiWidget  # Store reference for styling
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath('UI/AutoMatrix.ui'))
+        self.layout.addWidget(ui_widget)
+        self.uiWidget = ui_widget  # Store reference for styling
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -385,8 +385,8 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         url = f"{AUTOMATRIX_MIRROR}/Mirror.zip"
         name = "Mirror_matrix"
 
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        self.documents = qt.QStandardPaths.writableLocation(documents_location)
         self.SlicerDownloadPath = os.path.join(
             self.documents,
             slicer.app.applicationName + "Downloads",
@@ -488,9 +488,9 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Select default input nodes if nothing is selected yet to save a few clicks for the user
         if not self._parameterNode.GetNodeReference("InputVolume"):
-            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-            if firstVolumeNode:
-                self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
+            first_volume_node = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
+            if first_volume_node:
+                self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
     def setParameterNode(self, inputParameterNode):
         """
@@ -542,7 +542,7 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
-        wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+        was_modified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
         self._parameterNode.SetNodeReferenceID("InputVolume", self.ui.inputSelector.currentNodeID)
         self._parameterNode.SetNodeReferenceID("OutputVolume", self.ui.outputSelector.currentNodeID)
@@ -550,7 +550,7 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("Invert", "true" if self.ui.invertOutputCheckBox.checked else "false")
         self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID)
 
-        self._parameterNode.EndModify(wasModified)
+        self._parameterNode.EndModify(was_modified)
 
 
 
@@ -643,8 +643,8 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 logger.error(self.process.GetOutputText())
                 logger.error("\n\n ========= ERROR ========= \n")
-                errorText = self.process.GetErrorText()
-                logger.error("CLI execution failed: \n \n" + errorText)
+                error_text = self.process.GetErrorText()
+                logger.error("CLI execution failed: \n \n" + error_text)
                 self.onCancel()
 
             else:
@@ -758,9 +758,9 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         )
         self.RunningUI(False)
 
-        stopTime = time.time()
+        stop_time = time.time()
 
-        logger.info(f"Processing completed in {stopTime-self.startTime:.2f} seconds")
+        logger.info(f"Processing completed in {stop_time-self.startTime:.2f} seconds")
 
         s = PopUpWindow(
             title="Process Done",

@@ -72,13 +72,13 @@ def findPairs(t1Folder, t2Folder, maskFolder, initFolder):
     inits = findMatFiles(initFolder) if initFolder else {}
 
     pairs = []
-    for patientId in sorted(set(t1s.keys()) & set(t2s.keys())):
+    for patient_id in sorted(set(t1s.keys()) & set(t2s.keys())):
         pairs.append((
-            patientId,
-            t1s[patientId],
-            t2s[patientId],
-            masks.get(patientId),
-            inits.get(patientId),
+            patient_id,
+            t1s[patient_id],
+            t2s[patient_id],
+            masks.get(patient_id),
+            inits.get(patient_id),
         ))
     return pairs
 
@@ -94,25 +94,25 @@ def writeIdentityInit(initPath):
 
 
 def binarizeMaskFile(srcPath, destPath):
-    maskImg = nib.load(srcPath)
-    maskData = (maskImg.get_fdata() > 0).astype(np.float32)
-    newMask = nib.Nifti1Image(maskData, maskImg.affine)
-    newMask.header.set_data_dtype(np.float32)
-    nib.save(newMask, destPath)
+    mask_img = nib.load(srcPath)
+    mask_data = (mask_img.get_fdata() > 0).astype(np.float32)
+    new_mask = nib.Nifti1Image(mask_data, mask_img.affine)
+    new_mask.header.set_data_dtype(np.float32)
+    nib.save(new_mask, destPath)
 
 
 def buildRegistrationCommand(greedyBinary, fixedPath, movingPath, warpPath, initPath,
                               metric, transformType, maskPath=None):
     dof = "6" if transformType == "Rigid" else "12"
     if metric == "NMI":
-        metricArgs = ["-m", "NMI"]
+        metric_args = ["-m", "NMI"]
     elif metric == "NCC":
-        metricArgs = ["-m", "NCC", "4x4x4"]
+        metric_args = ["-m", "NCC", "4x4x4"]
     else:
-        metricArgs = ["-m", "SSD"]
+        metric_args = ["-m", "SSD"]
     cmd = [greedyBinary]
     cmd.extend(["-d", "3", "-a"])
-    cmd.extend(metricArgs)
+    cmd.extend(metric_args)
     cmd.extend(["-i", fixedPath, movingPath])
     cmd.extend(["-o", warpPath])
     cmd.extend(["-n", "100x100x50x25"])
@@ -133,11 +133,11 @@ def runGreedyCase(greedyBinary, fixedPath, movingPath, outputPath, warpPath, ini
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "Greedy affine registration failed")
 
-    resampleCmd = [greedyBinary, "-d", "3",
+    resample_cmd = [greedyBinary, "-d", "3",
                    "-rf", fixedPath,
                    "-rm", movingPath, outputPath,
                    "-r", warpPath]
-    result2 = subprocess.run(resampleCmd, capture_output=True, text=True, timeout=timeout)
+    result2 = subprocess.run(resample_cmd, capture_output=True, text=True, timeout=timeout)
     if result2.returncode != 0:
         raise RuntimeError(result2.stderr.strip() or "Greedy resampling failed")
 
@@ -157,37 +157,37 @@ def main(args):
     total = len(pairs)
     logger.info(f"Found {total} pair(s): {', '.join(p[0] for p in pairs)}")
 
-    for i, (patientId, fixedPath, movingPath, maskPath, initPath) in enumerate(pairs):
+    for i, (patient_id, fixed_path, moving_path, mask_path, init_path) in enumerate(pairs):
         progress = i / total
         emit_fraction(progress)
-        print(f"<filter-comment>Registering {patientId} ({i + 1}/{total})...</filter-comment>", flush=True)
-        logger.info(f"Processing {patientId} ({i + 1}/{total})")
+        print(f"<filter-comment>Registering {patient_id} ({i + 1}/{total})...</filter-comment>", flush=True)
+        logger.info(f"Processing {patient_id} ({i + 1}/{total})")
 
-        caseTmpDir = tempfile.mkdtemp(prefix=f"greedyreg_{patientId}_")
+        case_tmp_dir = tempfile.mkdtemp(prefix=f"greedyreg_{patient_id}_")
         try:
-            outputPath = os.path.join(args.outputFolder, f"{patientId}_registered.nii.gz")
-            warpPath = os.path.join(args.outputFolder, f"{patientId}_warp.mat")
+            output_path = os.path.join(args.outputFolder, f"{patient_id}_registered.nii.gz")
+            warp_path = os.path.join(args.outputFolder, f"{patient_id}_warp.mat")
 
-            resolvedInitPath = initPath
-            if not resolvedInitPath:
-                resolvedInitPath = os.path.join(caseTmpDir, "init.mat")
-                writeIdentityInit(resolvedInitPath)
+            resolved_init_path = init_path
+            if not resolved_init_path:
+                resolved_init_path = os.path.join(case_tmp_dir, "init.mat")
+                writeIdentityInit(resolved_init_path)
 
-            resolvedMaskPath = None
-            if maskPath:
-                resolvedMaskPath = os.path.join(caseTmpDir, "mask.nii.gz")
-                binarizeMaskFile(maskPath, resolvedMaskPath)
+            resolved_mask_path = None
+            if mask_path:
+                resolved_mask_path = os.path.join(case_tmp_dir, "mask.nii.gz")
+                binarizeMaskFile(mask_path, resolved_mask_path)
 
             runGreedyCase(
-                args.greedyBinary, fixedPath, movingPath, outputPath, warpPath,
-                resolvedInitPath, args.metric, args.transformType, resolvedMaskPath)
+                args.greedyBinary, fixed_path, moving_path, output_path, warp_path,
+                resolved_init_path, args.metric, args.transformType, resolved_mask_path)
 
-            logger.info(f"{patientId} done -> {outputPath}")
+            logger.info(f"{patient_id} done -> {output_path}")
         except Exception as e:
-            logger.error(f"FAILED on {patientId}: {e}")
+            logger.error(f"FAILED on {patient_id}: {e}")
             sys.exit(1)
         finally:
-            shutil.rmtree(caseTmpDir, ignore_errors=True)
+            shutil.rmtree(case_tmp_dir, ignore_errors=True)
 
     emit_fraction(1.00)
     print(f"<filter-comment>Batch complete! {total} case(s) registered.</filter-comment>", flush=True)

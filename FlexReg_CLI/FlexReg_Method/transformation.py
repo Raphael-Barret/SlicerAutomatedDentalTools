@@ -56,9 +56,9 @@ def TransformSurf(surf,matrix):
 
 def RotateTransform(surf, transform):
 
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetTransform(transform)
-    transformFilter.SetInputData(surf)
-    transformFilter.Update()
-    return transformFilter.GetOutput()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetTransform(transform)
+    transform_filter.SetInputData(surf)
+    transform_filter.Update()
+    return transform_filter.GetOutput()
 

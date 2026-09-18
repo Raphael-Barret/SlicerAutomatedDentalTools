@@ -74,16 +74,16 @@ def WriteJson(lm_lst,out_path):
 
 
 def GetBrain(dir_path):
-    brainDic = {}
+    brain_dic = {}
     normpath = os.path.normpath("/".join([dir_path, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         if os.path.isfile(img_fn) and ".pth" in img_fn:
             lab = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
             num = os.path.basename(os.path.dirname(img_fn))
-            if lab in brainDic.keys():
-                brainDic[lab][num] = img_fn
+            if lab in brain_dic.keys():
+                brain_dic[lab][num] = img_fn
             else:
                 network = {num : img_fn}
-                brainDic[lab] = network
+                brain_dic[lab] = network
 
-    return brainDic
+    return brain_dic

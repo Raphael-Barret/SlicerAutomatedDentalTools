@@ -45,10 +45,10 @@ def _register_one_patient(Approx, SegLabel, add_name, data, failed_patients, out
         # ===== OUTPUT PATH SETUP =====
         try:
             outpath = os.path.join(output_dir, translate(reg_type), patient + "_OutReg")
-            ScanOutPath = os.path.join(
+            scan_out_path = os.path.join(
                 outpath, patient + "_" + reg_type + "Scan" + add_name + ".nii.gz"
             )
-            TransOutPath = os.path.join(
+            trans_out_path = os.path.join(
                 outpath, patient + "_" + reg_type + add_name + "_matrix.tfm"
             )
             logger.debug(f"Output paths set for {patient}")
@@ -76,10 +76,10 @@ def _register_one_patient(Approx, SegLabel, add_name, data, failed_patients, out
         try:
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
-            logger.debug(f"Saving transform to {TransOutPath}")
-            sitk.WriteTransform(transform, TransOutPath)
-            logger.debug(f"Saving resampled image to {ScanOutPath}")
-            sitk.WriteImage(resample_t2, ScanOutPath)
+            logger.debug(f"Saving transform to {trans_out_path}")
+            sitk.WriteTransform(transform, trans_out_path)
+            logger.debug(f"Saving resampled image to {scan_out_path}")
+            sitk.WriteImage(resample_t2, scan_out_path)
             logger.info(f"Output files saved for {patient}")
         except Exception as e:
             logger.error(f"Error saving output files for {patient}: {e}")
@@ -115,9 +115,9 @@ def main(args):
                 output_dir,
                 reg_type,
                 add_name,
-                SegLabel,
+                seg_label,
                 temp_folder,
-                Approx,
+                approx,
                 mask_folder_t1,
             ) = (
                 args.t1_folder[0],
@@ -130,9 +130,9 @@ def main(args):
                 True if args.ApproxReg[0] == "true" else False,
                 None if args.mask_folder_t1[0] == "None" else args.mask_folder_t1[0],
             )
-            if SegLabel == 0:
-                SegLabel = None
-            logger.debug(f"Arguments parsed: reg_type={reg_type}, SegLabel={SegLabel}, Approx={Approx}")
+            if seg_label == 0:
+                seg_label = None
+            logger.debug(f"Arguments parsed: reg_type={reg_type}, SegLabel={seg_label}, Approx={approx}")
         except (IndexError, ValueError) as e:
             logger.error(f"Error parsing arguments: {e}")
             raise
@@ -208,7 +208,7 @@ def main(args):
         failed_patients = []
         
         for patient, data in patients.items():
-            processed_patients = _register_one_patient(Approx, SegLabel, add_name, data, failed_patients, output_dir, patient, processed_patients, reg_type, temp_folder)
+            processed_patients = _register_one_patient(approx, seg_label, add_name, data, failed_patients, output_dir, patient, processed_patients, reg_type, temp_folder)
 
         # ===== FINAL REPORT =====
         try:

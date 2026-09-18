@@ -187,13 +187,13 @@ def main(args):
         # ===== ARGUMENT PARSING =====
         try:
             logger.debug("Parsing arguments")
-            input_dir, out_dir, smallFOV, isDCMInput = (
+            input_dir, out_dir, small_fov, is_dcm_input = (
                 os.path.normpath(args.input[0]),
                 os.path.normpath(args.output_folder[0]),
                 args.SmallFOV[0] == "true",
                 args.DCMInput[0] == "true",
             )
-            logger.debug(f"Arguments parsed: input_dir={input_dir}, out_dir={out_dir}, SmallFOV={smallFOV}")
+            logger.debug(f"Arguments parsed: input_dir={input_dir}, out_dir={out_dir}, SmallFOV={small_fov}")
         except Exception as e:
             logger.error(f"Error parsing arguments: {e}")
             raise
@@ -209,7 +209,7 @@ def main(args):
             raise
 
         # ===== DICOM CONVERSION =====
-        if isDCMInput:
+        if is_dcm_input:
             try:
                 logger.debug("Converting DICOM files")
                 convertdicom2nifti(input_dir)

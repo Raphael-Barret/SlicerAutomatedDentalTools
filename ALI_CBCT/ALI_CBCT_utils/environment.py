@@ -156,9 +156,9 @@ class Environment :
         return np.linalg.norm(position-label_pos)**2
 
     def GetZone(self,scale,center,crop_size):
-        cropTransform = SpatialCrop(center.tolist() + self.padding,crop_size)
+        crop_transform = SpatialCrop(center.tolist() + self.padding,crop_size)
         rescale = ScaleIntensity(minv = -1.0, maxv = 1.0, factor = None)
-        crop = cropTransform(self.data[scale]["image"])
+        crop = crop_transform(self.data[scale]["image"])
         crop = rescale(crop).type(torch.float32)
         return crop
 

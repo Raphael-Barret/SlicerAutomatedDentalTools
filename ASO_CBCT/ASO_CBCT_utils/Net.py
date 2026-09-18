@@ -36,12 +36,12 @@ class DenseNet(pl.LightningModule):
         return nn.functional.normalize(self.net(x), dim=1)
 
     def training_step(self, batch, batch_idx):
-        scan, directionVector, scan_path = batch
+        scan, direction_vector, scan_path = batch
         batch_size = scan.shape[0]
 
-        directionVector_hat = self(scan)
+        direction_vector_hat = self(scan)
 
-        loss = 1 - self.CosSimLoss(directionVector_hat, directionVector)
+        loss = 1 - self.CosSimLoss(direction_vector_hat, direction_vector)
         # Sum the loss over the batch
         loss = loss.sum()
         self.log("train_loss", loss, batch_size=batch_size)
@@ -49,23 +49,23 @@ class DenseNet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        scan, directionVector, scan_path = batch
+        scan, direction_vector, scan_path = batch
         batch_size = scan.shape[0]
-        directionVector_hat = self(scan)
+        direction_vector_hat = self(scan)
 
-        loss = 1 - self.CosSimLoss(directionVector_hat, directionVector)
+        loss = 1 - self.CosSimLoss(direction_vector_hat, direction_vector)
         loss = loss.sum()
         self.log("val_loss", loss, batch_size=batch_size)
 
         return loss
 
     def test_step(self, batch, batch_idx):
-        scan, directionVector, scan_path = batch
+        scan, direction_vector, scan_path = batch
         batch_size = scan.shape[0]
 
-        directionVector_hat = self(scan)
+        direction_vector_hat = self(scan)
 
-        loss = 1 - self.CosSimLoss(directionVector_hat, directionVector)
+        loss = 1 - self.CosSimLoss(direction_vector_hat, direction_vector)
         loss = loss.sum()
         self.log("test_loss", loss, batch_size=batch_size)
 

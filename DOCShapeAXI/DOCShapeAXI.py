@@ -120,13 +120,13 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath("UI/DOCShapeAXI.ui"))
-    self.layout.addWidget(uiWidget)
-    self.uiWidget = uiWidget  # Store reference for styling
-    self.ui = slicer.util.childWidgetVariables(uiWidget)
+    ui_widget = slicer.util.loadUI(self.resourcePath("UI/DOCShapeAXI.ui"))
+    self.layout.addWidget(ui_widget)
+    self.uiWidget = ui_widget  # Store reference for styling
+    self.ui = slicer.util.childWidgetVariables(ui_widget)
 
     # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
-    uiWidget.setMRMLScene(slicer.mrmlScene)
+    ui_widget.setMRMLScene(slicer.mrmlScene)
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
@@ -255,8 +255,8 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
-    wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
-    self._parameterNode.EndModify(wasModified)
+    was_modified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+    self._parameterNode.EndModify(was_modified)
 
 
   ##
@@ -280,11 +280,11 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   ##
     
   def onBrowseOutputButton(self):
-    newoutputFolder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a directory")
-    if newoutputFolder != '':
-      if newoutputFolder[-1] != "/":
-        newoutputFolder += '/'
-    self.outputFolder = newoutputFolder
+    newoutput_folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a directory")
+    if newoutput_folder != '':
+      if newoutput_folder[-1] != "/":
+        newoutput_folder += '/'
+    self.outputFolder = newoutput_folder
     self.ui.outputLineEdit.setText(self.outputFolder)
 
   def onEditOutputLine(self):
@@ -325,12 +325,12 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if not self.logic.isCondaSetUp:
       self.ui.timeLabel.setText(f"Checking if SlicerConda is installed")
-      messageBox = qt.QMessageBox()
+      message_box = qt.QMessageBox()
       text = textwrap.dedent("""
       SlicerConda is not set up, please click
       <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
       """).strip()
-      messageBox.information(None, "Information", text)
+      message_box.information(None, "Information", text)
       return False
 
     ## wsl
@@ -343,7 +343,7 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.timeLabel.setText("WSL installed")
         if not self.logic.check_lib_wsl() : # if lib required are not install
           self.ui.timeLabel.setText(f"Checking if the required librairies are installed, this task may take a moments")
-          messageBox = qt.QMessageBox()
+          message_box = qt.QMessageBox()
           # text = "Code can't be launch. \nWSL doen't have all the necessary libraries, please download the installer and follow the instructin here : https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip may be blocked by Chrome, this is normal, just authorize it."
           text = textwrap.dedent("""
             WSL doesn't have all the necessary libraries, please download the installer
@@ -351,17 +351,17 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
             for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-          messageBox.information(None, "Information", text)
+          message_box.information(None, "Information", text)
           return False
       else : # if wsl not install, ask user to install it ans stop process
-        messageBox = qt.QMessageBox()
+        message_box = qt.QMessageBox()
         # text = "Code can't be launch. \nWSL is not installed, please download the installer and follow the instructin here : https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip may be blocked by Chrome, this is normal, just authorize it."
         text = textwrap.dedent("""
           WSL is not installed, please download the installer and follow the instructions
           <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
           for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-        messageBox.information(None, "Information", text)
+        message_box.information(None, "Information", text)
         return False
     
 
@@ -369,19 +369,19 @@ class DOCShapeAXIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.timeLabel.setText(f"Checking if miniconda is installed")
     if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
-      messageBox = qt.QMessageBox()
+      message_box = qt.QMessageBox()
       text = textwrap.dedent("""
       Code can't be launch. \nConda is not setup.
       Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
-      messageBox.information(None, "Information", text)
+      message_box.information(None, "Information", text)
       return False
 
     ## shapeAXI
 
     self.ui.timeLabel.setText(f"Checking if environnement exists")
     if not self.logic.conda.condaTestEnv(self.logic.name_env) : # check is environnement exist, if not ask user the permission to do it
-      userResponse = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
-      if userResponse :
+      user_response = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
+      if user_response :
         start_time = time.time()
         previous_time = start_time
         formatted_time = self.format_time(0)

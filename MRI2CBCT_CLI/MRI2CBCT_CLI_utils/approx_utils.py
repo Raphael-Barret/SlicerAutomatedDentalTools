@@ -49,12 +49,12 @@ def compute_rotation_correction(mri_path, cbct_path):
 
     def get_rotation(affine):
         R = affine[:3, :3]
-        U, _, Vt = np.linalg.svd(R)
-        return U @ Vt
+        U, _, vt = np.linalg.svd(R)
+        return U @ vt
 
-    R_mri = get_rotation(moving_nii.affine)
-    R_cbct = get_rotation(static_nii.affine)
-    return R_cbct @ R_mri.T
+    r_mri = get_rotation(moving_nii.affine)
+    r_cbct = get_rotation(static_nii.affine)
+    return r_cbct @ r_mri.T
 
 
 def world_center_of_mass(nifti_img):

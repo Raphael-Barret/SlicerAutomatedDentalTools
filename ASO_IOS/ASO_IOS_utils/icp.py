@@ -118,10 +118,10 @@ class vtkICP:
         icp.Update()
 
         # ============ apply ICP transform ==============
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(source)
-        transformFilter.SetTransform(icp)
-        transformFilter.Update()
+        transform_filter = vtk.vtkTransformPolyDataFilter()
+        transform_filter.SetInputData(source)
+        transform_filter.SetTransform(icp)
+        transform_filter.Update()
 
         return source, VTKMatrixToNumpy(icp.GetMatrix())
 
@@ -163,16 +163,16 @@ class InitIcp:
 
         (
             source_transformed,
-            TransformMatrix,
+            transform_matrix,
         ) = self.InitICP(source, target, BestLMList=best)
 
-        return source_transformed, TransformMatrix
+        return source_transformed, transform_matrix
 
     def InitICP(self, source, target, BestLMList=None, search=False):
-        TransformList = []
+        transform_list = []
         # TransformMatrix = np.eye(4)
-        TranslationTransformMatrix = np.eye(4)
-        RotationTransformMatrix = np.eye(4)
+        translation_transform_matrix = np.eye(4)
+        rotation_transform_matrix = np.eye(4)
 
         labels = list(source.keys())
         if BestLMList is not None:
@@ -188,7 +188,7 @@ class InitIcp:
             # firstpick = 'LOr'
         # ============ Compute Translation Transform ==============
         T = target[firstpick] - source[firstpick]
-        TranslationTransformMatrix[:3, 3] = T
+        translation_transform_matrix[:3, 3] = T
 
         # ============ Apply Translation Transform ==============
         source = TranslationDict(source, T)
@@ -210,14 +210,14 @@ class InitIcp:
         # ============ Compute Rotation Transform ==============
         R = RotationMatrix(axis, angle)
         # TransformMatrix[:3, :3] = R
-        RotationTransformMatrix[:3, :3] = R
+        rotation_transform_matrix[:3, :3] = R
 
         # ============ Apply Rotation Transform ==============
 
-        source = TransformDict(source, RotationTransformMatrix)
+        source = TransformDict(source, rotation_transform_matrix)
 
         # ============ Compute Transform Matrix (Rotation + Translation) ==============
-        TransformMatrix = RotationTransformMatrix @ TranslationTransformMatrix
+        transform_matrix = rotation_transform_matrix @ translation_transform_matrix
 
         # ============ Pick another Random Landmark ==============
         if BestLMList is None:
@@ -233,16 +233,16 @@ class InitIcp:
         angle, axis = self.AngleAndAxisVectors(v2, v1)
 
         # ============ Compute Rotation Transform ==============
-        RotationTransformMatrix = np.eye(4)
+        rotation_transform_matrix = np.eye(4)
         R = RotationMatrix(abs(source[secondpick] - source[firstpick]), angle)
-        RotationTransformMatrix[:3, :3] = R
+        rotation_transform_matrix[:3, :3] = R
 
         # ============ Apply Rotation Transform ==============
 
-        source = TransformDict(source, RotationTransformMatrix)
+        source = TransformDict(source, rotation_transform_matrix)
 
         # ============ Compute Transform Matrix (Init ICP) ==============
-        TransformMatrix = RotationTransformMatrix @ TransformMatrix
+        transform_matrix = rotation_transform_matrix @ transform_matrix
 
         if search:
             return (
@@ -252,7 +252,7 @@ class InitIcp:
                 self.ComputeMeanDistance(source, target),
             )
 
-        return source, TransformMatrix
+        return source, transform_matrix
 
     def FindOptimalLandmarks(self, source, target):
         """
@@ -272,7 +272,7 @@ class InitIcp:
         """
 
         # remplacer 210 by n*(n-1)*(n-2)   (n)
-        dist, LMlist, ii = [], [], 0
+        dist, l_mlist, ii = [], [], 0
         script_dir = os.path.dirname(__file__)
         n = len(source)
         while len(dist) < n * (n - 1) * (n - 2) and ii < 2500:
@@ -284,11 +284,11 @@ class InitIcp:
             firstpick, secondpick, thirdpick, d = self.InitICP(
                 source, target, search=True
             )
-            if [firstpick, secondpick, thirdpick] not in LMlist:
+            if [firstpick, secondpick, thirdpick] not in l_mlist:
                 dist.append(d)
-                LMlist.append([firstpick, secondpick, thirdpick])
+                l_mlist.append([firstpick, secondpick, thirdpick])
 
-        return LMlist[dist.index(min(dist))]
+        return l_mlist[dist.index(min(dist))]
 
     def ComputeMeanDistance(self, source, target):
         """
@@ -433,7 +433,7 @@ class vtkMeshTeeth(vtkTeeth):
             size += points.shape[0]
 
         Points = vtk.vtkPoints()
-        Vertices = vtk.vtkCellArray()
+        vertices = vtk.vtkCellArray()
         labels = vtk.vtkStringArray()
         labels.SetNumberOfValues(size)
         labels.SetName("labels")
@@ -441,14 +441,14 @@ class vtkMeshTeeth(vtkTeeth):
         for points in list_points:
             for i in range(points.shape[0]):
                 sp_id = Points.InsertNextPoint(points[i, :].squeeze(0))
-                Vertices.InsertNextCell(1)
-                Vertices.InsertCellPoint(sp_id)
+                vertices.InsertNextCell(1)
+                vertices.InsertCellPoint(sp_id)
                 labels.SetValue(index, str(index))
                 index += 1
 
         output = vtk.vtkPolyData()
         output.SetPoints(Points)
-        output.SetVerts(Vertices)
+        output.SetVerts(vertices)
         output.GetPointData().AddArray(labels)
 
         return output
@@ -482,20 +482,20 @@ def DictTovtkPoints(dict_landmarks):
         VTK points object
     """
     Points = vtk.vtkPoints()
-    Vertices = vtk.vtkCellArray()
+    vertices = vtk.vtkCellArray()
     labels = vtk.vtkStringArray()
     labels.SetNumberOfValues(len(dict_landmarks.keys()))
     labels.SetName("labels")
 
     for i, landmark in enumerate(dict_landmarks.keys()):
         sp_id = Points.InsertNextPoint(dict_landmarks[landmark])
-        Vertices.InsertNextCell(1)
-        Vertices.InsertCellPoint(sp_id)
+        vertices.InsertNextCell(1)
+        vertices.InsertCellPoint(sp_id)
         labels.SetValue(i, landmark)
 
     output = vtk.vtkPolyData()
     output.SetPoints(Points)
-    output.SetVerts(Vertices)
+    output.SetVerts(vertices)
     output.GetPointData().AddArray(labels)
 
     return output

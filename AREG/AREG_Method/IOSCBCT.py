@@ -270,11 +270,11 @@ class Semi_IOSCBCT(IOSCBCT):
         }
 
         logger.info(f"Parameter CrownSegmentation :  {parameter_seg}")
-        SegProcess_IOS = slicer.modules.crownsegmentationcli
+        seg_process_ios = slicer.modules.crownsegmentationcli
         
         list_process = [
             {
-                "Process": SegProcess_IOS,
+                "Process": seg_process_ios,
                 "Parameter": parameter_seg,
                 "Module": "CrownSegmentationcli",
                 "ReviewId": "ios_segmented",
@@ -302,11 +302,11 @@ class Semi_IOSCBCT(IOSCBCT):
         }
         
         logger.info(f"Parameter ALI_CBCT :  {parameter_ali_cbct}")
-        ALIProcess_CBCT = slicer.modules.ali_cbct
+        ali_process_cbct = slicer.modules.ali_cbct
 
         list_process.append(
             {
-                "Process": ALIProcess_CBCT,
+                "Process": ali_process_cbct,
                 "Parameter": parameter_ali_cbct,
                 "Module": "ALI_CBCT",
                 "ReviewId": "cbct_landmarks_registration",
@@ -338,10 +338,10 @@ class Semi_IOSCBCT(IOSCBCT):
 
         logger.info(f"Parameter ALI_IOS :  {parameter_ali_ios}")
 
-        ALIProcess_IOS = slicer.modules.ali_ios
+        ali_process_ios = slicer.modules.ali_ios
     
         list_process.append({
-                "Process": ALIProcess_IOS,
+                "Process": ali_process_ios,
                 "Parameter": parameter_ali_ios,
                 "Module": "ALI_IOS",
                 "ReviewId": "ios_landmarks",
@@ -355,21 +355,21 @@ class Semi_IOSCBCT(IOSCBCT):
         registered_ios_folder_path = os.path.join(request.output_folder,"Registered IOS")
         os.makedirs(registered_ios_folder_path, exist_ok=True)
 
-        parameter_areg_IOSCBCT = {
+        parameter_areg_ioscbct = {
             "IOS_folder": os.path.join(seg_ios_folder_path,"liste_csv_file_Seg"),
             "CBCT_folder": request.input_t2_folder,
             "IOS_lm_folder": ios_landmarks_folder_path,
             "CBCT_lm_folder": cbct_landmarks_folder_path,
             "output": registered_ios_folder_path
         }
-        logger.info(f"Parameter reg: {parameter_areg_IOSCBCT}")
+        logger.info(f"Parameter reg: {parameter_areg_ioscbct}")
 
-        AREGProcess = slicer.modules.areg_ioscbct
+        areg_process = slicer.modules.areg_ioscbct
 
         list_process.append(
             {
-                "Process": AREGProcess,
-                "Parameter": parameter_areg_IOSCBCT,
+                "Process": areg_process,
+                "Parameter": parameter_areg_ioscbct,
                 "Module": "AREG IOSCBCT",
                 "ReviewId": "ioscbct_registration",
                 "ReviewFolder": registered_ios_folder_path,
@@ -433,21 +433,21 @@ class Reg_IOSCBCT(IOSCBCT):
 
     def Process(self, request):
 
-        parameter_areg_IOSCBCT = {
+        parameter_areg_ioscbct = {
             "IOS_folder": request.input_t1_folder,
             "CBCT_folder": request.input_t2_folder,
             "IOS_lm_folder": request.input_t1_mask,
             "CBCT_lm_folder": request.input_t2_landmarks,
             "output": request.output_folder
         }
-        logger.info(f"Parameter reg: {parameter_areg_IOSCBCT}")
+        logger.info(f"Parameter reg: {parameter_areg_ioscbct}")
 
-        AREGProcess = slicer.modules.areg_ioscbct
+        areg_process = slicer.modules.areg_ioscbct
 
         list_process = [
             {
-                "Process": AREGProcess,
-                "Parameter": parameter_areg_IOSCBCT,
+                "Process": areg_process,
+                "Parameter": parameter_areg_ioscbct,
                 "Module": "AREG IOSCBCT",
                 "ReviewId": "ioscbct_registration",
                 "ReviewFolder": request.output_folder,
@@ -598,13 +598,13 @@ class Auto_IOSCBCT(IOSCBCT):
         }
 
         logger.info(f"Parameter Resample_CBCT : {parameter_resample_cbct}")
-        ResampleProcess_CBCT = slicer.modules.mri2cbct_resample_cbct_mri
+        resample_process_cbct = slicer.modules.mri2cbct_resample_cbct_mri
 
         
         
         list_process = [
             {
-                "Process": ResampleProcess_CBCT,
+                "Process": resample_process_cbct,
                 "Parameter": parameter_resample_cbct,
                 "Module": "CBCT Resampling",
                 "ReviewId": "cbct_resampled",
@@ -659,13 +659,13 @@ class Auto_IOSCBCT(IOSCBCT):
         logger.info(f"Parameter ALI_CBCT :  {parameter_ali_cbct}")
         logger.info(f"Parameter SEMI_ASO_CBCT : {parameter_semi_aso_cbct}")
         
-        PreOrientProcess_CBCT = slicer.modules.pre_aso_cbct
-        ALIProcess_CBCT = slicer.modules.ali_cbct
-        OrientProcess_CBCT = slicer.modules.semi_aso_cbct
+        pre_orient_process_cbct = slicer.modules.pre_aso_cbct
+        ali_process_cbct = slicer.modules.ali_cbct
+        orient_process_cbct = slicer.modules.semi_aso_cbct
         
         list_process.append(
             {
-                "Process": PreOrientProcess_CBCT,
+                "Process": pre_orient_process_cbct,
                 "Parameter": parameter_pre_aso_cbct,
                 "Module": "PRE_ASO_CBCT",
                 "Display": DisplayASOCBCT(
@@ -673,7 +673,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 ),
             })
         list_process.append({
-                "Process": ALIProcess_CBCT,
+                "Process": ali_process_cbct,
                 "Parameter": parameter_ali_cbct,
                 "Module": "ALI_CBCT",
                 "ReviewId": "cbct_landmarks_orientation",
@@ -684,7 +684,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 ),
             })
         list_process.append({
-                "Process": OrientProcess_CBCT,
+                "Process": orient_process_cbct,
                 "Parameter": parameter_semi_aso_cbct,
                 "Module": "SEMI_ASO_CBCT",
                 "ReviewId": "cbct_oriented",
@@ -767,14 +767,14 @@ class Auto_IOSCBCT(IOSCBCT):
         logger.info(f"Parameter CrownSegmentation :  {parameter_seg}")
         logger.info(f"Parameter PRE_ASO_IOS :  {parameter_pre_aso_ios}")
 
-        PreOrientProcess_IOS = slicer.modules.pre_aso_ios
-        SegProcess_IOS = slicer.modules.crownsegmentationcli
-        OrientProcess_IOS = slicer.modules.semi_aso_ios
+        pre_orient_process_ios = slicer.modules.pre_aso_ios
+        seg_process_ios = slicer.modules.crownsegmentationcli
+        orient_process_ios = slicer.modules.semi_aso_ios
         
         
         list_process.append(
             {
-                "Process": SegProcess_IOS,
+                "Process": seg_process_ios,
                 "Parameter": parameter_seg,
                 "Module": "CrownSegmentationcli",
                 "ReviewId": "ios_segmented",
@@ -784,7 +784,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 ),
             })
         list_process.append({
-                "Process": PreOrientProcess_IOS,
+                "Process": pre_orient_process_ios,
                 "Parameter": parameter_pre_aso_ios,
                 "Module": "PRE_ASO_IOS",
                 "ReviewId": "ios_oriented",
@@ -818,7 +818,7 @@ class Auto_IOSCBCT(IOSCBCT):
 
         list_process.append(
             {
-                "Process": ALIProcess_CBCT,
+                "Process": ali_process_cbct,
                 "Parameter": parameter_ali_cbct_2,
                 "Module": "ALI_CBCT",
                 "ReviewId": "cbct_landmarks_registration",
@@ -850,10 +850,10 @@ class Auto_IOSCBCT(IOSCBCT):
 
         logger.info(f"Parameter ALI_IOS :  {parameter_ali_ios}")
 
-        ALIProcess_IOS = slicer.modules.ali_ios
+        ali_process_ios = slicer.modules.ali_ios
     
         list_process.append({
-                "Process": ALIProcess_IOS,
+                "Process": ali_process_ios,
                 "Parameter": parameter_ali_ios,
                 "Module": "ALI_IOS",
                 "ReviewId": "ios_landmarks",
@@ -867,21 +867,21 @@ class Auto_IOSCBCT(IOSCBCT):
         registered_ios_folder_path = os.path.join(request.output_folder,"Registered IOS")
         os.makedirs(registered_ios_folder_path, exist_ok=True)
 
-        parameter_areg_IOSCBCT = {
+        parameter_areg_ioscbct = {
             "IOS_folder": pre_aso_ios_folder_path,
             "CBCT_folder": oriented_cbct_folder_path,
             "IOS_lm_folder": ios_landmarks_folder_path,
             "CBCT_lm_folder": cbct_landmarks_folder_path,
             "output": registered_ios_folder_path
         }
-        logger.info(f"Parameter reg: {parameter_areg_IOSCBCT}")
+        logger.info(f"Parameter reg: {parameter_areg_ioscbct}")
 
-        AREGProcess = slicer.modules.areg_ioscbct
+        areg_process = slicer.modules.areg_ioscbct
 
         list_process.append(
             {
-                "Process": AREGProcess,
-                "Parameter": parameter_areg_IOSCBCT,
+                "Process": areg_process,
+                "Parameter": parameter_areg_ioscbct,
                 "Module": "AREG IOSCBCT",
                 "ReviewId": "ioscbct_registration",
                 "ReviewFolder": registered_ios_folder_path,

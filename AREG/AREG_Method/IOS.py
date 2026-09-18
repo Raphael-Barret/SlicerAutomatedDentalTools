@@ -458,80 +458,80 @@ class Auto_IOS(Method):
         """
         path_tmp = slicer.util.tempDirectory()
         path_input = os.path.join(path_tmp, "input_seg")
-        path_input_T1 = os.path.join(path_input, "T1")
-        path_input_T2 = os.path.join(path_input, "T2")
+        path_input_t1 = os.path.join(path_input, "T1")
+        path_input_t2 = os.path.join(path_input, "T2")
         path_seg = os.path.join(path_tmp, "seg")
-        path_seg_T1 = os.path.join(path_seg, "T1")
-        path_seg_T2 = os.path.join(path_seg, "T2")
+        path_seg_t1 = os.path.join(path_seg, "T1")
+        path_seg_t2 = os.path.join(path_seg, "T2")
 
-        for folder in (path_seg, path_seg_T1, path_seg_T2,
-                       path_input, path_input_T1, path_input_T2):
+        for folder in (path_seg, path_seg_t1, path_seg_t2,
+                       path_input, path_input_t1, path_input_t2):
             os.makedirs(folder, exist_ok=True)
         os.makedirs(request.output_folder, exist_ok=True)
 
-        number_scan_toseg_T1 = self.__BypassCrownseg__(
-            request.input_t1_folder, path_input_T1, path_seg_T1
+        number_scan_toseg_t1 = self.__BypassCrownseg__(
+            request.input_t1_folder, path_input_t1, path_seg_t1
         )
-        number_scan_toseg_T2 = self.__BypassCrownseg__(
-            request.input_t2_folder, path_input_T2, path_seg_T2
+        number_scan_toseg_t2 = self.__BypassCrownseg__(
+            request.input_t2_folder, path_input_t2, path_seg_t2
         )
         dentalmodelseg_path = FindDentalModelSeg()
 
-        surf_T1 = "None"
-        input_csv_T1 = "None"
-        vtk_folder_T1 = "None"
-        if os.path.isfile(path_input_T1):
-            extension = os.path.splitext(path_input_T1)[1]
+        surf_t1 = "None"
+        input_csv_t1 = "None"
+        vtk_folder_t1 = "None"
+        if os.path.isfile(path_input_t1):
+            extension = os.path.splitext(path_input_t1)[1]
             if extension == ".vtk" or extension == ".stl":
-              surf_T1 = path_input_T1
+              surf_t1 = path_input_t1
 
-        elif os.path.isdir(path_input_T1):
-          input_csv_T1 = self.create_csv(path_input_T1,"liste_csv_file_T1")
-          vtk_folder_T1 = path_input_T1
+        elif os.path.isdir(path_input_t1):
+          input_csv_t1 = self.create_csv(path_input_t1,"liste_csv_file_T1")
+          vtk_folder_t1 = path_input_t1
 
-        parameter_segteeth_T1 = {
-            "surf": surf_T1,
-            "input_csv": input_csv_T1,
-            "out": path_seg_T1,
+        parameter_segteeth_t1 = {
+            "surf": surf_t1,
+            "input_csv": input_csv_t1,
+            "out": path_seg_t1,
             "overwrite": "0",
             "model": "latest",
             "crown_segmentation": "0",
             "array_name": "Universal_ID",
             "fdi": 0,
             "suffix": "Seg",
-            "vtk_folder": vtk_folder_T1,
+            "vtk_folder": vtk_folder_t1,
             "dentalmodelseg_path": dentalmodelseg_path
         }
 
-        surf_T2 = "None"
-        input_csv_T2 = "None"
-        vtk_folder_T2 = "None"
-        if os.path.isfile(path_input_T2):
-            extension = os.path.splitext(path_input_T2)[1]
+        surf_t2 = "None"
+        input_csv_t2 = "None"
+        vtk_folder_t2 = "None"
+        if os.path.isfile(path_input_t2):
+            extension = os.path.splitext(path_input_t2)[1]
             if extension == ".vtk" or extension == ".stl":
-              surf_T2 = path_input_T2
+              surf_t2 = path_input_t2
 
-        elif os.path.isdir(path_input_T2):
-          input_csv_T2 = self.create_csv(path_input_T2,"liste_csv_file_T2")
-          vtk_folder_T2 = path_input_T2
+        elif os.path.isdir(path_input_t2):
+          input_csv_t2 = self.create_csv(path_input_t2,"liste_csv_file_T2")
+          vtk_folder_t2 = path_input_t2
 
-        parameter_segteeth_T2 = {
-            "surf": surf_T2,
-            "input_csv": input_csv_T2,
-            "out": path_seg_T2,
+        parameter_segteeth_t2 = {
+            "surf": surf_t2,
+            "input_csv": input_csv_t2,
+            "out": path_seg_t2,
             "overwrite": "0",
             "model": "latest",
             "crown_segmentation": "0",
             "array_name": "Universal_ID",
             "fdi": 0,
             "suffix": "Seg",
-            "vtk_folder": vtk_folder_T2,
+            "vtk_folder": vtk_folder_t2,
             "dentalmodelseg_path": dentalmodelseg_path
         }
 
         to_segment = []
-        for timepoint, number, parameter in (("T1", number_scan_toseg_T1, parameter_segteeth_T1),
-                                             ("T2", number_scan_toseg_T2, parameter_segteeth_T2)):
+        for timepoint, number, parameter in (("T1", number_scan_toseg_t1, parameter_segteeth_t1),
+                                             ("T2", number_scan_toseg_t2, parameter_segteeth_t2)):
             if number == 0:
                 # Every scan of this timepoint already carries its labels.
                 # Running the CLI on the empty folder left behind would only
@@ -544,11 +544,11 @@ class Auto_IOS(Method):
             # Nothing to segment, so nothing to ask of SlicerDentalModelSeg:
             # a Slicer without that extension still registers scans that are
             # already labelled.
-            return [], path_tmp, path_seg_T1, path_seg_T2
+            return [], path_tmp, path_seg_t1, path_seg_t2
 
-        SegProcess = slicer.modules.crownsegmentationcli
+        seg_process = slicer.modules.crownsegmentationcli
         processes = [{
-            "Process": SegProcess,
+            "Process": seg_process,
             "Parameter": parameter,
             "Module": f"CrownSegmentationcli {timepoint}",
             "ReviewId": "ios_segmented",
@@ -556,7 +556,7 @@ class Auto_IOS(Method):
             "Display": DisplayCrownSeg(number, request.log_path, f"{timepoint} Scan"),
         } for timepoint, number, parameter in to_segment]
 
-        return processes, path_tmp, path_seg_T1, path_seg_T2
+        return processes, path_tmp, path_seg_t1, path_seg_t2
 
     def getReviewSteps(self, request) -> list:
         """Pauses this mode can offer, in the order the run reaches them."""
@@ -577,12 +577,12 @@ class Auto_IOS(Method):
 
     def Process(self, request):
 
-        seg_processes, path_tmp, path_seg_T1, path_seg_T2 = self.SegmentTeeth(request)
+        seg_processes, path_tmp, path_seg_t1, path_seg_t2 = self.SegmentTeeth(request)
 
         path_or = os.path.join(path_tmp, "Or")
-        path_or_T1 = os.path.join(path_or, "T1")
-        path_or_T2 = os.path.join(path_or, "T2")
-        for folder in (path_or, path_or_T1, path_or_T2):
+        path_or_t1 = os.path.join(path_or, "T1")
+        path_or_t2 = os.path.join(path_or, "T2")
+        for folder in (path_or, path_or_t1, path_or_t2):
             os.makedirs(folder, exist_ok=True)
 
         path_error = os.path.join(request.output_folder, "Error")
@@ -603,14 +603,14 @@ class Auto_IOS(Method):
             # Le recalage sur la bande muco-gingivale repart des arcades
             # segmentees, pas des scans d origine : meme requete, deux dossiers
             # d entree remplaces.
-            mgl_request = request.with_(input_t1_folder=path_seg_T1,
-                                        input_t2_folder=path_seg_T2)
+            mgl_request = request.with_(input_t1_folder=path_seg_t1,
+                                        input_t2_folder=path_seg_t2)
             return seg_processes + MGLProcess(self, numberlower, "Auto_IOS", mgl_request)
 
-        parameter_pre_aso_T1 = {
-            "input": path_seg_T1,
+        parameter_pre_aso_t1 = {
+            "input": path_seg_t1,
             "gold_folder": request.model_folder_2,
-            "output_folder": path_or_T1,
+            "output_folder": path_or_t1,
             "add_inname": "Or",
             "list_teeth": "UR6,UR4,UL4,UL6",
             "occlusion": "true" if self.IsLower(request.input_t1_folder) else "false",
@@ -619,10 +619,10 @@ class Auto_IOS(Method):
             "log_path": request.log_path,
         }
 
-        parameter_pre_aso_T2 = {
-            "input": path_seg_T2,
+        parameter_pre_aso_t2 = {
+            "input": path_seg_t2,
             "gold_folder": request.model_folder_2,
-            "output_folder": path_or_T2,
+            "output_folder": path_or_t2,
             "add_inname": "Or",
             "list_teeth": "UR6,UR4,UL4,UL6",
             "occlusion": "true" if self.IsLower(request.input_t2_folder) else "false",
@@ -632,8 +632,8 @@ class Auto_IOS(Method):
         }
 
         parameter_reg = {
-            "T1": path_or_T1,
-            "T2": path_or_T2,
+            "T1": path_or_t1,
+            "T2": path_or_t2,
             "output": request.output_folder,
             "model": self.getModel(request.model_folder_3, extension="ckpt"),
             "suffix": request.add_in_namefile,
@@ -641,37 +641,37 @@ class Auto_IOS(Method):
             "areg_mode": "Auto_IOS",
         }
 
-        logger.info(f"Parameter pre_aso1 : {parameter_pre_aso_T1}")
-        logger.info(f"Parameter pre_aso2 : {parameter_pre_aso_T2}")
+        logger.info(f"Parameter pre_aso1 : {parameter_pre_aso_t1}")
+        logger.info(f"Parameter pre_aso2 : {parameter_pre_aso_t2}")
         logger.info(f"Parameter reg: {parameter_reg}")
 
-        PreOrientProcess = slicer.modules.pre_aso_ios
-        RegProcess = slicer.modules.areg_ios
+        pre_orient_process = slicer.modules.pre_aso_ios
+        reg_process = slicer.modules.areg_ios
 
         list_process = seg_processes + [
             {
-                "Process": PreOrientProcess,
-                "Parameter": parameter_pre_aso_T1,
+                "Process": pre_orient_process,
+                "Parameter": parameter_pre_aso_t1,
                 "Module": "PRE_ASO_IOS T1",
                 "ReviewId": "ios_oriented_t1",
-                "ReviewFolder": path_or_T1,
+                "ReviewFolder": path_or_t1,
                 "Display": DisplayASOIOS(numberscan, request.log_path, "T1 Patient"),
             },
             {
-                "Process": PreOrientProcess,
-                "Parameter": parameter_pre_aso_T2,
+                "Process": pre_orient_process,
+                "Parameter": parameter_pre_aso_t2,
                 "Module": "PRE_ASO_IOS T2",
                 "ReviewId": "ios_oriented_t2",
-                "ReviewFolder": path_or_T2,
+                "ReviewFolder": path_or_t2,
                 "Display": DisplayASOIOS(numberscan, request.log_path, "T2 Patient"),
             },
             {
-                "Process": RegProcess,
+                "Process": reg_process,
                 "Parameter": parameter_reg,
                 "Module": "AREG_IOS",
                 "ReviewId": "ios_registration",
                 "ReviewFolder": request.output_folder,
-                "ReviewReferenceFolder": path_or_T1,
+                "ReviewReferenceFolder": path_or_t1,
                 "Display": DisplayAREGIOS(numberscan, request.log_path),
             },
         ]
@@ -744,12 +744,12 @@ class Semi_IOS(Auto_IOS):
             numberlower = self.NumberScanLower(
                 request.input_t1_folder, request.input_t2_folder
             )
-            seg_processes, _path_tmp, path_seg_T1, path_seg_T2 = self.SegmentTeeth(request)
+            seg_processes, _path_tmp, path_seg_t1, path_seg_t2 = self.SegmentTeeth(request)
             # Le recalage sur la bande muco-gingivale repart des arcades
             # segmentees, pas des scans d origine : meme requete, deux dossiers
             # d entree remplaces.
-            mgl_request = request.with_(input_t1_folder=path_seg_T1,
-                                        input_t2_folder=path_seg_T2)
+            mgl_request = request.with_(input_t1_folder=path_seg_t1,
+                                        input_t2_folder=path_seg_t2)
             return seg_processes + MGLProcess(self, numberlower, "Semi_IOS", mgl_request)
 
         parameter_reg = {
@@ -763,10 +763,10 @@ class Semi_IOS(Auto_IOS):
         }
 
         logger.info(f"Parameter AREG_IOS: {parameter_reg}")
-        RegProcess = slicer.modules.areg_ios
+        reg_process = slicer.modules.areg_ios
         processus = [
             {
-                "Process": RegProcess,
+                "Process": reg_process,
                 "Parameter": parameter_reg,
                 "Module": "AREG_IOS",
                 "ReviewId": "ios_registration",

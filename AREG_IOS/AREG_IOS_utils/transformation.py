@@ -50,11 +50,11 @@ def saveMatrixAsTfm(areg_matrix, aso_tfm_path, output_folder, patient_id, suffix
 
 def RotateTransform(surf, transform):
 
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetTransform(transform)
-    transformFilter.SetInputData(surf)
-    transformFilter.Update()
-    return transformFilter.GetOutput()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetTransform(transform)
+    transform_filter.SetInputData(surf)
+    transform_filter.Update()
+    return transform_filter.GetOutput()
 
 
 def ScaleSurf(surf, mean_arr=None, scale_factor=None):

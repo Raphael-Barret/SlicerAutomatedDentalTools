@@ -81,9 +81,9 @@ def install_function(self, libs=None):
 #region ========== FUNCTIONS ==========
 
 def PathFromNode(node):
-  storageNode=node.GetStorageNode()
-  if storageNode is not None:
-    filepath=storageNode.GetFullNameFromFileName()
+  storage_node=node.GetStorageNode()
+  if storage_node is not None:
+    filepath=storage_node.GetFullNameFromFileName()
   else:
     filepath=None
   return filepath
@@ -189,7 +189,7 @@ def registerSampleData():
   # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
 
   import SampleData
-  iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+  icons_path = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
 
   # To ensure that the source code repository remains small (can be downloaded and installed quickly)
   # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -201,7 +201,7 @@ def registerSampleData():
     sampleName='ALI1',
     # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
     # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-    thumbnailFileName=os.path.join(iconsPath, 'ALI1.png'),
+    thumbnailFileName=os.path.join(icons_path, 'ALI1.png'),
     # Download URL and target file name
     uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
     fileNames='ALI1.nrrd',
@@ -216,7 +216,7 @@ def registerSampleData():
     # Category and sample name displayed in Sample Data module
     category='ALI',
     sampleName='ALI2',
-    thumbnailFileName=os.path.join(iconsPath, 'ALI2.png'),
+    thumbnailFileName=os.path.join(icons_path, 'ALI2.png'),
     # Download URL and target file name
     uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
     fileNames='ALI2.nrrd',
@@ -295,9 +295,9 @@ class PopUpWindow(qt.QDialog):
             button.setChecked(False)
 
     def onClickedCheckbox(self):
-        TrueFalse = [button.isChecked() for button in self.ListButtons]
+        true_false = [button.isChecked() for button in self.ListButtons]
         self.checked = [
-            self.listename[i] for i in range(len(self.listename)) if TrueFalse[i]
+            self.listename[i] for i in range(len(self.listename)) if true_false[i]
         ]
         self.accept()
 
@@ -360,19 +360,19 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath('UI/ALI.ui'))
-    self.layout.addWidget(uiWidget)
-    self.uiWidget = uiWidget  # Store reference for styling
+    ui_widget = slicer.util.loadUI(self.resourcePath('UI/ALI.ui'))
+    self.layout.addWidget(ui_widget)
+    self.uiWidget = ui_widget  # Store reference for styling
 
-    self.ui = slicer.util.childWidgetVariables(uiWidget)
+    self.ui = slicer.util.childWidgetVariables(ui_widget)
     
     # Apply dark mode styling if needed
-    self._applyDarkModeStylesheet(uiWidget)
+    self._applyDarkModeStylesheet(ui_widget)
 
     # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
-    uiWidget.setMRMLScene(slicer.mrmlScene)
+    ui_widget.setMRMLScene(slicer.mrmlScene)
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
@@ -395,8 +395,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.log_path = os.path.join(slicer.util.tempDirectory(), "process.log")
     
-    documentsLocation = qt.QStandardPaths.DocumentsLocation
-    self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+    documents_location = qt.QStandardPaths.DocumentsLocation
+    self.documents = qt.QStandardPaths.writableLocation(documents_location)
     self.SlicerDownloadPath = os.path.join(
       self.documents,
       slicer.app.applicationName + "Downloads",
@@ -840,11 +840,11 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onPredictButton(self):
     if self.type == "CBCT":
-      list_libs_CBCT = [('itk', None), ('dicom2nifti', '>=2.6.2'), ('pydicom', '3.0.2')]
+      list_libs_cbct = [('itk', None), ('dicom2nifti', '>=2.6.2'), ('pydicom', '3.0.2')]
       monai_version = '1.3.2' if sys.version_info >= (3, 10) else '0.7.0'
-      list_libs_CBCT.append(('monai', monai_version))
+      list_libs_cbct.append(('monai', monai_version))
       
-      is_installed = install_function(self,list_libs_CBCT)
+      is_installed = install_function(self,list_libs_cbct)
 
     else:
       is_installed = False
@@ -852,11 +852,11 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       logger.debug(f"Environment check result: {check_env}")
       
       if check_env:
-        list_libs_IOS = [('itk', None), ('dicom2nifti', '>=2.6.2'), ('pydicom', '3.0.2')]
+        list_libs_ios = [('itk', None), ('dicom2nifti', '>=2.6.2'), ('pydicom', '3.0.2')]
         monai_version = '1.3.2' if sys.version_info >= (3, 10) else '0.7.0'
-        list_libs_IOS.append(('monai', monai_version))
+        list_libs_ios.append(('monai', monai_version))
 
-        is_installed = install_function(self,list_libs_IOS)
+        is_installed = install_function(self,list_libs_ios)
       
     if not is_installed:
       qt.QMessageBox.warning(self.parent, 'Warning', 'The module will not work properly without the required libraries.\nPlease install them and try again.')
@@ -1043,8 +1043,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if caller.GetStatus() & caller.ErrorsMask:
                 logger.error("========= PROCESSING ERROR =========")
                 logger.error(f"Process output: {self.process.GetOutputText()}")
-                errorText = self.process.GetErrorText()
-                logger.error(f"CLI execution failed: {errorText}")
+                error_text = self.process.GetErrorText()
+                logger.error(f"CLI execution failed: {error_text}")
                 self.onCancel()
 
             else:
@@ -1078,9 +1078,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     )
     self.RunningUI(False)
 
-    stopTime = time.time()
+    stop_time = time.time()
 
-    logger.info(f"Processing completed in {stopTime-self.startTime:.2f} seconds")
+    logger.info(f"Processing completed in {stop_time-self.startTime:.2f} seconds")
 
     s = PopUpWindow(
       title="Process Done",
@@ -1217,12 +1217,12 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
   def onCheckRequirements(self):
     if not self.logic.isCondaSetUp:
-      messageBox = qt.QMessageBox()
+      message_box = qt.QMessageBox()
       text = textwrap.dedent("""
       SlicerConda is not set up, please click
       <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
       """).strip()
-      messageBox.information(None, "Information", text)
+      message_box.information(None, "Information", text)
       return False
     
     if platform.system() == "Windows":
@@ -1233,24 +1233,24 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.label_LibsInstallation.setText(f"WSL installed")
         if not self.logic.check_lib_wsl():
           self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
-          messageBox = qt.QMessageBox()
+          message_box = qt.QMessageBox()
           text = textwrap.dedent("""
               WSL doesn't have all the necessary libraries, please download the installer
               and follow the instructions
               <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
               for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-          messageBox.information(None, "Information", text)
+          message_box.information(None, "Information", text)
           return False
         
       else : # if wsl not install, ask user to install it ans stop process
-        messageBox = qt.QMessageBox()
+        message_box = qt.QMessageBox()
         text = textwrap.dedent("""
             WSL is not installed, please download the installer and follow the instructions
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
             for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-        messageBox.information(None, "Information", text)
+        message_box.information(None, "Information", text)
         return False
         
     
@@ -1259,11 +1259,11 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.ui.label_LibsInstallation.setText(f"Checking if miniconda is installed")
     if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
-      messageBox = qt.QMessageBox()
+      message_box = qt.QMessageBox()
       text = textwrap.dedent("""
       Code can't be launch. \nConda is not setup.
       Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
-      messageBox.information(None, "Information", text)
+      message_box.information(None, "Information", text)
       return False
     
     
@@ -1272,8 +1272,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.label_LibsInstallation.setText(f"Checking if environnement exists")
     if not self.logic.conda.condaTestEnv(self.logic.name_env) : # check is environnement exist, if not ask user the permission to do it
-      userResponse = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
-      if userResponse :
+      user_response = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
+      if user_response :
         start_time = time.time()
         previous_time = start_time
         formatted_time = self.format_time(0)
@@ -1636,7 +1636,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
 
-    wasModified = (
+    was_modified = (
       self._parameterNode.StartModify()  # Modify all properties in a single batch
     )
 
@@ -1654,7 +1654,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       "OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID
     )
 
-    self._parameterNode.EndModify(wasModified)
+    self._parameterNode.EndModify(was_modified)
 
 
   def onApplyButton(self):
@@ -1903,11 +1903,11 @@ class LMTab:
         self.lm_status_dic[lm_id] = state
 
     def GetSelected(self):
-      selectedLM = []
+      selected_lm = []
       for lm,state in self.lm_status_dic.items():
         if state:
-          selectedLM.append(lm)
-      return selectedLM
+          selected_lm.append(lm)
+      return selected_lm
 
     def SelectAll(self):
       self.UpdateAll(True)

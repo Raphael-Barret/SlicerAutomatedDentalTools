@@ -221,21 +221,21 @@ def GetSegGroup(group_landmark):
   return seg_group
 
 def PathFromNode(node):
-  storageNode=node.GetStorageNode()
-  if storageNode is not None:
-    filepath=storageNode.GetFullNameFromFileName()
+  storage_node=node.GetStorageNode()
+  if storage_node is not None:
+    filepath=storage_node.GetFullNameFromFileName()
   else:
     filepath=None
   return filepath
 
 def createProgressDialog(parent=None, value=0, maximum=100, windowTitle="Starting..."):
     # import qt # qt.qVersion()
-    progressIndicator = qt.QProgressDialog()  #(parent if parent else self.mainWindow())
-    progressIndicator.minimumDuration = 0
-    progressIndicator.maximum = maximum
-    progressIndicator.value = value
-    progressIndicator.windowTitle = windowTitle
-    return progressIndicator
+    progress_indicator = qt.QProgressDialog()  #(parent if parent else self.mainWindow())
+    progress_indicator.minimumDuration = 0
+    progress_indicator.maximum = maximum
+    progress_indicator.value = value
+    progress_indicator.windowTitle = windowTitle
+    return progress_indicator
 
 #========= GLOBAL VARIABLES =========
 
@@ -351,18 +351,18 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath('UI/AMASSS.ui'))
-    self.uiWidget = uiWidget  # Store reference for styling
-    self.layout.addWidget(uiWidget)
-    self.ui = slicer.util.childWidgetVariables(uiWidget)
+    ui_widget = slicer.util.loadUI(self.resourcePath('UI/AMASSS.ui'))
+    self.uiWidget = ui_widget  # Store reference for styling
+    self.layout.addWidget(ui_widget)
+    self.ui = slicer.util.childWidgetVariables(ui_widget)
     
     # Apply dark mode styling if needed
-    self._applyDarkModeStylesheet(uiWidget)
+    self._applyDarkModeStylesheet(ui_widget)
 
     # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
-    uiWidget.setMRMLScene(slicer.mrmlScene)
+    ui_widget.setMRMLScene(slicer.mrmlScene)
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
@@ -885,8 +885,8 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         param["prediction_ID"] = self.ui.SaveId.text
 
         # Create temp directory
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        documents = qt.QStandardPaths.writableLocation(documents_location)
         temp_dir = os.path.join(documents, slicer.app.applicationName + "_temp_AMASSS")
         
         try:
@@ -952,11 +952,11 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if status & caller.Completed:
           if status & caller.ErrorsMask:
 
-              errorText = caller.GetErrorText()
+              error_text = caller.GetErrorText()
               qt.QMessageBox.critical(
                   slicer.util.mainWindow(),
                   "AMASSS Error",
-                  f"Une erreur est survenue :\n\n{errorText}"
+                  f"Une erreur est survenue :\n\n{error_text}"
               )
           else:
               # End process
@@ -1024,8 +1024,8 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       except Exception as e:
         logger.warning(f'Could not retrieve process output: {e}')
 
-      stopTime = time.time()
-      elapsed_time = stopTime - self.startTime
+      stop_time = time.time()
+      elapsed_time = stop_time - self.startTime
       logger.info(f'Processing completed in {elapsed_time:.2f} seconds')
 
       self.RunningUI(False)
@@ -1047,16 +1047,16 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             try:
               if models not in LOADED_VTK_FILES.keys():
                 logger.debug(f'Loading VTK file: {models}')
-                modelNode = slicer.util.loadModel(models)
-                LOADED_VTK_FILES[models] = modelNode
+                model_node = slicer.util.loadModel(models)
+                LOADED_VTK_FILES[models] = model_node
 
                 # Edit display properties
-                displayNode = modelNode.GetDisplayNode()
-                displayNode.SetSliceIntersectionVisibility(True)
-                displayNode.SetSliceIntersectionThickness(2)
+                display_node = model_node.GetDisplayNode()
+                display_node.SetSliceIntersectionVisibility(True)
+                display_node.SetSliceIntersectionThickness(2)
                 
                 if "Skin" in models or "SKIN" in models:
-                  displayNode.SetOpacity(0.1)
+                  display_node.SetOpacity(0.1)
                   logger.debug(f'Set skin opacity to 0.1 for {models}')
             except Exception as e:
               logger.error(f'Error loading VTK file {models}: {e}')
@@ -1067,8 +1067,8 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logger.debug('Root canal model detected, adjusting mandible/maxilla opacity')
             for model, node in LOADED_VTK_FILES.items():
               if True in [x in model for x in ["Mandible", "Maxilla"]]:
-                displayNode = node.GetDisplayNode()
-                displayNode.SetOpacity(0.2)
+                display_node = node.GetDisplayNode()
+                display_node.SetOpacity(0.2)
       except Exception as e:
         logger.error(f'Error loading VTK files: {e}')
 
@@ -1329,9 +1329,9 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Select default input nodes if nothing is selected yet to save a few clicks for the user
     if not self._parameterNode.GetNodeReference("InputVolume"):
-      firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-      if firstVolumeNode:
-        self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
+      first_volume_node = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
+      if first_volume_node:
+        self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
   def setParameterNode(self, inputParameterNode):
     """
@@ -1379,10 +1379,10 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
 
-    wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+    was_modified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
 
-    self._parameterNode.EndModify(wasModified)
+    self._parameterNode.EndModify(was_modified)
 
     #endregion
 
@@ -1562,7 +1562,7 @@ class AMASSSLogic(ScriptedLoadableModuleLogic):
       logger.info(f'Processing started with parameters:{parameters}')
 
       try:
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         logger.debug('AMASSS CLI module loaded successfully')
       except Exception as e:
         logger.error(f'Failed to load AMASSS CLI module: {e}')
@@ -1570,13 +1570,13 @@ class AMASSSLogic(ScriptedLoadableModuleLogic):
 
       try:
         logger.info('Running AMASSS CLI module...')
-        self.cliNode = slicer.cli.run(AMASSSProcess, None, parameters)
+        self.cliNode = slicer.cli.run(amasss_process, None, parameters)
         logger.info('CLI node created and running')
       except Exception as e:
         logger.error(f'Error running CLI module: {e}')
         raise
 
-      return AMASSSProcess
+      return amasss_process
     except Exception as e:
       logger.error(f'Error in process: {e}')
       raise

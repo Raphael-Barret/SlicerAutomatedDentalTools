@@ -149,12 +149,12 @@ class PythonDependencyChecker:
             response.raise_for_status()
 
             file_name = download_url.split("/")[-1]
-            destZipPath = self.destWeightFolder / file_name
-            with open(destZipPath, "wb") as f:
+            dest_zip_path = self.destWeightFolder / file_name
+            with open(dest_zip_path, "wb") as f:
                 for chunk in response.iter_content(1024 * 1024):
                     f.write(chunk)
 
-            self.extractWeightsToWeightsFolder(destZipPath)
+            self.extractWeightsToWeightsFolder(dest_zip_path)
             self.writeDownloadInfoURL(download_url)
             return True
         except Exception:  # noqa

@@ -263,13 +263,13 @@ class Agent:
         """
         spc = self.positions.view(-1, 1, 3)[:len(meshes)]
         directions = self._mg_camera_directions(spc, meshes)
-        R_all, T_all = self._mg_camera_RT(spc, directions)
+        r_all, t_all = self._mg_camera_RT(spc, directions)
 
         img_lst = []
         tens_pix_to_face = []
         for cam_idx in range(directions.shape[1]):
-            R = R_all[cam_idx:cam_idx + 1]
-            T = T_all[cam_idx:cam_idx + 1]
+            R = r_all[cam_idx:cam_idx + 1]
+            T = t_all[cam_idx:cam_idx + 1]
 
             images = self.renderer(meshes_world=meshes, R=R, T=T.to(DEVICE)).permute(0, 3, 1, 2)
             rgb = images[:, :-1, :, :]

@@ -18,7 +18,7 @@ def organizeLandmark(landmarks: list):
 
     out = {"left": str, "middle": [], "right": str}
 
-    toothTonumber = {
+    tooth_tonumber = {
         "UR8": "1",
         "UR7": "2",
         "UR6": "3",
@@ -81,12 +81,12 @@ def PrePreAso(source, target, landmarks):
     left, middle, right = organizeLandmark(landmarks)
 
     if len(landmarks) == 4:
-        meanTeeth = vtkMeanTeeth(
+        mean_teeth = vtkMeanTeeth(
             [int(left), int(middle[0]), int(middle[1]), int(right)],
             property="Universal_ID",
         )
-        mean_source = meanTeeth(source)
-        mean_target = meanTeeth(target)
+        mean_source = mean_teeth(source)
+        mean_target = mean_teeth(target)
 
         left_source, middle_source, right_source = (
             mean_source[left],
@@ -100,11 +100,11 @@ def PrePreAso(source, target, landmarks):
         )
 
     else:
-        meanTeeth = vtkMeanTeeth(
+        mean_teeth = vtkMeanTeeth(
             [int(left), int(middle[0]), int(right)], property="Universal_ID"
         )
-        mean_source = meanTeeth(source)
-        mean_target = meanTeeth(target)
+        mean_source = mean_teeth(source)
+        mean_target = mean_teeth(target)
 
         left_source, middle_source, right_source = (
             mean_source[left],
@@ -117,8 +117,8 @@ def PrePreAso(source, target, landmarks):
             mean_target[right],
         )
 
-    mean_source = meanTeeth(source)
-    mean_target = meanTeeth(target)
+    mean_source = mean_teeth(source)
+    mean_target = mean_teeth(target)
 
     normal_source, direction_source = make_vector(
         [right_source, left_source], middle_source

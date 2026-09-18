@@ -836,8 +836,8 @@ def _prepare_mg_context(args, lst_teeth, models_type, path_vtk, patient_id):
     if models_type == "MG" and args.estimate_missing:
         surf_est = ReadSurf(path_vtk)
         unit_est, mean_est, scale_est = ScaleSurf(surf_est, scale_factor=mg_scale)
-        (V_est, _f_est, _cn_est, RI_est) = GetSurfProp(unit_est, mean_est, scale_est)
-        mg_estimated = EstimateMissingArchPositions(lst_teeth, RI_est, V_est)
+        (v_est, _f_est, _cn_est, ri_est) = GetSurfProp(unit_est, mean_est, scale_est)
+        mg_estimated = EstimateMissingArchPositions(lst_teeth, ri_est, v_est)
     return back_to_file, mg_estimated, mg_scale, path_vtk
 
 def _unify_arch_labels(path_vtk, patient_path):

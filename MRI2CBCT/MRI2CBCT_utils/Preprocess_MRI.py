@@ -16,8 +16,8 @@ logger = get_logger("MRI2CBCT_Preprocess")
 class Process_MRI(Method):
     def __init__(self, widget):
         super().__init__(widget)
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        documents = qt.QStandardPaths.writableLocation(documents_location)
 
     def getGPUUsage(self):
         if platform.system() == "Darwin":

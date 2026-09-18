@@ -74,9 +74,9 @@ class DentalSegmentatorTest(ScriptedLoadableModuleTest):
             slicer.util.warningDisplay("Please install SlicerPythonTestRunner extension to run the self tests.")
             return
 
-        currentDirTest = Path(__file__).parent.joinpath("Testing")
+        current_dir_test = Path(__file__).parent.joinpath("Testing")
         results = RunnerLogic().runAndWaitFinished(
-            currentDirTest,
+            current_dir_test,
             RunSettings(extraPytestArgs=RunSettings.pytestFileFilterArgs("*TestCase.py") + ["-m not slow"]),
             doRunInSubProcess=not isRunningInTestMode()
         )

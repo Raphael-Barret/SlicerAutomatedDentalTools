@@ -12,21 +12,21 @@ logger = get_logger("MRI2CBCT_CLI_utils_areg_mri")
 
 def ComputeFinalMatrix(Transforms):
     """Compute the final matrix from the list of matrices and translations"""
-    Rotation, Translation = [], []
+    rotation, translation = [], []
     for i in range(len(Transforms)):
-        Rotation.append(Transforms[i].GetMatrix())
-        Translation.append(Transforms[i].GetTranslation())
+        rotation.append(Transforms[i].GetMatrix())
+        translation.append(Transforms[i].GetTranslation())
 
     # Compute the final rotation matrix
-    final_rotation = np.reshape(np.asarray(Rotation[0]), (3, 3))
-    for i in range(1, len(Rotation)):
-        final_rotation = final_rotation @ np.reshape(np.asarray(Rotation[i]), (3, 3))
+    final_rotation = np.reshape(np.asarray(rotation[0]), (3, 3))
+    for i in range(1, len(rotation)):
+        final_rotation = final_rotation @ np.reshape(np.asarray(rotation[i]), (3, 3))
 
     # Compute the final translation matrix
-    final_translation = np.reshape(np.asarray(Translation[0]), (1, 3))
-    for i in range(1, len(Translation)):
+    final_translation = np.reshape(np.asarray(translation[0]), (1, 3))
+    for i in range(1, len(translation)):
         final_translation = final_translation + np.reshape(
-            np.asarray(Translation[i]), (1, 3)
+            np.asarray(translation[i]), (1, 3)
         )
 
     # Create the final transform
@@ -62,23 +62,23 @@ def ElastixReg(fixed_image, moving_image, initial_transform=None):
     # Execute registration
     elastix_object.UpdateLargestPossibleRegion()
 
-    TransParamObj = elastix_object.GetTransformParameterObject()
+    trans_param_obj = elastix_object.GetTransformParameterObject()
 
-    return TransParamObj
+    return trans_param_obj
 
 def MatrixRetrieval(TransformParameterMapObject):
     """Retrieve the matrix from the transform parameter map"""
-    ParameterMap = TransformParameterMapObject.GetParameterMap(0)
+    parameter_map = TransformParameterMapObject.GetParameterMap(0)
 
-    if ParameterMap["Transform"][0] == "AffineTransform":
-        matrix = [float(i) for i in ParameterMap["TransformParameters"]]
+    if parameter_map["Transform"][0] == "AffineTransform":
+        matrix = [float(i) for i in parameter_map["TransformParameters"]]
         # Convert to a sitk transform
         transform = sitk.AffineTransform(3)
         transform.SetParameters(matrix)
 
-    elif ParameterMap["Transform"][0] == "EulerTransform":
-        A = [float(i) for i in ParameterMap["TransformParameters"][0:3]]
-        B = [float(i) for i in ParameterMap["TransformParameters"][3:6]]
+    elif parameter_map["Transform"][0] == "EulerTransform":
+        A = [float(i) for i in parameter_map["TransformParameters"][0:3]]
+        B = [float(i) for i in parameter_map["TransformParameters"][3:6]]
         # Convert to a sitk transform
         transform = sitk.Euler3DTransform()
         transform.SetRotation(angleX=A[0], angleY=A[1], angleZ=A[2])
@@ -197,10 +197,10 @@ def process_images(mri_path, cbct_mask_path, output_folder, patient_id, mri_path
         logger.error(f"{patient_id} failed")
         return
 
-    Transforms = []
+    transforms = []
   
     try :
-        TransformObj_Fine = ElastixReg(cbct_mask_image, mri_image, initial_transform=None)
+        transform_obj_fine = ElastixReg(cbct_mask_image, mri_image, initial_transform=None)
     except Exception as e:
         logger.error("=" * 62)
         logger.error(f" REGISTRATION FAILED. PLEASE MAKE SURE THE IMAGES ARE OF SIMILAR SIZE, ORIENTATION, AND APPOXIMATED")
@@ -208,9 +208,9 @@ def process_images(mri_path, cbct_mask_path, output_folder, patient_id, mri_path
         logger.error(e)
         return
     
-    transforms_Fine = MatrixRetrieval(TransformObj_Fine)
-    Transforms.append(transforms_Fine)
-    transform = ComputeFinalMatrix(Transforms)
+    transforms_fine = MatrixRetrieval(transform_obj_fine)
+    transforms.append(transforms_fine)
+    transform = ComputeFinalMatrix(transforms)
     
     os.makedirs(output_folder, exist_ok=True)
     

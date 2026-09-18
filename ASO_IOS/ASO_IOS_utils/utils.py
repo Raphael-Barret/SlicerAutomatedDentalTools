@@ -111,17 +111,17 @@ def WriteJsonLandmarks(
         os.mkdir(output_folder)
 
     with open(input_file_json, "r") as outfile:
-        tempData = json.load(outfile)
+        temp_data = json.load(outfile)
     for i in range(len(landmarks)):
-        pos = landmarks[tempData["markups"][0]["controlPoints"][i]["label"]]
-        tempData["markups"][0]["controlPoints"][i]["position"] = [
+        pos = landmarks[temp_data["markups"][0]["controlPoints"][i]["label"]]
+        temp_data["markups"][0]["controlPoints"][i]["position"] = [
             pos[0],
             pos[1],
             pos[2],
         ]
     with open(output_file, "w") as outfile:
 
-        json.dump(tempData, outfile, indent=4)
+        json.dump(temp_data, outfile, indent=4)
 
 
 def listlandmark2diclandmark(list_landmark):

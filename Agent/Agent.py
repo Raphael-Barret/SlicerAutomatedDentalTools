@@ -379,9 +379,9 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/Agent.ui"))
-        self.layout.addWidget(uiWidget)
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath("UI/Agent.ui"))
+        self.layout.addWidget(ui_widget)
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         self.dropZone = DropZone(objectName="dropZoneInput")
 
@@ -446,30 +446,30 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         te = self.ui.textEdit_2
 
         fm = te.fontMetrics()
-        lineHeight = fm.lineSpacing()
+        line_height = fm.lineSpacing()
 
-        minLines = 1
-        maxLines = 6
+        min_lines = 1
+        max_lines = 6
 
-        minHeight = int(lineHeight * minLines + te.frameWidth * 2 + 8)
-        maxHeight = int(lineHeight * maxLines + te.frameWidth * 2 + 8)
+        min_height = int(line_height * min_lines + te.frameWidth * 2 + 8)
+        max_height = int(line_height * max_lines + te.frameWidth * 2 + 8)
 
-        te.setMinimumHeight(minHeight)
-        te.setMaximumHeight(maxHeight)
+        te.setMinimumHeight(min_height)
+        te.setMaximumHeight(max_height)
 
         te.setVerticalScrollBarPolicy(qt.Qt.ScrollBarAsNeeded)
 
         te.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
 
-        te.setFixedHeight(minHeight)
+        te.setFixedHeight(min_height)
 
         def _autoResizeTextEdit():
-            docHeight = te.document.size.height()
-            h = int(docHeight) + 10  # little padding
-            if h < minHeight:
-                h = minHeight
-            if h > maxHeight:
-                h = maxHeight
+            doc_height = te.document.size.height()
+            h = int(doc_height) + 10  # little padding
+            if h < min_height:
+                h = min_height
+            if h > max_height:
+                h = max_height
             te.setFixedHeight(h)
 
         te.textChanged.connect(_autoResizeTextEdit)
@@ -477,7 +477,7 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -672,15 +672,15 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         cause as the chat bubbles, so reuse the pixel-sampling detection
         and bake in a literal color instead of trusting palette roles.
         """
-        baseStyle = self.ui.textEdit.property("_baseStyleSheet")
-        if baseStyle is None:
-            baseStyle = self.ui.textEdit.styleSheet
-            self.ui.textEdit.setProperty("_baseStyleSheet", baseStyle)
+        base_style = self.ui.textEdit.property("_baseStyleSheet")
+        if base_style is None:
+            base_style = self.ui.textEdit.styleSheet
+            self.ui.textEdit.setProperty("_baseStyleSheet", base_style)
 
-        isDark = self._isDarkBackground(self.ui.textEdit)
-        placeholderColor = "#cfd8dc" if isDark else "#5a6268"
+        is_dark = self._isDarkBackground(self.ui.textEdit)
+        placeholder_color = "#cfd8dc" if is_dark else "#5a6268"
         self.ui.textEdit.setStyleSheet(
-            f"{baseStyle}\nQTextEdit {{ color: {placeholderColor}; }}"
+            f"{base_style}\nQTextEdit {{ color: {placeholder_color}; }}"
         )
 
     def _scrollChatToEnd(self):
@@ -724,8 +724,8 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._appendHistory("user", content)
 
     def add_agent_message(self, msg):
-        textColor = "#ecf0f1" if self._isDarkBackground(self.ui.textEdit) else "#1c2833"
-        self._insertChatBubble(f'<b>🤖:</b> {self.logic.to_html(msg)}', textColor, "left")
+        text_color = "#ecf0f1" if self._isDarkBackground(self.ui.textEdit) else "#1c2833"
+        self._insertChatBubble(f'<b>🤖:</b> {self.logic.to_html(msg)}', text_color, "left")
 
         self._appendHistory("assistant", msg)
 
@@ -750,7 +750,7 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Snapshot history BEFORE adding this turn's user message, since
         # Agent_CLI.py appends the current prompt itself - including it here
         # too would duplicate the last user turn.
-        historySnapshot = list(self.conversationHistory)
+        history_snapshot = list(self.conversationHistory)
 
         message = "👨:" + self._parameterNode.prompt
         self.add_user_message(message)
@@ -760,18 +760,18 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self.droppedInputPaths:
             self.droppedInputPaths.append('nothing')
 
-        cliParams = {
+        cli_params = {
             # Agent_CLI declares `folders` as a plain string parameter and
             # splits it on "," - pass a comma-separated string, not a list.
             "folders": ",".join(self.droppedInputPaths),
             "prompt": self._parameterNode.prompt,
             "modeagent": self._parameterNode.modeagent,
             "temp_folder":slicer.util.tempDirectory(),
-            "history": json.dumps(historySnapshot)
+            "history": json.dumps(history_snapshot)
         }
         CLI = slicer.modules.agent_cli
             
-        self.cliNode = slicer.cli.run(CLI, None, cliParams)
+        self.cliNode = slicer.cli.run(CLI, None, cli_params)
 
         if 'nothing' in self.droppedInputPaths:
             self.droppedInputPaths.remove('nothing')
@@ -783,25 +783,25 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     def onCliUpdated(self, caller, event):
-        cliNode = caller
+        cli_node = caller
 
-        status = cliNode.GetStatus()
+        status = cli_node.GetStatus()
 
         if status & slicer.vtkMRMLCommandLineModuleNode.Completed or \
            status & slicer.vtkMRMLCommandLineModuleNode.Cancelled:
 
-            self.removeObserver(cliNode, vtk.vtkCommand.ModifiedEvent, self.onCliUpdated)
+            self.removeObserver(cli_node, vtk.vtkCommand.ModifiedEvent, self.onCliUpdated)
 
             self.ui.applyButton.enabled = True
 
-            output_text = cliNode.GetOutputText()
+            output_text = cli_node.GetOutputText()
             print(output_text)
 
             if self._parameterNode.modeagent == "Agent (Automated)":
                 try:
                     message = json.loads(output_text)
                 except (json.JSONDecodeError, TypeError):
-                    error_text = cliNode.GetErrorText() or "no output from Agent_CLI."
+                    error_text = cli_node.GetErrorText() or "no output from Agent_CLI."
                     self.add_agent_message(
                         f"Agent_CLI failed to run.\n\n{error_text[-1000:]}\n\n"
                         f"{self.logic._suggestFixFor(error_text)}"
@@ -811,7 +811,7 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     return
 
                 if message.get("error"):
-                    traceback_text = cliNode.GetErrorText()
+                    traceback_text = cli_node.GetErrorText()
                     details = f"\n\nFull traceback (see also the Slicer Python console):\n{traceback_text[-1500:]}" if traceback_text else ""
                     self.add_agent_message(
                         f"The agent hit an error and couldn't process your request:\n\n{message['error']}"
@@ -870,8 +870,8 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         act_time = time.time()
         total_time = round(act_time-self.CliStartTime,2)
-        newText = f"LLM is thinking ({total_time}s)"
-        self.ui.label_4.setText(newText)
+        new_text = f"LLM is thinking ({total_time}s)"
+        self.ui.label_4.setText(new_text)
 
     def runToolWithRepair(self, tool_name, params, cli_args):
         """
@@ -1194,19 +1194,19 @@ class AgentLogic(ScriptedLoadableModuleLogic):
         :return: the CLI output text
         """
 
-        startTime = time.time()
+        start_time = time.time()
         logging.info("Processing started")
 
         # Delegate the actual work to the Agent_CLI command-line module.
-        cliParams = {
+        cli_params = {
             "folders": folders,
             "prompt": prompt
         }
         CLI = slicer.modules.agent_cli
-        self.cliNode = slicer.cli.run(CLI, None, cliParams, wait=False)
+        self.cliNode = slicer.cli.run(CLI, None, cli_params, wait=False)
         output_text = self.cliNode.GetOutputText()
-        stopTime = time.time()
-        logging.info(f"Processing completed in {stopTime-startTime:.2f} seconds")
+        stop_time = time.time()
+        logging.info(f"Processing completed in {stop_time-start_time:.2f} seconds")
         return output_text
     def to_html(self, text):
         """Escape text for HTML while preserving basic formatting (newlines, spaces)."""
@@ -1361,11 +1361,11 @@ class AgentTest(ScriptedLoadableModuleTest):
         self.delayDisplay("Starting the test")
 
         logic = AgentLogic()
-        parameterNode = logic.getParameterNode()
+        parameter_node = logic.getParameterNode()
 
         # The parameter node should expose the module's parameters.
-        self.assertTrue(hasattr(parameterNode, "prompt"))
-        self.assertTrue(hasattr(parameterNode, "folders"))
-        self.assertTrue(hasattr(parameterNode, "modeagent"))
+        self.assertTrue(hasattr(parameter_node, "prompt"))
+        self.assertTrue(hasattr(parameter_node, "folders"))
+        self.assertTrue(hasattr(parameter_node, "modeagent"))
 
         self.delayDisplay("Test passed")

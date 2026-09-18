@@ -23,29 +23,29 @@ def Crop(ScanList, InputPath, ROI_Path, OutputPath, suffix_namefile ):
         for patient_path in data:
             patient = os.path.basename(patient_path).split('_Scan')[0].split('_scan')[0].split('_Or')[0].split('_OR')[0].split('_MAND')[0].split('_MD')[0].split('_MAX')[0].split('_MX')[0].split('_CB')[0].split('_lm')[0].split('_T2')[0].split('_T1')[0].split('_Cl')[0].split('.')[0]
 
-            ScanOutPath = OutputPath+"/"+patient+suffix_namefile+key
+            scan_out_path = OutputPath+"/"+patient+suffix_namefile+key
 
             img = sitk.ReadImage(patient_path)
 
             str_patient = str(patient)
             logger.info(f"working on patient: {str_patient}")
             ROI = json.load(open(ROI_Path))['markups'][0]
-            ROI_Center = np.array(ROI['center'])
-            ROI_Size = np.array(ROI['size'])
+            roi_center = np.array(ROI['center'])
+            roi_size = np.array(ROI['size'])
 
-            Lower = ROI_Center - ROI_Size / 2
-            Upper = ROI_Center + ROI_Size / 2
+            lower = roi_center - roi_size / 2
+            upper = roi_center + roi_size / 2
 
-            Lower = np.array(img.TransformPhysicalPointToContinuousIndex(Lower)).astype(int)
-            Upper = np.array(img.TransformPhysicalPointToContinuousIndex(Upper)).astype(int)
+            lower = np.array(img.TransformPhysicalPointToContinuousIndex(lower)).astype(int)
+            upper = np.array(img.TransformPhysicalPointToContinuousIndex(upper)).astype(int)
 
             # Crop the image
-            crop_image = img[Lower[0]:Upper[0],
-                            Lower[1]:Upper[1],
-                            Lower[2]:Upper[2]]
+            crop_image = img[lower[0]:upper[0],
+                            lower[1]:upper[1],
+                            lower[2]:upper[2]]
 
             try:
-                sitk.WriteImage(crop_image,ScanOutPath)
+                sitk.WriteImage(crop_image,scan_out_path)
             except Exception:
                 logger.error("Error for patient: "+str(patient))
 

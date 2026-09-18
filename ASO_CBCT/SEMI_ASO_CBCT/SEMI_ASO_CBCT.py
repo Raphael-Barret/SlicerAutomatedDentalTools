@@ -60,7 +60,7 @@ def _register_one_patient(args, data, failed_patients, gold_file, gold_json_file
         # ===== RUN ICP REGISTRATION =====
         try:
             logger.debug(f"Running ICP registration")
-            output, source_transformed, TransformSITK = ICP(
+            output, source_transformed, transform_sitk = ICP(
                 input_file, input_json_file, gold_file, gold_json_file, list_landmark, input_transform
             )
 
@@ -114,7 +114,7 @@ def _register_one_patient(args, data, failed_patients, gold_file, gold_json_file
                 dir_scan, patient + "_" + args.add_inname[0] + "_transform.tfm"
             )
             if not os.path.exists(transform_outpath):
-                sitk.WriteTransform(TransformSITK, transform_outpath)
+                sitk.WriteTransform(transform_sitk, transform_outpath)
                 logger.info(f"Saved transformation")
         except Exception as e:
             logger.error(f"Error saving transformation: {e}")

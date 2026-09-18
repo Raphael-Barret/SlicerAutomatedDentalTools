@@ -17,7 +17,9 @@ _ADT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."
 if os.path.isdir(_ADT):
     sys.path.insert(0, _ADT)
 
-from ADTLib.env.deps import check_lib_installed, normalise_spec  # noqa: E402
+from packaging.requirements import Requirement  # noqa: E402
+
+from ADTLib.env.deps import check_lib_installed, normalise_spec, requirement  # noqa: E402
 
 
 class NormaliseSpecTest(unittest.TestCase):
@@ -71,6 +73,51 @@ class CheckLibInstalledTest(unittest.TestCase):
             self.fail("raised instead of answering: %r" % (error,))
         self.assertFalse(result)
 
+
+class RequirementTest(unittest.TestCase):
+    """What gets handed to pip, for every spelling the call sites use.
+
+    ALI and ASO glued `==` in unconditionally. That produced
+    `dicom2nifti==>=2.6.2` as soon as one list entry carried an operator, and
+    pip refuses it: `Invalid requirement`. The failure only shows on a machine
+    that lacks the library -- a fresh install -- so it is exactly the case the
+    developer machine never exercises.
+    """
+
+    # Ce que les trois modules passent reellement, releve dans le code :
+    #   ALI/ALI.py list_libs_cbct / list_libs_ios
+    #   ASO/ASO.py libs
+    #   FlexReg/FlexReg.py list_libs
+    CALL_SITES = [
+        ("itk", None, "itk"),
+        ("dicom2nifti", ">=2.6.2", "dicom2nifti>=2.6.2"),
+        ("pydicom", "3.0.2", "pydicom==3.0.2"),
+        ("torch", "2.2.0", "torch==2.2.0"),
+        ("pytorch_lightning", None, "pytorch_lightning"),
+        ("monai", "1.3.2", "monai==1.3.2"),
+        ("monai", "==1.3.2", "monai==1.3.2"),
+        ("numpy", "<2.0.0", "numpy<2.0.0"),
+        ("numpy<2.0.0", None, "numpy<2.0.0"),
+    ]
+
+    def test_every_call_site_spelling(self):
+        for lib, version, expected in self.CALL_SITES:
+            self.assertEqual(requirement(lib, version), expected,
+                             "%r + %r" % (lib, version))
+
+    def test_pip_accepts_every_one_of_them(self):
+        """The regression itself: `dicom2nifti==>=2.6.2` does not parse."""
+        for lib, version, _ in self.CALL_SITES:
+            text = requirement(lib, version)
+            try:
+                Requirement(text)
+            except Exception as error:
+                self.fail("pip would refuse %r: %s" % (text, error))
+
+    def test_the_broken_form_is_indeed_broken(self):
+        """Guards the test above from passing for the wrong reason."""
+        with self.assertRaises(Exception):
+            Requirement("dicom2nifti==>=2.6.2")
 
 if __name__ == "__main__":
     unittest.main()

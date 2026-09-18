@@ -75,7 +75,7 @@ from FlexReg_utils.util import ToothNoExist, NoSegmentationSurf
 
 from ADTLib.format import format_elapsed, elapsed_since
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
-from ADTLib.env.deps import check_lib_installed as lib_satisfies
+from ADTLib.env.deps import check_lib_installed as lib_satisfies, requirement
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
@@ -169,7 +169,7 @@ def install_function(self, list_libs: list):
                         pip_install(version_constraint)
                     else:
                         # Correctly format the library and version constraint
-                        lib_version = f"{lib}{version_constraint}" if version_constraint.startswith(("==", ">=", "<=", ">", "<")) else f"{lib}=={version_constraint}"
+                        lib_version = requirement(lib, version_constraint)
                         pip_install(lib_version)
                 except Exception as e:
                     installation_errors.append((lib, str(e)))

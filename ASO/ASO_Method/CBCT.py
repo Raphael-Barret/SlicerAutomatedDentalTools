@@ -7,6 +7,7 @@ import qt
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
 from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_MARKERS, LANDMARK_SUFFIX_MARKERS
+from ADTLib.model_registry import ASO_CBCT_GOLD
 
 logger = get_logger("ASO_Method_CBCT")
 
@@ -46,8 +47,8 @@ class CBCT(Method):
 
     def getReferenceList(self):
         return {
-            "Occlusal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Occlusal_Midsagittal_Plane.zip",
-            "Frankfurt Horizontal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Frankfurt_Horizontal_Midsagittal_Plane.zip",
+            "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
+            "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
         }
 
     def TestReference(self, ref_folder: str):

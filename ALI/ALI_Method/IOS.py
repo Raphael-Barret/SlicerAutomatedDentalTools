@@ -10,6 +10,7 @@ from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shar
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.model_registry import ASO_IOS_GOLD
 import re
 
 logger = get_logger("ALI_IOS_Process")
@@ -136,7 +137,7 @@ class Auto_IOS(Method):
     
     def getModelUrl(self):
         return {
-            "Segmentation": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/segmentation_model.zip",
+            "Segmentation": f"{ASO_IOS_GOLD}/segmentation_model.zip",
             # Occlusal, Cervical and Mucogingival models. Same content as the
             # historical ALIDDM v1.0.3 archive plus Lower_MG_v6.pth
             "Prediction": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/ALI_IOS_models/Models.zip",

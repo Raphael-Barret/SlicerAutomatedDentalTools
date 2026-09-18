@@ -12,6 +12,7 @@ from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shar
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.model_registry import ASO_IOS_GOLD
 
 logger = get_logger("ASO_Method_IOS")
 
@@ -145,18 +146,18 @@ class Auto_IOS(Method):
     def getSegOrModelList(self):
         return (
             "PreASOModel",
-            "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/segmentation_model.zip",
+            f"{ASO_IOS_GOLD}/segmentation_model.zip",
         )
 
     def getReferenceList(self):
         return {
-            "Gold_Files": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip"
+            "Gold_Files": f"{ASO_IOS_GOLD}/Gold_file.zip"
         }
 
     def getALIModelList(self):
         return (
             "ALIModels",
-            "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/identification_landmark_ios_model.zip",
+            f"{ASO_IOS_GOLD}/identification_landmark_ios_model.zip",
         )
 
     def TestProcess(self, request) -> str:

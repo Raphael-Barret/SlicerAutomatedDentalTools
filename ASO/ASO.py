@@ -1,4 +1,4 @@
-import os, sys, re, time, zipfile, urllib.request, shutil
+import os, sys, re, time
 import vtk, qt, slicer
 from qt import (
     QWidget,
@@ -62,6 +62,7 @@ from ADTLib.env.conda import (
 from ADTLib.format import format_timer
 from ADTLib.requests import ASORequest
 from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.testdata import ensure_with_progress, TestDataError
 
 def check_lib_installed(lib_name, required_version=None):
     """Whether the library is installed and satisfies the constraint."""
@@ -755,7 +756,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.CbInputType.currentIndexChanged.connect(self.SwitchType)
         self.ui.CbModeType.currentIndexChanged.connect(self.SwitchType)
         self.ui.CbCBCTInputType.currentIndexChanged.connect(self.SwitchCBCTInputType)
-        self.ui.ButtonTestFiles.clicked.connect(lambda: self.SearchScanLm(True))
+        self.ui.ButtonTestFiles.clicked.connect(self.TestFiles)
         self.ui.checkBoxOcclusionAutoIOS.toggled.connect(
             partial(
                 self.logic.OcclusionCheckbox,
@@ -878,58 +879,64 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def DownloadUnzip(
         self, url, directory, folder_name=None, num_downl=1, total_downloads=1
     ):
-        """Function to download and unzip a file from a url with a progress bar"""
-        out_path = os.path.join(directory, folder_name)
+        """The folder holding this dataset, downloaded only when it is missing.
 
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        The work belongs to `ADTLib.testdata`, which this module shares with the
+        six others that carried the same copy. What the copy here got wrong, and
+        the shared one does not: it created the destination folder *before*
+        downloading, so a cancelled or failed download left an empty folder that
+        every later call read as « already there ». And nothing checked what the
+        server actually sent -- a mistyped release link answers 200 with a web
+        page, which then failed as « not a zip file ».
+        """
+        return ensure_with_progress(
+            url,
+            directory,
+            folder_name,
+            parent=self.parent,
+            title="Downloading {} (File {}/{})".format(
+                folder_name.split(os.sep)[0], num_downl, total_downloads
+            ),
+        )
 
-            temp_path = os.path.join(directory, "temp.zip")
+    def testFileListForMode(self):
+        """The (name, url) of the test set for the mode and input type in use.
 
-            # Download the zip file from the url
-            with urllib.request.urlopen(url) as response, open(
-                temp_path, "wb"
-            ) as out_file:
-                # Pop up a progress bar with a QProgressDialog
-                progress = qt.QProgressDialog(
-                    "Downloading {} (File {}/{})".format(
-                        folder_name.split(os.sep)[0], num_downl, total_downloads
-                    ),
-                    "Cancel",
-                    0,
-                    100,
-                    self.parent,
-                )
-                progress.setCancelButton(None)
-                progress.setWindowModality(qt.Qt.WindowModal)
-                progress.setWindowTitle(
-                    "Downloading {}...".format(folder_name.split(os.sep)[0])
-                )
-                # progress.setWindowFlags(qt.Qt.WindowStaysOnTopHint)
-                progress.show()
-                length = response.info().get("Content-Length")
-                if length:
-                    length = int(length)
-                    blocksize = max(4096, length // 100)
-                    read = 0
-                    while True:
-                        buffer = response.read(blocksize)
-                        if not buffer:
-                            break
-                        read += len(buffer)
-                        out_file.write(buffer)
-                        progress.setValue(read * 100.0 / length)
-                        qt.QApplication.processEvents()
-                shutil.copyfileobj(response, out_file)
+        `getTestFileListDCM` is only defined by the modes that publish a DICOM
+        set; the base class answers `None`, which unpacked as a `TypeError` with
+        nothing in it for the user. The modes without one are reachable only
+        while `isDCMInput` stays False, so the mistake never showed -- say it
+        instead of relying on that.
+        """
+        method_name = type(self.ActualMeth).__name__
+        if self.isDCMInput:
+            files = self.ActualMeth.getTestFileListDCM()
+            if not files:
+                raise TestDataError(
+                    "%s publishes no DICOM test set. Switch the CBCT input type "
+                    "back to NIfTI to use its test files." % method_name)
+            return files
+        files = self.ActualMeth.getTestFileList()
+        if not files:
+            raise TestDataError("%s publishes no test set." % method_name)
+        return files
 
-            # Unzip the file
-            with zipfile.ZipFile(temp_path, "r") as zip:
-                zip.extractall(out_path)
+    def TestFiles(self):
+        """Fill every field of the selected mode from its published test set.
 
-            # Delete the zip file
-            os.remove(temp_path)
-
-        return out_path
+        Same entry point, and same reporting, as AREG's button: the download is
+        a chain -- scans, reference, then models -- and any link of it can fail
+        on a bad address or on the network. Reported as a message rather than as
+        a traceback in the Python console, which is where it went until now.
+        """
+        try:
+            self.SearchScanLm(test=True)
+        except TestDataError as error:
+            qt.QMessageBox.warning(self.parent, "Test Files", str(error))
+        except OSError as error:
+            qt.QMessageBox.warning(
+                self.parent, "Test Files",
+                "The test files could not be downloaded: %s" % error)
 
     def SearchScanLm(self, test=False):
         """Function to search the scan folder and to check if the scans are valid"""
@@ -938,10 +945,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.parent, "Select a scan folder for Input"
             )
         else:
-            if self.isDCMInput:
-                name, url = self.ActualMeth.getTestFileListDCM()
-            else:
-                name, url = self.ActualMeth.getTestFileList()
+            name, url = self.testFileListForMode()
             scan_folder = self.DownloadUnzip(
                 url=url,
                 directory=os.path.join(self.SlicerDownloadPath),

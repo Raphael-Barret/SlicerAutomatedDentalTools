@@ -86,20 +86,70 @@ def check_lib_installed(lib_name, required_version=None):
     return False
 
 
-def torch_cuda_builds_agree(libs=("torch", "torchvision", "torchaudio")):
-    """Whether the installed torch family was all built against the same CUDA.
+TORCH_FAMILY = ("torch", "torchvision", "torchaudio")
 
-    A torch and a torchvision from different CUDA minors import fine and fail
-    later, deep inside a model, with an `undefined symbol`. AMASSS was the only
-    module checking this; the check belongs with the others.
+_CUDA_LABEL = re.compile(r"\+cu(\d+)")
+
+
+def torch_cuda_labels(libs=TORCH_FAMILY, lookup=None):
+    """The CUDA build each installed member of the torch family declares.
+
+    `{'torch': '118', 'torchvision': None}`: present but silent is None, absent
+    is missing from the mapping. Wheels from PyPI carry no `+cuXXX` at all,
+    those from `download.pytorch.org/whl/cu118` do -- which is why the two
+    cases have to stay distinct.
     """
-    seen = set()
+    lookup = lookup or importlib.metadata.version
+    found = {}
     for name in libs:
         try:
-            version = importlib.metadata.version(name)
+            version = lookup(name)
         except importlib.metadata.PackageNotFoundError:
-            return False
-        if "cu" not in version:
-            return False
-        seen.add(version.split("cu")[1])
-    return len(seen) == 1
+            continue
+        except Exception as error:
+            logger.warning("could not read the version of %s: %s", name, error)
+            continue
+        match = _CUDA_LABEL.search(version or "")
+        found[name] = match.group(1) if match else None
+    return found
+
+
+def torch_cuda_conflict(libs=TORCH_FAMILY, lookup=None):
+    """The disagreement, when two members declare *different* CUDA builds.
+
+    Returns `{name: label}` for the members that disagree, or None. Only an
+    explicit disagreement counts: a wheel with no `+cuXXX` says nothing about
+    what it was built against, and calling that a mismatch would fire on every
+    plain PyPI install. This is the check to run when a warning must not be a
+    false alarm.
+
+    A torch and a torchvision from different CUDA minors import fine and fail
+    much later, inside a model, with an `undefined symbol` nobody can read back
+    to its cause.
+    """
+    labels = {name: label for name, label in torch_cuda_labels(libs, lookup).items()
+              if label is not None}
+    if len(set(labels.values())) <= 1:
+        return None
+    return labels
+
+
+def torch_cuda_builds_agree(libs=TORCH_FAMILY, lookup=None):
+    """Whether the whole family is installed *and* all from the same CUDA build.
+
+    Stricter than `torch_cuda_conflict`: a missing member, or one without a
+    `+cuXXX` label, is a no. That is what AMASSS wants, because it installs the
+    three together from `download.pytorch.org/whl/cuXXX` and a wheel that came
+    from anywhere else is one it means to replace. Anywhere the answer only
+    feeds a warning, use `torch_cuda_conflict` instead.
+
+    AMASSS's own copy compared the first pair and returned on it, so a
+    torchaudio out of step with the other two answered « agree ». This one
+    compares the whole set.
+    """
+    labels = torch_cuda_labels(libs, lookup)
+    if set(labels) != set(libs):
+        return False
+    if any(label is None for label in labels.values()):
+        return False
+    return len(set(labels.values())) == 1

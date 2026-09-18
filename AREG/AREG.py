@@ -82,7 +82,7 @@ import re
 
 from ADTLib.format import format_elapsed, elapsed_since
 from ADTLib.theming import update_line_edit_and_combo_box
-from ADTLib.env.deps import check_lib_installed as lib_satisfies
+from ADTLib.env.deps import check_lib_installed as lib_satisfies, torch_cuda_conflict
 from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
@@ -104,6 +104,31 @@ def check_lib_installed(lib_name, required_version=None):
     return lib_satisfies(lib_name, required_version)
 
 # import csv
+
+def warn_on_torch_cuda_conflict():
+    """Say so when the torch family ended up on two different CUDA builds.
+
+    AREG pins torch, torchvision and torchaudio together; nothing stops another
+    extension, or an earlier run, from having replaced one of them. The three
+    then import fine and fail much later, inside a model, with an
+    `undefined symbol` that reads like anything but a version mismatch.
+
+    Only an explicit disagreement is reported: a wheel without a `+cuXXX` label
+    says nothing about its build, and warning on that would fire on every plain
+    PyPI install.
+    """
+    conflict = torch_cuda_conflict()
+    if not conflict:
+        return
+    detail = ", ".join("%s (cu%s)" % (name, label) for name, label in sorted(conflict.items()))
+    logger.warning("torch family built against different CUDA versions: %s", detail)
+    slicer.util.warningDisplay(
+        "These libraries come from different CUDA builds:\n\n" + detail
+        + "\n\nThey import without complaining and fail later, inside a model,"
+          " with an error that does not mention versions. Reinstalling them"
+          " together, from the same index, is the fix."
+    )
+
 
 def install_function(self,list_libs:list):
     '''
@@ -181,11 +206,13 @@ def install_function(self,list_libs:list):
                 slicer.util.errorDisplay(error_message)
                 return False
 
+            warn_on_torch_cuda_conflict()
             return True
           else :
             return False
 
     else:
+        warn_on_torch_cuda_conflict()
         return True
 
 def condaQuote(conda, value):

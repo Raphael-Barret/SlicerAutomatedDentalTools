@@ -25,6 +25,13 @@ set(MODULE_PYTHON_RESOURCES
   Resources/Icons/loading.gif
   Resources/Icons/start_icon.png
 
+  # `nnUnetFolder()` et `_modelBasePath()` resolvent tous deux vers
+  # Resources/ML : c'est le dossier de modeles livre avec le module, pas un
+  # dossier de travail. Sans ces trois fichiers, une install compilee n'y
+  # trouve aucun `dataset.json` et le modele ne peut pas etre configure.
+  Resources/ML/download_info.json
+  Resources/ML/Dataset111_453CT/nnUNetTrainer__nnUNetPlans__3d_fullres/dataset.json
+  Resources/ML/Dataset111_453CT/nnUNetTrainer__nnUNetPlans__3d_fullres/plans.json
 )
 
 #-----------------------------------------------------------------------------

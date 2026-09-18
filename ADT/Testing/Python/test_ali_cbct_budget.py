@@ -135,6 +135,47 @@ class StepBudgetTest(unittest.TestCase):
         self.assertEqual(steps_for(23)[0], 23)
 
 
+class BrokenBrain:
+    """Un cerveau qui echoue, comme le ferait un tenseur mal forme."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def Predict(self, dim, state):
+        self.calls += 1
+        raise IndexError("index 64 is out of bounds for axis 0 with size 64")
+
+
+class FailedStepTest(unittest.TestCase):
+    """Une erreur de pas etait avalee et devenait un « timeout ».
+
+    Le `except ... continue` rejouait le meme pas sur le meme etat jusqu'a
+    epuisement du budget : l'operateur lisait « pas trouve », jamais la
+    cause. Rien ne change entre deux tentatives, donc il n'y a rien a
+    reessayer.
+    """
+
+    def setUp(self):
+        os.environ["ALI_SEARCH_MAX_STEPS"] = "500"
+
+    def tearDown(self):
+        os.environ.pop("ALI_SEARCH_MAX_STEPS", None)
+
+    def test_a_failing_step_is_not_replayed_until_the_budget_runs_out(self):
+        brain = BrokenBrain()
+        result = an_agent(brain).Search()
+        self.assertEqual(brain.calls, 1, "un seul essai, pas cinq cents")
+        self.assertEqual(result, -1)
+
+    def test_the_cause_reaches_the_log(self):
+        brain = BrokenBrain()
+        with self.assertLogs("ADT.ALI_CBCT_Agent", level="ERROR") as logged:
+            an_agent(brain).Search()
+        self.assertTrue(
+            any("out of bounds" in line for line in logged.output),
+            f"le message d'origine doit remonter : {logged.output}")
+
+
 class BudgetSettingTest(unittest.TestCase):
 
     def setUp(self):

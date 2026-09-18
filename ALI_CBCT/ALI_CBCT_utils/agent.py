@@ -340,8 +340,19 @@ class Agent :
                         return -1
                         
                 except Exception as e:
-                    logger.error(f"Error during search step for {self.target}: {e}")
-                    continue
+                    # `continue` here: a real fault -- an index out of range,
+                    # a tensor of the wrong shape -- was logged once per step
+                    # and the loop started over on the SAME state, so it
+                    # failed the same way until the budget ran out. What the
+                    # operator was then told was "not found", never the
+                    # cause. Nothing about a step changes when it fails, so
+                    # there is nothing to retry: the error goes up, where the
+                    # handler below names the landmark and the caller counts
+                    # the scan as failed.
+                    logger.error(
+                        f"Search for {self.target} failed at step {tot_step}, "
+                        f"scale {self.scale_state}, position {self.position}: {e}")
+                    raise
 
             if not found:  # Spent its whole budget without settling
                 logger.warning(

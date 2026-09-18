@@ -583,19 +583,6 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.output_folder = self.ui.lineEditScanPath.text
       self.ui.SaveFolderLineEdit.text = self.output_folder
 
-  def CountFileWithExtention(self,path,extentions = [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"], exception = ["Seg", "seg", "Pred"]):
-
-    count = 0
-    normpath = os.path.normpath("/".join([path, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        basename = os.path.basename(img_fn)
-
-        if True in [ext in basename for ext in extentions]:
-            if not True in [ex in basename for ex in exception]:
-                count += 1
-
-    return count
-
   def onSearchScanButton(self, lineEdit):
     scan_folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a scan folder")
     if scan_folder != '':
@@ -605,9 +592,9 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           logger.debug("DICOM format detected")
           nbr_scans = len(os.listdir(scan_folder))
         else:
-          nbr_scans = self.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"],[])
+          nbr_scans = self.logic.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"],[])
       else:
-        nbr_scans = self.CountFileWithExtention(scan_folder, [".vtk", ".stl"],[])
+        nbr_scans = self.logic.CountFileWithExtention(scan_folder, [".vtk", ".stl"],[])
 
       if nbr_scans == 0:
         qt.QMessageBox.warning(self.parent, 'Warning', 'No scans found in the selected folder')
@@ -780,8 +767,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.lm_tab.FillTab(available_lm, enable=True)
         return True
     else:
-      available_lm = self.GetAvailableSurfLm(model_folder)
-      has_mg_model = self.HasMGModel(model_folder)
+      available_lm = self.logic.GetAvailableSurfLm(model_folder)
+      has_mg_model = self.logic.HasMGModel(model_folder)
 
       if len(available_lm.keys()) == 0 and not has_mg_model:
         qt.QMessageBox.warning(
@@ -843,37 +830,6 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if model_folder != '':
       self.loadModelFolder(model_folder)
 
-  def GetAvailableSurfLm(self,model_folder):
-    available_lm = {}
-    networks = self.GetNetworks(model_folder)
-    for net in networks:
-      available_lm[net] = SURFACE_LANDMARKS[net]
-
-    return available_lm
-
-  def GetNetworks(self,dir_path):
-    networks = []
-    normpath = os.path.normpath("/".join([dir_path, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        if os.path.isfile(img_fn) and ".pth" in img_fn:
-          for id, group in SURFACE_NETWORK.items():
-            if id in os.path.basename(img_fn):
-              networks.append(group)
-    return networks
-
-  def HasMGModel(self,dir_path):
-    """True if the folder contains a lower mucogingival model (Lower_MG_*.pth)"""
-    if not dir_path:
-      return False
-    normpath = os.path.normpath("/".join([dir_path, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-      basename = os.path.basename(img_fn)
-      if os.path.isfile(img_fn) and basename.endswith(".pth") and "Lower" in basename:
-        parts = basename.split("_")
-        if len(parts) > 1 and parts[1] == "MG":
-          return True
-    return False
-
   def onSearchSaveButton(self):
     save_folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a scan folder")
     if save_folder != '':
@@ -919,7 +875,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if len(selected_tooth_lst) > 0 and len(selected_lm_lst) == 0:
         qt.QMessageBox.warning(self.parent, 'Warning', 'Please select at least one landmark type for the selected teeth')
         return
-      if len(selected_mg_lst) > 0 and not self.HasMGModel(self.model_folder):
+      if len(selected_mg_lst) > 0 and not self.logic.HasMGModel(self.model_folder):
         qt.QMessageBox.warning(self.parent, 'Warning', 'MGL Lower teeth are selected but no mucogingival model was found\nPlease add a "Lower_MG_*.pth" file to the model folder')
         return
 
@@ -1031,16 +987,6 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.RunningUI(True)
 
-  def read_txt(self):
-    '''
-    Read a file and return the last line
-    '''
-    script_path = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_path,"tempo.txt")
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-        return lines[-1] if lines else None
-      
   def read_log_path(self):
       with open(self.log_path, 'r') as f:
           line = f.readline()
@@ -2175,3 +2121,57 @@ class ALILogic(ScriptedLoadableModuleLogic):
     else:
       logger.info("(No error)")
     sys.stdout.flush()
+  def CountFileWithExtention(self,path,extentions = [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"], exception = ["Seg", "seg", "Pred"]):
+
+    count = 0
+    normpath = os.path.normpath("/".join([path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        basename = os.path.basename(img_fn)
+
+        if True in [ext in basename for ext in extentions]:
+            if not True in [ex in basename for ex in exception]:
+                count += 1
+
+    return count
+
+  def GetAvailableSurfLm(self,model_folder):
+    available_lm = {}
+    networks = self.GetNetworks(model_folder)
+    for net in networks:
+      available_lm[net] = SURFACE_LANDMARKS[net]
+
+    return available_lm
+
+  def GetNetworks(self,dir_path):
+    networks = []
+    normpath = os.path.normpath("/".join([dir_path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        if os.path.isfile(img_fn) and ".pth" in img_fn:
+          for id, group in SURFACE_NETWORK.items():
+            if id in os.path.basename(img_fn):
+              networks.append(group)
+    return networks
+
+  def HasMGModel(self,dir_path):
+    """True if the folder contains a lower mucogingival model (Lower_MG_*.pth)"""
+    if not dir_path:
+      return False
+    normpath = os.path.normpath("/".join([dir_path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+      basename = os.path.basename(img_fn)
+      if os.path.isfile(img_fn) and basename.endswith(".pth") and "Lower" in basename:
+        parts = basename.split("_")
+        if len(parts) > 1 and parts[1] == "MG":
+          return True
+    return False
+
+  def read_txt(self):
+    '''
+    Read a file and return the last line
+    '''
+    script_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(script_path,"tempo.txt")
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        return lines[-1] if lines else None
+      

@@ -562,3 +562,65 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
 
   def findBatchPairsDistant(self, t1Folder, t2Folder):
     return [(pid, t1, t2) for pid, t1, t2, _mask in self.findBatchPairs(t1Folder, t2Folder)]
+  def _centerSensitivityDemoWheel(self, pad):
+    """Keep a wheel centered in its parent slice view.
+
+    This is called both when the overlay is attached and by the zoom timer, so
+    it also tracks layout/window resizing without needing a fragile Qt event
+    filter. The wheel remains a child of the 2D slice view only, never the 3D
+    view.
+    """
+    parent = pad.parent()
+    if parent is None:
+      return
+    try:
+      x = int((parent.width - pad.width) / 2)
+      y = int((parent.height - pad.height) / 2)
+    except Exception:
+      try:
+        x = int((parent.width() - pad.width()) / 2)
+        y = int((parent.height() - pad.height()) / 2)
+      except Exception:
+        return
+    pad.move(max(0, x), max(0, y))
+
+
+  def _currentSliceFovMean(self, sliceName):
+    try:
+      lm = slicer.app.layoutManager()
+      sliceWidget = lm.sliceWidget(sliceName)
+      sliceNode = sliceWidget.mrmlSliceNode()
+      fov = sliceNode.GetFieldOfView()
+      return max(1e-3, (float(fov[0]) + float(fov[1])) / 2.0)
+    except Exception:
+      return None
+
+
+  def _rotationAxisForSlice(self, sliceName):
+    # Slicer default slice conventions:
+    # Red = axial plane -> rotate around Z.
+    # Yellow = sagittal plane -> rotate around X.
+    # Green = coronal plane -> rotate around Y.
+    if sliceName == "Yellow":
+      return "X"
+    if sliceName == "Green":
+      return "Y"
+    return "Z"
+
+
+  def _translationDeltasForSlice(self, sliceName, dxPixels, dyPixels, mmPerPixel):
+    # Background drag translates in the visible plane of the slice. This removes
+    # the axis buttons entirely while still giving access to X/Y/Z translation:
+    #   Red axial:     horizontal=X, vertical=Y
+    #   Yellow sagittal: horizontal=Y, vertical=Z
+    #   Green coronal: horizontal=X, vertical=Z
+    # Screen Y grows downward. For this demo we intentionally keep the mapping
+    # cursor-following instead of anatomically inverted: drag down -> positive
+    # vertical movement in the displayed slice plane.
+    if sliceName == "Yellow":
+      return {"X": 0.0, "Y": dxPixels * mmPerPixel, "Z": dyPixels * mmPerPixel}
+    if sliceName == "Green":
+      return {"X": dxPixels * mmPerPixel, "Y": 0.0, "Z": dyPixels * mmPerPixel}
+    return {"X": dxPixels * mmPerPixel, "Y": dyPixels * mmPerPixel, "Z": 0.0}
+
+

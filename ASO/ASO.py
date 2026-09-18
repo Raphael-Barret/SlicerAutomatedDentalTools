@@ -757,7 +757,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.ButtonTestFiles.clicked.connect(lambda: self.SearchScanLm(True))
         self.ui.checkBoxOcclusionAutoIOS.toggled.connect(
             partial(
-                self.OcclusionCheckbox,
+                self.logic.OcclusionCheckbox,
                 self.MethodDic["Auto_IOS"].getcheckbox()["Jaw"]["Upper"],
                 self.MethodDic["Auto_IOS"].getcheckbox()["Jaw"]["Lower"],
                 self.MethodDic["Semi_IOS"].getcheckbox()["Teeth"],
@@ -1778,21 +1778,21 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         upper_checbox = QCheckBox()
         upper_checbox.setText("Upper")
         upper_checbox.toggled.connect(
-            partial(self.UpperLowerCheckbox, {"Upper": upper, "Lower": lower}, "Upper")
+            partial(self.logic.UpperLowerCheckbox, {"Upper": upper, "Lower": lower}, "Upper")
         )
         layout.addWidget(upper_checbox, 3, 0)
         lower_checkbox = QCheckBox()
         lower_checkbox.setText("Lower")
         lower_checkbox.toggled.connect(
-            partial(self.UpperLowerCheckbox, {"Upper": upper, "Lower": lower}, "Lower")
+            partial(self.logic.UpperLowerCheckbox, {"Upper": upper, "Lower": lower}, "Lower")
         )
         layout.addWidget(lower_checkbox, 4, 0)
 
         upper_checbox.toggled.connect(
-            partial(self.UpperLowerChooseOcclusion, lower_checkbox, occlusion)
+            partial(self.logic.UpperLowerChooseOcclusion, lower_checkbox, occlusion)
         )
         lower_checkbox.toggled.connect(
-            partial(self.UpperLowerChooseOcclusion, upper_checbox, occlusion)
+            partial(self.logic.UpperLowerChooseOcclusion, upper_checbox, occlusion)
         )
 
         if isinstance(Method, Semi_IOS):
@@ -1830,28 +1830,6 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     "Occlusion": occlusion,
                 }
             )
-
-    def UpperLowerCheckbox(self, all_checkbox: dict, jaw, boolean):
-
-        for checkbox in all_checkbox[jaw]:
-            checkbox.setEnabled(boolean)
-            if (not boolean) and checkbox.isChecked():
-                checkbox.setChecked(False)
-        self.enableCheckbox()
-
-    def OcclusionCheckbox(
-        self, Upper: QCheckBox, Lower: QCheckBox, all_checkbox: dict, boolean: bool
-    ):
-        if boolean:
-            if Upper.isChecked() and Lower.isChecked():
-                Lower.setChecked(False)
-                Lower.setEnabled(True)
-
-    def UpperLowerChooseOcclusion(
-        self, opposit_jaw: QCheckBox, Occlusion_checkbox: QCheckBox, booleean: bool
-    ):
-        if booleean and Occlusion_checkbox.isChecked() and opposit_jaw.isChecked():
-            opposit_jaw.setChecked(False)
 
     """
                           .d88888b.  88888888888 888    888 8888888888 8888888b.   .d8888b.
@@ -2482,3 +2460,25 @@ class ASOLogic(ScriptedLoadableModuleLogic):
                 out.append(thing)
 
         return out
+    def UpperLowerCheckbox(self, all_checkbox: dict, jaw, boolean):
+
+        for checkbox in all_checkbox[jaw]:
+            checkbox.setEnabled(boolean)
+            if (not boolean) and checkbox.isChecked():
+                checkbox.setChecked(False)
+        self.enableCheckbox()
+
+    def OcclusionCheckbox(
+        self, Upper: QCheckBox, Lower: QCheckBox, all_checkbox: dict, boolean: bool
+    ):
+        if boolean:
+            if Upper.isChecked() and Lower.isChecked():
+                Lower.setChecked(False)
+                Lower.setEnabled(True)
+
+    def UpperLowerChooseOcclusion(
+        self, opposit_jaw: QCheckBox, Occlusion_checkbox: QCheckBox, booleean: bool
+    ):
+        if booleean and Occlusion_checkbox.isChecked() and opposit_jaw.isChecked():
+            opposit_jaw.setChecked(False)
+

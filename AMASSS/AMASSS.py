@@ -619,19 +619,6 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     return selected
 
-  def CountFileWithExtention(self,path,extentions = [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"], exception = ["Seg", "seg", "Pred"]):
-
-    count = 0
-    normpath = os.path.normpath("/".join([path, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        basename = os.path.basename(img_fn)
-
-        if True in [ext in basename for ext in extentions]:
-            if not True in [ex in basename for ex in exception]:
-                count += 1
-
-    return count
-
   def onSearchScanButton(self):
     file_explorer = qt.QFileDialog()
     # file_explorer.setFileMode(qt.QFileDialog.AnyFile)
@@ -639,11 +626,11 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if scan_folder != '':
       if self.isSegmentInput:
-        nbr_scans = self.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"],exception=["scan"])
+        nbr_scans = self.logic.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"],exception=["scan"])
       elif self.isDCMInput:
         nbr_scans = len(os.listdir(scan_folder))
       else:
-        nbr_scans = self.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"])
+        nbr_scans = self.logic.CountFileWithExtention(scan_folder, [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"])
       if nbr_scans == 0:
         qt.QMessageBox.warning(self.parent, 'Warning', 'No scans found in the selected folder')
 
@@ -656,7 +643,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def onSearchModelButton(self):
     model_folder = qt.QFileDialog.getExistingDirectory(self.parent, "Select a model folder")
     if model_folder != '':
-      nbr_model = self.CountFileWithExtention(model_folder, [".pth"], [])
+      nbr_model = self.logic.CountFileWithExtention(model_folder, [".pth"], [])
       if nbr_model == 0:
         qt.QMessageBox.warning(self.parent, 'Warning', 'No models found in the selected folder\nPlease select a folder containing .pth files\nYou can download the latest models with\n  "Download latest models" button')
 
@@ -1593,3 +1580,15 @@ class AMASSSLogic(ScriptedLoadableModuleLogic):
     except Exception as e:
       logger.error(f'Error in process: {e}')
       raise
+  def CountFileWithExtention(self,path,extentions = [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"], exception = ["Seg", "seg", "Pred"]):
+
+    count = 0
+    normpath = os.path.normpath("/".join([path, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        basename = os.path.basename(img_fn)
+
+        if True in [ext in basename for ext in extentions]:
+            if not True in [ex in basename for ex in exception]:
+                count += 1
+
+    return count

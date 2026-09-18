@@ -933,7 +933,7 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
         overlay.setParent(sliceView)
         overlay.resizeToParent()
         pad.setParent(overlay)
-        self._centerSensitivityDemoWheel(pad)
+        self.logic._centerSensitivityDemoWheel(pad)
         if getattr(self, '_demoOverlayExpanded', False):
           overlay.raise_()
           overlay.show()
@@ -945,28 +945,6 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     # Keep a representative reference for compatibility with old code paths.
     self.demoDragPad = self.demoDragPads.get("Red")
 
-
-  def _centerSensitivityDemoWheel(self, pad):
-    """Keep a wheel centered in its parent slice view.
-
-    This is called both when the overlay is attached and by the zoom timer, so
-    it also tracks layout/window resizing without needing a fragile Qt event
-    filter. The wheel remains a child of the 2D slice view only, never the 3D
-    view.
-    """
-    parent = pad.parent()
-    if parent is None:
-      return
-    try:
-      x = int((parent.width - pad.width) / 2)
-      y = int((parent.height - pad.height) / 2)
-    except Exception:
-      try:
-        x = int((parent.width() - pad.width()) / 2)
-        y = int((parent.height() - pad.height()) / 2)
-      except Exception:
-        return
-    pad.move(max(0, x), max(0, y))
 
   def onSensitivityDemoBoxToggled(self, expanded):
     self._demoOverlayExpanded = expanded
@@ -992,21 +970,11 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
       else:
         self._demoZoomTimer.stop()
 
-  def _currentSliceFovMean(self, sliceName):
-    try:
-      lm = slicer.app.layoutManager()
-      sliceWidget = lm.sliceWidget(sliceName)
-      sliceNode = sliceWidget.mrmlSliceNode()
-      fov = sliceNode.GetFieldOfView()
-      return max(1e-3, (float(fov[0]) + float(fov[1])) / 2.0)
-    except Exception:
-      return None
-
   def _updateSensitivityDemoWheelScales(self):
     if not hasattr(self, 'demoDragPads'):
       return
     for sliceName, pad in self.demoDragPads.items():
-      fovMean = self._currentSliceFovMean(sliceName)
+      fovMean = self.logic._currentSliceFovMean(sliceName)
       if fovMean is None:
         continue
       if sliceName not in self._demoBaseFov or self._demoBaseFov[sliceName] <= 0:
@@ -1020,38 +988,12 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
         overlay.resizeToParent()
       zoomFactor = max(0.55, min(1.90, baseFov / fovMean))
       pad.setWheelSize(StandaloneRotationWheel.BASE_SIZE * zoomFactor)
-      self._centerSensitivityDemoWheel(pad)
+      self.logic._centerSensitivityDemoWheel(pad)
 
   def onSensitivityDemoOpacityChanged(self, value):
     if hasattr(self, 'demoDragPads'):
       for pad in self.demoDragPads.values():
         pad.setOpacityFraction(value / 100.0)
-
-  def _rotationAxisForSlice(self, sliceName):
-    # Slicer default slice conventions:
-    # Red = axial plane -> rotate around Z.
-    # Yellow = sagittal plane -> rotate around X.
-    # Green = coronal plane -> rotate around Y.
-    if sliceName == "Yellow":
-      return "X"
-    if sliceName == "Green":
-      return "Y"
-    return "Z"
-
-  def _translationDeltasForSlice(self, sliceName, dxPixels, dyPixels, mmPerPixel):
-    # Background drag translates in the visible plane of the slice. This removes
-    # the axis buttons entirely while still giving access to X/Y/Z translation:
-    #   Red axial:     horizontal=X, vertical=Y
-    #   Yellow sagittal: horizontal=Y, vertical=Z
-    #   Green coronal: horizontal=X, vertical=Z
-    # Screen Y grows downward. For this demo we intentionally keep the mapping
-    # cursor-following instead of anatomically inverted: drag down -> positive
-    # vertical movement in the displayed slice plane.
-    if sliceName == "Yellow":
-      return {"X": 0.0, "Y": dxPixels * mmPerPixel, "Z": dyPixels * mmPerPixel}
-    if sliceName == "Green":
-      return {"X": dxPixels * mmPerPixel, "Y": 0.0, "Z": dyPixels * mmPerPixel}
-    return {"X": dxPixels * mmPerPixel, "Y": dyPixels * mmPerPixel, "Z": 0.0}
 
   def onSensitivityDemoRotate(self, deltaAngleDegrees, sliceName="Red"):
     """Apply an angle-based wheel rotation around the current slice normal."""
@@ -1063,7 +1005,7 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
 
     scale = self.demoSensitivitySlider.value / 100.0
     appliedDegrees = deltaAngleDegrees * scale
-    axisName = self._rotationAxisForSlice(sliceName)
+    axisName = self.logic._rotationAxisForSlice(sliceName)
 
     currentMatrix = vtk.vtkMatrix4x4()
     self.transformNode.GetMatrixTransformToParent(currentMatrix)
@@ -1104,7 +1046,7 @@ class GreedyRegWidget(ScriptedLoadableModuleWidget):
     scale = self.demoSensitivitySlider.value / 100.0
     mmPerPixelAtFullSensitivity = 0.5
     mmPerPixel = mmPerPixelAtFullSensitivity * scale
-    deltas = self._translationDeltasForSlice(sliceName, dxPixels, dyPixels, mmPerPixel)
+    deltas = self.logic._translationDeltasForSlice(sliceName, dxPixels, dyPixels, mmPerPixel)
     if all(abs(v) < 1e-9 for v in deltas.values()):
       return
 

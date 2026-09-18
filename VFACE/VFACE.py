@@ -369,15 +369,15 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         except Exception as e:
             logger.error(f"Error reloading custom modules: {e}")
 
-    @staticmethod
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
 
         # Before anything else writes: the deadlock this avoids takes the whole
         # application down, and an undersized pipe is only a problem once it is
-        # already full.
-        self.logic.widenCapturedPipes()
+        # already full. On the class, not on self.logic: the logic is built
+        # further down, once the interface is loaded.
+        VFACELogic.widenCapturedPipes()
 
         self.reloadCustomModules()
 
@@ -1731,7 +1731,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     ids.add(patientIdFromFileName(name))
         return ids
 
-    @staticmethod
     def buildPauseQueue(self, process_info: dict) -> list:
         """
         Build one review item per patient for the step that just finished.
@@ -2161,7 +2160,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.pause_markups_start[node.GetID()] = self.logic.markupsPositions(node)
         return node
 
-    @staticmethod
     def savePauseEdits(self) -> None:
         """
         Write back the landmark files whose points the user moved.
@@ -2254,7 +2252,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.saveAdjustedVolume(item, transform)
 
-    @staticmethod
     def saveAdjustedVolume(self, item: dict, transform) -> None:
         """
         Write the moved scan back, so the surfaces and heatmaps match the matrix.
@@ -2282,7 +2279,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 logger.error(f"Could not save the adjusted scan to {path}: {e}")
             return
 
-    @staticmethod
     def clearPauseNodes(self) -> None:
         """Remove the nodes the previous review item put in the scene."""
         for node in self.pause_nodes:
@@ -2835,7 +2831,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         prefix = f"[{skipped} earlier line(s) not shown]\n" if skipped else ""
         logger.info(f"{self.module_name} said:\n{prefix}" + "\n".join(shown))
 
-    @staticmethod
     def checkPythonProcessStatus(self):
         """Check Python process status"""
         if self.python_process_completed:
@@ -3101,6 +3096,8 @@ class VFACELogic(ScriptedLoadableModuleLogic):
 
         stop_time = time.time()
         logger.info(f"Processing completed in {stop_time-start_time:.2f} seconds")
+
+    @staticmethod
     def belongsToRun(patient: str, wanted_ids: set) -> bool:
         """Whether a produced file's id names one of the run's patients.
 
@@ -3115,6 +3112,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             return True
         return any(patient.startswith(w + "_") for w in wanted_ids)
 
+    @staticmethod
     def markupsPositions(node) -> list:
         """Control point positions of a markups node, in order."""
         positions = []
@@ -3124,6 +3122,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             positions.append(tuple(position))
         return positions
 
+    @staticmethod
     def flattenIfAffine(composite, first, second):
         """One matrix instead of two, when both parts are affine.
 
@@ -3164,6 +3163,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
         flat.SetTranslation(product[:3, 3].tolist())
         return flat
 
+    @staticmethod
     def isIdentityMatrix(matrix, tolerance: float = 1e-9) -> bool:
         """
         Tell whether a 4x4 holds no displacement at all.
@@ -3182,6 +3182,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
                     return False
         return True
 
+    @staticmethod
     def readableDuration(seconds: float) -> str:
         """
         Spell out a duration the way the CLI steps already report theirs.
@@ -3277,6 +3278,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             except (OSError, ValueError):
                 pass
 
+    @staticmethod
     def widenCapturedPipes() -> None:
         """Give Slicer's captured output more room than the default 64 KB.
 

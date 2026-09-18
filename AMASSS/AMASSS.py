@@ -41,7 +41,7 @@ from ADTLib.testdata import TestDataError, ensure_with_progress
 from ADTLib.theming import update_line_edit_and_combo_box
 from ADTLib.env.deps import (
     TORCH_FAMILY, check_lib_installed as lib_satisfies, requirement,
-    torch_cuda_builds_agree)
+    torch_cuda_conflict)
 import platform
 
 # --- LOGGING CONFIGURATION ---
@@ -87,15 +87,22 @@ def check_lib_installed(lib_name, required_version=None, system=None):
     Windows -- but the call site still passes it and it says which platform the
     install branch will take, so it stays.
     '''
-    if lib_name in TORCH_FAMILY and not torch_cuda_builds_agree():
-      # The three are installed together, from download.pytorch.org/whl/cuXXX,
-      # on both platforms: a set that does not come from one build is one to
-      # reinstall whatever its version says. This used to run on Windows only,
-      # so on Linux the mismatch nobody can read back to its cause -- an
-      # `undefined symbol` deep inside a model -- went unnoticed.
-      #
-      # The copy this replaces compared the first pair and returned on it, so a
+    if lib_name in TORCH_FAMILY and torch_cuda_conflict():
+      # Only an EXPLICIT disagreement counts: two members declaring different
+      # +cuXXX builds. A mismatch there imports fine and fails much later,
+      # inside a model, with an `undefined symbol` nobody can read back to its
+      # cause -- and the copy this replaces compared the first pair only, so a
       # torchaudio out of step with the other two answered "agree".
+      #
+      # The strict `torch_cuda_builds_agree` was wired here first, and it cried
+      # wolf: a plain PyPI wheel carries no +cuXXX label at all, so a perfectly
+      # matching trio -- torch 2.2.0, torchvision 0.17.0, torchaudio 2.2.0 --
+      # was reported non-conforming and the dialog offered to "update torch
+      # 2.2.0 -> 2.2.0", which blocked the run for nothing.
+      #
+      # What is given up: a CPU wheel is no longer force-replaced by a CUDA
+      # one. That never happened on Linux anyway, and refusing to run over a
+      # label that says nothing is worse than running on a wheel that works.
       return False
 
     # And the version itself, which string equality could not answer: a `>=`

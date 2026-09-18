@@ -312,8 +312,8 @@ class CNEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Copy test files and get the paths
             input_path, output_path = self.logic.copyTestFiles(notes_type)
             
-            # Update the folder paths in the UI. Une sortie deja choisie est
-            # celle de l'utilisateur : on ne la remplace pas par la notre.
+            # Update the folder paths in the UI. An output already chosen is
+            # the user's own: we do not replace it with ours.
             self.ui.notesFolderLineEdit_input.currentPath = input_path
             if not self.ui.notesFolderLineEdit_output.currentPath:
                 self.ui.notesFolderLineEdit_output.currentPath = output_path
@@ -409,17 +409,17 @@ class CNELogic(ScriptedLoadableModuleLogic):
         return CNEParameterNode(super().getParameterNode())
     
     def copyTestFiles(self, notesType: str) -> tuple:
-        """Les notes d'exemple de ce mode, et le dossier ou ecrire leurs resumes.
+        """The example notes of this mode, and the folder to write their summaries.
 
-        Les notes vivent dans le depot : c'est une copie, pas un
-        telechargement. Elle est refaite a chaque appel, ce qui rend le bouton
-        idempotent -- une note effacee par un essai precedent revient.
+        The notes live in the repository: this is a copy, not a download. It
+        is redone on every call, which makes the button idempotent -- a note
+        erased by an earlier try comes back.
 
-        Le dossier de sortie, lui, n'est pas dans le depot : c'en est un, et
-        rien n'y est copie. La version precedente le cherchait a cote des
-        notes, ne le trouvait pas (`logger.warning` puis `continue`), et posait
-        malgre tout son chemin inexistant dans le champ -- que l'utilisateur
-        voyait rouge sans savoir pourquoi.
+        The output folder, on the other hand, is not in the repository: it is
+        created here, and nothing is copied into it. The previous version
+        looked for it next to the notes, did not find it (`logger.warning`
+        then `continue`), and still put its non-existent path in the field --
+        which the user saw in red without knowing why.
 
         Args:
             notesType: Either 'TMJ' or 'Ortho' to specify which test files to copy
@@ -457,8 +457,8 @@ class CNELogic(ScriptedLoadableModuleLogic):
         input_path = os.path.join(dest_base_path, input_folder)
         output_path = os.path.join(dest_base_path, output_folder)
 
-        # `dirs_exist_ok` remet les notes en place sans jeter le dossier :
-        # le `rmtree` d'avant effacait aussi ce que l'utilisateur y avait mis.
+        # `dirs_exist_ok` puts the notes back without throwing the folder
+        # away: the earlier `rmtree` also erased what the user had put there.
         shutil.copytree(source_folder, input_path, dirs_exist_ok=True)
         logger.info(f"Test notes copied from {source_folder} to {input_path}")
 

@@ -90,8 +90,8 @@ from FlexReg_utils.mgl_patch import (
 )
 import json
 
-# Le dossier, sous les téléchargements de Slicer, où le jeu d'essai est
-# déposé, et celui que le bouton propose comme sortie quand elle est vide.
+# The folder, under the Slicer downloads, where the test set is dropped, and
+# the one the button offers as output when the output is empty.
 TEST_FILES_DIRECTORY = "FlexReg_TestFiles"
 TEST_OUTPUT_DIRECTORY = "FlexReg_TestFiles_output"
 
@@ -1605,9 +1605,9 @@ class WidgetParameter:
     def __init__(self,layout,parent,title,scans=None,output_line_edit=None) -> None:
         self.parent_layout = layout
         self.parent = parent
-        # Le champ de sortie du module, un seul pour les deux panneaux. Le
-        # panneau ne le lit jamais : il le remplit quand l'utilisateur n'a
-        # rien choisi et que le bouton TestFile est pressé.
+        # The output field of the module, a single one for both panels. The
+        # panel never reads it: it fills it in when the user has chosen
+        # nothing and the TestFile button is pressed.
         self.output_line_edit = output_line_edit
         self.surf = None
         self.curve = None
@@ -2682,7 +2682,7 @@ class WidgetParameter:
             return
         self.lineedit.setText(path_file)
 
-        # La sortie n'était jamais remplie, et la registration la demande.
+        # The output was never filled in, and the registration asks for it.
         if self.output_line_edit is not None and not self.output_line_edit.text:
             destination = os.path.join(self.SlicerDownloadPath, TEST_OUTPUT_DIRECTORY)
             os.makedirs(destination, exist_ok=True)

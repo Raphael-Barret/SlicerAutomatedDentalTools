@@ -72,8 +72,8 @@ def _points_in_polygon(points, polygon):
         from matplotlib.path import Path
         return Path(polygon).contains_points(points)
     except ImportError:
-        # matplotlib est une acceleration, pas une dependance : la version
-        # numpy ci-dessous fait le meme calcul.
+        # matplotlib is a speed-up, not a dependency: the numpy version
+        # below does the same computation.
         pass
 
     x = points[:, 0][:, None]

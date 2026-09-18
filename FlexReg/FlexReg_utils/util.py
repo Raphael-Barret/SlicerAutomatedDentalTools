@@ -19,10 +19,10 @@ class vtkTeeth:
         self.property = property
 
     def GetLabelSurface(self, surf, preference="Universal_ID"):
-        """Le tableau de numerotation a utiliser : voir `ADTLib.labels`.
+        """The numbering array to use: see `ADTLib.labels`.
 
-        Quatre des cinq copies faisaient `continue` la ou il fallait `break`,
-        et ne rendaient donc `Preference` que s il etait le dernier tableau.
+        Four of the five copies did `continue` where `break` was needed, and
+        so returned `Preference` only when it was the last array.
         """
         return label_array(surf, preference)
 

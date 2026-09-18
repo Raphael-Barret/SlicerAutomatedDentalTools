@@ -2781,7 +2781,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CliStepTime = time.time()
         self.module_name = process_info["Module"]
         self.displayModule = process_info["Display"]
-        self.current_process_info = process_info  # Stocker les infos du processus actuel
+        self.current_process_info = process_info  # Keep the info of the current process
         # Kept in order: going back means finding what ran before this step.
         self.executed_steps.append(process_info)
         
@@ -3314,9 +3314,9 @@ class VFACELogic(ScriptedLoadableModuleLogic):
                 try:
                     stream.flush()
                 except (AttributeError, OSError, ValueError):
-                    # Le flux peut etre deja ferme, ou valoir None quand Slicer
-                    # tourne sans console. Pas de journalisation ici : elle
-                    # ecrirait dans le flux meme qu on est en train de defaire.
+                    # The stream may already be closed, or be None when Slicer
+                    # runs without a console. No logging here: it would write
+                    # into the very stream we are taking apart.
                     pass
             saved_out = os.dup(1)
             saved_err = os.dup(2)

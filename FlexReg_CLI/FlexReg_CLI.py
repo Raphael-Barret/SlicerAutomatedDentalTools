@@ -34,10 +34,10 @@ logger = get_logger("FlexReg_CLI")
 
 
 def _register_with_icp(args, modelNode):
-    """Recale le maillage sur T1 par ICP, restreint au patch.
+    """Register the mesh onto T1 by ICP, restricted to the patch.
 
-    La matrice est aussi ecrite en `.tfm`, dans le repere du fichier : d ou
-    la composition avec le retournement applique a l entree."""
+    The matrix is also written as a `.tfm`, in the frame of the file: hence
+    the composition with the flip applied to the input."""
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(args.path_reg)
     reader.Update()
@@ -127,7 +127,7 @@ def _register_with_icp(args, modelNode):
     return modelNode, model_node_lower_arch
 
 def _delete_patch(args, modelNode):
-    """Retire un patch et renumerote ceux qui le suivent."""
+    """Remove one patch and renumber the ones that follow it."""
     index = args.index_patch + 1
     while True:
         array_name = f"Butterfly{index}"
@@ -152,7 +152,7 @@ def _delete_patch(args, modelNode):
     modelNode.GetPointData().RemoveArray(f"Butterfly{index-1}")
 
 def _draw_curve_patch(args, modelNode):
-    """Pose un patch le long de la courbe tracee par l utilisateur."""
+    """Lay a patch along the curve drawn by the user."""
     vector_middle = args.middle_point[1:-1]
     x, y, z = map(float, vector_middle.split(','))
     middle = vtk.vtkVector3d(x, y, z)
@@ -176,7 +176,7 @@ def _draw_curve_patch(args, modelNode):
     drawPatch(curve,modelNode,middle,args.index_patch)
 
 def _apply_butterfly_patch(args, modelNode):
-    """Pose le patch papillon a partir des trois points donnes."""
+    """Lay the butterfly patch from the three given points."""
     logger.info(
             f"Teeth: LT={args.lineedit_teeth_left_top}, RT={args.lineedit_teeth_right_top}, "
             f"LB={args.lineedit_teeth_left_bot}, RB={args.lineedit_teeth_right_bot} | "

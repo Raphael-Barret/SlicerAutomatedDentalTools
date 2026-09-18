@@ -50,9 +50,9 @@ import zipfile
 # ===== Logging Configuration =====
 logger = get_logger("AutoCrop3D_UI")
 
-# Le jeu d'essai voyage avec le module : deux archives declarees par le
-# manifeste, decompressees a la demande dans le dossier de telechargement de
-# l'utilisateur. Rien a telecharger, donc rien qui depende du reseau.
+# The test set travels with the module: two archives declared by the
+# manifest, unpacked on demand into the download folder of the user. Nothing
+# to download, so nothing that depends on the network.
 TEST_FILES_SCAN_ARCHIVE = "testfiles/AutoCrop3D/Segmentation.zip"
 TEST_FILES_ROI_ARCHIVE = "testfiles/AutoCrop3D/ROI.mrk.zip"
 
@@ -602,10 +602,10 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 "The sample data set unpacked into %s holds no scan or no ROI." % root)
             return
 
-        # En mode Folder, le champ recoit le dossier qui porte vraiment le scan
-        # -- pas la racine du jeu : `saveOutput` reconstruit le chemin de sortie
-        # en remplacant le dossier d'entree par celui de sortie, et un
-        # sous-dossier de plus ferait ecrire dans un dossier inexistant.
+        # In Folder mode, the field receives the folder that really holds the
+        # scan -- not the root of the set: `saveOutput` rebuilds the output path
+        # by replacing the input folder with the output one, and one more
+        # subfolder would make it write into a folder that does not exist.
         self.ui.editPathF.setText(
             scans[0] if self.ui.chooseType.currentIndex == 0 else os.path.dirname(scans[0]))
         self.ui.chooseType_ROI.setCurrentIndex(0)
@@ -796,8 +796,8 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                             logger.error(f"Failed to save volume {patient_path}")
                             continue
                     except Empty:
-                        # Rien dans la file a cet instant : le tour de boucle suivant
-                        # reessaiera. C est la seule erreur attendue ici.
+                        # Nothing in the queue right now: the next turn of the loop
+                        # will try again. This is the only expected error here.
                         pass
 
                 sys.stdin = original_stdin

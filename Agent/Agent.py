@@ -322,7 +322,7 @@ class AgentParameterNode:
 
     prompt: str
     # list[str], not a bare list: the serializer logs
-    # « Unexpected list[] type arg length » at every Slicer start for the bare
+    # "Unexpected list[] type arg length" at every Slicer start for the bare
     # form, then falls back to list[Any]. The paths put here come from
     # os.path.normpath, so they are strings.
     folders: list[str]

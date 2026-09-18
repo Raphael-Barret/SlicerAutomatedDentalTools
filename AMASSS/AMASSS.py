@@ -95,13 +95,13 @@ def check_lib_installed(lib_name, required_version=None, system=None):
       # `undefined symbol` deep inside a model -- went unnoticed.
       #
       # The copy this replaces compared the first pair and returned on it, so a
-      # torchaudio out of step with the other two answered « agree ».
+      # torchaudio out of step with the other two answered "agree".
       return False
 
     # And the version itself, which string equality could not answer: a `>=`
     # constraint never matched, so dicom2nifti and nnunetv2 were proposed for
     # reinstallation at every run, on every machine; and `2.2.0+cu118` read as
-    # « not 2.2.0 », so a CUDA wheel always looked wrong.
+    # "not 2.2.0", so a CUDA wheel always looked wrong.
     return lib_satisfies(lib_name, required_version)
 
 def install_function(self,list_libs:list,system:str):
@@ -234,9 +234,9 @@ def createProgressDialog(parent=None, value=0, maximum=100, windowTitle="Startin
 
 #========= GLOBAL VARIABLES =========
 
-# L'archive des modeles nnUNet, celle qu'AREG et VFACE telechargent deja. Le
-# lien precedent pointait sur `releases/tag/...`, la page web de la release :
-# GitHub la sert en 200, et rien n'en sort qu'un onglet de navigateur.
+# The nnUNet model archive, the same one AREG and VFACE already download. The
+# previous link pointed at `releases/tag/...`, the web page of the release:
+# GitHub serves it with a 200, and nothing comes out of it but a browser tab.
 MODEL_LINK = f"{AMASSS_CBCT}/AMASSS_Models.zip"
 SCAN_LINK = AMASSS_TEST_SCAN
 
@@ -446,7 +446,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       try:
         parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
       except (AttributeError, RuntimeError):
-          # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+          # A widget without that method, or whose C++ object is already gone.
           pass
     
     # Recursively update all children
@@ -555,8 +555,8 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if index == 2: # Segmentation Files
       self.isSegmentInputFunction(True)
 
-    # Apres les trois branches : `isDCMInput` n'est pose qu'a la fin de la
-    # deuxieme, et l'etat du bouton depend des deux drapeaux.
+    # After the three branches: `isDCMInput` is only set at the end of the
+    # second one, and the state of the button depends on both flags.
     self.UpdateTestFilesButton()
 
   def isSegmentInputFunction(self,seg_input):
@@ -580,9 +580,9 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.PrePredInfo.setText("Number of scans to process : 0")
     # Set to invisble all the unnecessary input
 
-    # Le bouton « Test Files » reste visible : desactive et avec la raison en
-    # infobulle, il dit pourquoi ce mode n'a pas de jeu d'essai, la ou le
-    # cacher laissait croire a une disparition.
+    # The "Test Files" button stays visible: disabled and with the reason in a
+    # tooltip, it says why this mode has no test set, where hiding it looked
+    # like the button had vanished.
     self.ui.DownloadButton.setVisible(not seg_input)
     self.ui.label_model_select.setVisible(not seg_input)
     self.ui.lineEditModelPath.setVisible(not seg_input)
@@ -657,17 +657,17 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.model_ready = True
 
   def DownloadPath(self):
-    """Ou AMASSS garde ce qu'il telecharge, a cote des autres modules."""
+    """Where AMASSS keeps what it downloads, next to the other modules."""
     documents = qt.QStandardPaths.writableLocation(qt.QStandardPaths.DocumentsLocation)
     return os.path.join(documents, slicer.app.applicationName + "Downloads", "AMASSS")
 
   def FindModelRoot(self, directory):
-    """Le dossier que le CLI attend : celui qui porte les codes de structure.
+    """The folder the CLI expects: the one holding the structure codes.
 
-    `AMASSS_Models.zip` se deplie dans un `AMASSS_Models/`, donc le dossier
-    d'extraction est un cran au-dessus de ce que `FindModelFolder` cherche
-    (`<racine>/<CODE>/**/...__nnUNetPlans__3d_fullres/fold_0`). Pointer le
-    champ sur le cran du dessus donne « no nnUNet model found ».
+    `AMASSS_Models.zip` unfolds into an `AMASSS_Models/`, so the extraction
+    folder is one level above what `FindModelFolder` looks for
+    (`<root>/<CODE>/**/...__nnUNetPlans__3d_fullres/fold_0`). Pointing the
+    field at the level above gives "no nnUNet model found".
     """
     codes = set(TRANSLATE.values())
     for root, dirs, _files in os.walk(directory):
@@ -676,7 +676,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     return directory
 
   def DownloadModels(self):
-    """Les modeles nnUNet, telecharges une seule fois. None en cas d'echec."""
+    """The nnUNet models, downloaded once. None on failure."""
     try:
       bundle = ensure_with_progress(
         MODEL_LINK, os.path.join(self.DownloadPath(), "Models"), "Segmentation",
@@ -697,9 +697,9 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def onTestFilesButton(self):
     """Fetch the published test set for the current mode, and fill the fields.
 
-    Le bouton qui etait la ouvrait firefox sur le lien de la release et ne
-    remplissait rien : l'utilisateur devait retrouver le fichier, le ranger,
-    puis parcourir trois champs a la main.
+    The button that used to be here opened firefox on the release link and
+    filled in nothing: the user had to find the file again, put it away, then
+    browse to three fields by hand.
     """
     if self.isSegmentInput:
       qt.QMessageBox.warning(self.parent, 'Warning',
@@ -724,9 +724,9 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.DownloadModels() is None:
       return
 
-    # Le scan d'essai est un dossier : sans ce passage en « Folder as input »,
-    # le champ obligatoire qu'on vient de remplir reste invisible et c'est le
-    # noeud MRML, vide, que la prediction lirait.
+    # The test scan is a folder: without this switch to "Folder as input",
+    # the required field we have just filled stays invisible, and it is the
+    # MRML node, empty, that the prediction would read.
     self.ui.input_type_select.setCurrentIndex(1)
     self.input_path = scan_folder
     self.ui.lineEditScanPath.setText(scan_folder)
@@ -734,14 +734,14 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.PrePredInfo.setText(
       "Number of scans to process : " + str(self.scan_count))
 
-    # Une sortie deja choisie est celle de l'utilisateur, on n'y touche pas.
+    # An output already chosen is the user's own; we do not touch it.
     if self.ui.SaveFolderLineEdit.text == "":
       output_folder = os.path.join(download_path, "Test_Files", "Segmentations")
       os.makedirs(output_folder, exist_ok=True)
       self.ui.SaveFolderLineEdit.setText(output_folder)
 
   def UpdateTestFilesButton(self):
-    """Le bouton ne s'offre que pour les modes dont le jeu est publie."""
+    """The button is only offered for the modes whose test set is published."""
     if self.isSegmentInput:
       enabled, reason = False, (
         'AMASSS publishes no test set for the Segmentation input mode.')
@@ -1043,7 +1043,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
               qt.QMessageBox.critical(
                   slicer.util.mainWindow(),
                   "AMASSS Error",
-                  f"Une erreur est survenue :\n\n{error_text}"
+                  f"An error occurred:\n\n{error_text}"
               )
           else:
               # End process

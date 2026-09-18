@@ -112,7 +112,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def setup(self):
         super().setup()
 
-        # Ce qui ne touche pas a l'interface vit dans le Logic.
+        # Whatever does not touch the interface lives in the Logic.
         self.logic = CLICLogic()
         w = slicer.util.loadUI(self.resourcePath("UI/CLIC.ui"))
         self.layout.addWidget(w)
@@ -256,7 +256,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     [f"--params_json={tmp}"],
                     self.name_env
                 )
-                            # debug sortie brute
+                # debug: raw output
                 self.sig.log.emit(f"[DEBUG] condaRunFilePython output: {out!r}")
                 for ln in str(out).splitlines():
                     if ln.startswith("[PROGRESS]"):
@@ -360,8 +360,8 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     t.SetPosition(0.77, y0-(k-1)*dy); ren.AddActor2D(t)
                 view.forceRender()
             except (AttributeError, RuntimeError):
-                # Une vue absente de la disposition courante rend None.
-                logger.debug("Legende non posee sur la vue %s", vn, exc_info=True)
+                # A view missing from the current layout returns None.
+                logger.debug("Legend not placed on view %s", vn, exc_info=True)
 
     def _on_sh_modified(self, caller, event):
         sh = caller; nid = sh.GetActiveItemID()
@@ -383,7 +383,7 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             try:
                 parent.setStyleSheet(f"color: #{color.name().lstrip('#')};")
             except (AttributeError, RuntimeError):
-                # Un widget sans cette methode, ou dont l objet C++ a deja disparu.
+                # A widget without that method, or whose C++ object is already gone.
                 pass
         if hasattr(parent, 'children'):
             for child in parent.children():
@@ -414,12 +414,12 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 class CLICLogic(ScriptedLoadableModuleLogic):
-    """Ce que CLIC fait, independamment de son interface.
+    """What CLIC does, independently of its interface.
 
-    La classe n'existait pas : Slicer impose la triade Widget / Logic / Test et
-    CLIC n'avait que le widget. Elle est creee ici pour recevoir ce qui n'a pas
-    besoin de Qt, en commencant par la decouverte des scans -- qui devient du
-    meme coup testable sans lancer Slicer.
+    The class did not exist: Slicer requires the Widget / Logic / Test triad
+    and CLIC only had the widget. It is created here to hold whatever does not
+    need Qt, starting with the discovery of the scans -- which thereby becomes
+    testable without launching Slicer.
     """
     def _collect_scans(self, root) -> List[Path]:
         p = Path(root)

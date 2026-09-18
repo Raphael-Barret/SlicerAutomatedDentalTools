@@ -38,12 +38,12 @@ from ADTLib.testdata import TestDataError
 
 logger = get_logger("BatchDentalSeg_SegmentationWidget")
 
-# Le jeu d'essai est le CBCT « CBCTDentalSurgery » publie par Slicer, celui-la
-# meme dont `Testing/Utils.load_test_CT_volume` se sert. La release
-# TEST_FILES_BATCHDENTALSEG ne porte que des *segmentations* : ce sont les
-# sorties attendues des tests, pas des entrees -- ce module segmente des scans,
-# et son dossier d'entree doit donc en contenir. Les deux fichiers du jeu sont
-# des `.gipl.gz`, une extension que `listVolumes` reconnait deja.
+# The test set is the "CBCTDentalSurgery" CBCT published by Slicer, the very
+# one `Testing/Utils.load_test_CT_volume` uses. The TEST_FILES_BATCHDENTALSEG
+# release only carries *segmentations*: those are the expected outputs of the
+# tests, not inputs -- this module segments scans, so its input folder must
+# hold some. The two files of that set are `.gipl.gz`, an extension
+# `listVolumes` already recognises.
 TEST_FILES_SAMPLE_NAME = "CBCTDentalSurgery"
 
 
@@ -87,7 +87,7 @@ class ExportFormat(Flag):
 
 class PipRunner(qt.QObject):
     """
-    Run « pip install … »
+    Run "pip install ..."
     """
     def __init__(self, packages, onLine, onFinished, parent=None):
         super().__init__(parent)
@@ -140,15 +140,15 @@ class SegmentationWidget(qt.QWidget):
         self.folderFiles              = []
         self.currentFileIndex         = 0
         self.currentVolumeNode        = None
-        self.fullInfoLogs             = deque(maxlen=200_000)   # journal des messages (borné)
+        self.fullInfoLogs             = deque(maxlen=200_000)   # message log (bounded)
 
         # ------------------------------------------------------------ queue state
         self.queue                    = SegmentationQueue()
         self._queueRunning            = False
-        self._itemFinalized           = True        # garde anti double-avancement
+        self._itemFinalized           = True        # guard against double advance
         self._itemStartTime           = None
-        self._setupDone               = False       # pip / poids : une fois par session
-        self._deviceFallbackAccepted  = None        # réponse CPU mémorisée pour la file
+        self._setupDone               = False       # pip / weights: once per session
+        self._deviceFallbackAccepted  = None        # CPU answer remembered for the queue
 
         # --------------------------------------------------- buffered log output
         self._logBuffer               = []
@@ -288,7 +288,7 @@ class SegmentationWidget(qt.QWidget):
         self.currentInfoTextEdit.setLineWrapMode(qt.QTextEdit.NoWrap)
         # Rolling window: a multi-hour run would otherwise grow the Qt document
         # without bound and slow every insertion down. Full history stays in
-        # fullInfoLogs, reachable through the « info » button.
+        # fullInfoLogs, reachable through the "info" button.
         # PythonQt exposes Qt getters as properties: document, not document().
         self.currentInfoTextEdit.document.setMaximumBlockCount(5000)
 
@@ -312,7 +312,7 @@ class SegmentationWidget(qt.QWidget):
         self.batchCounterLabel = qt.QLabel("", self)
         self.batchCounterLabel.setAlignment(qt.Qt.AlignCenter)
         self.batchCounterLabel.setStyleSheet("color: #666; font-style: italic; margin-top:2px;")
-        self.batchCounterLabel.setVisible(False)  # visible seulement pendant batch
+        self.batchCounterLabel.setVisible(False)  # visible only during a batch
         layout.addWidget(self.batchCounterLabel)
         layout.addWidget(self.stopWidgetContainer)
         layout.addWidget(self.resolveMirroringButton)
@@ -665,7 +665,7 @@ class SegmentationWidget(qt.QWidget):
         if self.queue.isFinished():
             slicer.util.errorDisplay(
                 "Every scan of the queue has already been processed.\n"
-                "Use « Retry failed » or « Clear » to start over.")
+                'Use "Retry failed" or "Clear" to start over.')
             self._setApplyVisible(True)
             return
 
@@ -931,7 +931,7 @@ class SegmentationWidget(qt.QWidget):
             self.logic.stopSegmentation()
             self.logic.waitForSegmentationFinished()
         except Exception:
-            logger.debug("Arret de la segmentation apres le kill impossible", exc_info=True)
+            logger.debug("Could not stop the segmentation after the kill", exc_info=True)
 
         return killed + self._reclaimStrayProcesses()
 
@@ -998,7 +998,7 @@ class SegmentationWidget(qt.QWidget):
 
     # ─── Automatic crop (RAM retry) ────────────────────────────────────────────
     #
-    # Opt-in, per scan, set by « Retry failed » after an explicit confirmation.
+    # Opt-in, per scan, set by "Retry failed" after an explicit confirmation.
     # The crop is an axis-aligned voxel subset: same spacing, same axes, only the
     # origin moves. Nothing is interpolated, so the label map is pasted back on
     # the original grid with a plain index offset and the exported NIfTI still
@@ -1124,8 +1124,8 @@ class SegmentationWidget(qt.QWidget):
             if slicer.mrmlScene.GetNodeByID(node.GetID()):
                 slicer.mrmlScene.RemoveNode(node)
         except (AttributeError, RuntimeError):
-            # Le noeud a deja ete retire de la scene par ailleurs.
-            logger.debug("Noeud deja libere", exc_info=True)
+            # The node has already been removed from the scene elsewhere.
+            logger.debug("Node already released", exc_info=True)
 
     # ─── RAM pre-flight estimate ───────────────────────────────────────────────
 
@@ -1252,7 +1252,7 @@ class SegmentationWidget(qt.QWidget):
         self.onProgressInfo(
             f"[RAM] Skipping {item.name}: needs ~{estimate:.0f} GB, "
             f"only {budget_gb:.0f} GB usable. Crop the field of view or free memory "
-            f"and use « Retry failed ».")
+            f'and use "Retry failed".')
         self._memWatchdogStop()
         self._inferenceFinalized = True
         try:
@@ -1274,9 +1274,9 @@ class SegmentationWidget(qt.QWidget):
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
         except (ImportError, RuntimeError):
-            # torch peut etre absent, et empty_cache echoue si le contexte CUDA
-            # a deja ete detruit.
-            logger.debug("Cache CUDA non vide", exc_info=True)
+            # torch may be missing, and empty_cache fails if the CUDA context
+            # has already been destroyed.
+            logger.debug("CUDA cache not emptied", exc_info=True)
         gc.collect()
         self.onProgressInfo(
             f"Deep cleanup done ({removed} orphan node(s) removed). "
@@ -1615,9 +1615,9 @@ class SegmentationWidget(qt.QWidget):
             except (OSError, ValueError) as error:
                 raise TestDataError("%s could not be downloaded from %s: %s"
                                     % (name, uri, error))
-            # Checksum refuse : downloadFile efface le fichier et rend son
-            # chemin quand meme. Sans ce controle, le dossier d'entree serait
-            # rempli avec un scan qui n'existe pas.
+            # Checksum refused: downloadFile deletes the file and returns its
+            # path all the same. Without this check, the input folder would be
+            # filled with a scan that does not exist.
             if not os.path.isfile(path):
                 raise TestDataError(
                     "%s was downloaded from %s but its checksum did not match."
@@ -1728,7 +1728,7 @@ class SegmentationWidget(qt.QWidget):
             if self.queue.isFinished():
                 slicer.util.errorDisplay(
                     "Every scan of the input folder is already segmented in the output folder.\n"
-                    "Uncheck « Skip scans already segmented » to process them again."
+                    'Uncheck "Skip scans already segmented" to process them again.'
                 )
                 return
 
@@ -2042,7 +2042,7 @@ class SegmentationWidget(qt.QWidget):
             segment = segmentation.GetSegment(seg_id)
             value = self._segmentLabelValue(segment, full_label_map)
             if value is None:
-                self.onProgressInfo(f"[WARN] Unknown label for segment «{segment.GetName()}» — skipped")
+                self.onProgressInfo(f"[WARN] Unknown label for segment \"{segment.GetName()}\" - skipped")
                 continue
             lut[exported_value] = value
 
@@ -2095,7 +2095,7 @@ class SegmentationWidget(qt.QWidget):
                     segment = segmentation.GetSegment(seg_id)
                     value = self._segmentLabelValue(segment, full_label_map)
                     if value is None:
-                        self.onProgressInfo(f"[WARN] unexpected segment «{segment.GetName()}» — ignored")
+                        self.onProgressInfo(f"[WARN] unexpected segment \"{segment.GetName()}\" - ignored")
                         continue
                     segment.SetTag("LabelValue", str(value))
                     raw_values.append(value)
@@ -2176,22 +2176,22 @@ class SegmentationWidget(qt.QWidget):
 
             try:
                 self.segmentEditorWidget.blockSignals(True)
-                # aussi neutraliser le MRML node interne
+                # also neutralise the internal MRML node
                 if hasattr(self, 'segmentEditorNode'):
                     self.segmentEditorWidget.setSegmentationNode(None)
                     self.segmentEditorWidget.setSourceVolumeNode(None)
             except (AttributeError, RuntimeError):
-                logger.debug("Editeur de segments non neutralise", exc_info=True)
+                logger.debug("Segment editor not neutralised", exc_info=True)
 
-            # 2) Supprimer le display-node de la segmentation
+            # 2) Remove the display node of the segmentation
             if segmentationNode and is_node_in_scene(segmentationNode):
                 seg_disp = segmentationNode.GetDisplayNode()
                 if seg_disp and is_node_in_scene(seg_disp):
                     slicer.mrmlScene.RemoveNode(seg_disp)
 
-            # 3) Retirer l'entrée de la subject hierarchy PUIS le nœud lui-même.
-            #    Le RemoveNode était auparavant indenté dans le bloc « except », donc
-            #    jamais exécuté : chaque scan laissait sa segmentation dans la scène.
+            # 3) Remove the subject hierarchy entry THEN the node itself.
+            #    RemoveNode used to be indented inside the "except" block, so it
+            #    never ran: every scan left its segmentation in the scene.
             if segmentationNode:
                 try:
                     sh_node = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
@@ -2200,7 +2200,7 @@ class SegmentationWidget(qt.QWidget):
                         if item_id and item_id != sh_node.GetInvalidItemID():
                             sh_node.RemoveItem(item_id)
                 except (AttributeError, RuntimeError):
-                    logger.debug("Element de hierarchie non retire", exc_info=True)
+                    logger.debug("Hierarchy item not removed", exc_info=True)
 
                 if is_node_in_scene(segmentationNode):
                     slicer.mrmlScene.RemoveNode(segmentationNode)
@@ -2211,7 +2211,7 @@ class SegmentationWidget(qt.QWidget):
             try:
                 self.segmentEditorWidget.blockSignals(False)
             except (AttributeError, RuntimeError):
-                logger.debug("Signaux de l editeur non retablis", exc_info=True)
+                logger.debug("Editor signals not restored", exc_info=True)
 
             if volumeNode and is_node_in_scene(volumeNode):
                 vol_disp = volumeNode.GetDisplayNode()
@@ -2222,8 +2222,8 @@ class SegmentationWidget(qt.QWidget):
             if self.currentVolumeNode is volumeNode:
                 self.currentVolumeNode = None
 
-            # 6) Ne pas garder de référence Python sur des nœuds supprimés, sinon
-            #    le gc.collect() ci-dessous ne peut rien libérer.
+            # 6) Keep no Python reference on deleted nodes, otherwise the
+            #    gc.collect() below can free nothing.
             self.processedVolumes = {}
 
             # 7) CUDA cache
@@ -2695,7 +2695,7 @@ class SegmentationWidget(qt.QWidget):
             try:
                 self._prevSegmentationNode.SetDisplayVisibility(False)
             except (AttributeError, RuntimeError):
-                logger.debug("Visibilite de la segmentation precedente non modifiee", exc_info=True)
+                logger.debug("Visibility of the previous segmentation unchanged", exc_info=True)
 
         segmentation_node = self.getCurrentSegmentationNode()
 
@@ -2848,7 +2848,7 @@ class SegmentationWidget(qt.QWidget):
         labels     = np.unique(vtk_to_numpy(label_array))
         append     = vtk.vtkAppendPolyData()
 
-        # Parcours des labels
+        # Walk the labels
         for i, label_value in enumerate(labels, start=1):
             if label_value == 0:
                 continue
@@ -2908,7 +2908,7 @@ class SegmentationWidget(qt.QWidget):
 
 
     def _exportVTKPerLabel(self, segNode, folderPath):
-        """export un fichier VTK par segment + log via onProgressInfo."""
+        """Export one VTK file per segment, logging through onProgressInfo."""
         import vtk, os, re
         vtk.vtkObject.GlobalWarningDisplayOff()
         segNode.CreateClosedSurfaceRepresentation()

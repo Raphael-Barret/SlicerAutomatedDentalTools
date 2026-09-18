@@ -40,6 +40,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}/naming.py
   ${MODULE_NAME}/progress_protocol.py
   ${MODULE_NAME}/requests.py
+  ${MODULE_NAME}/testdata.py
   ${MODULE_NAME}/theming.py
 )
 

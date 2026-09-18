@@ -29,3 +29,7 @@ slicer_add_python_unittest(SCRIPT test_requests.py)
 # Balaye le depot : toute paire (bibliotheque, version) doit produire une
 # chaine que pip accepte. Ce que le grep avait manque deux fois.
 slicer_add_python_unittest(SCRIPT test_pip_requirements.py)
+
+# Le rapatriement d un jeu de test : archive ou non, page HTML refusee,
+# et un telechargement interrompu qui ne doit pas passer pour complet.
+slicer_add_python_unittest(SCRIPT test_testdata.py)

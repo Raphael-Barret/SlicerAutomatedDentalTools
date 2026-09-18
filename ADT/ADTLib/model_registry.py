@@ -73,3 +73,9 @@ AREG_IOS_MODELS = "https://github.com/HUTIN1/AREG/releases/download/v1.0.0"
 AUTOMATRIX_MIRROR = (
     "https://github.com/GaelleLeroux/DCBIA_Apply_matrix/releases/download/AutoMatrixMirror"
 )
+
+#: Le scan d'essai d'AMASSS : un NIfTI **nu** de 99 Mo, pas une archive. Il
+#: était recopié à l'identique dans AMASSS et deux fois dans ALI.
+AMASSS_TEST_SCAN = (
+    "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1/MG_test_scan.nii.gz"
+)

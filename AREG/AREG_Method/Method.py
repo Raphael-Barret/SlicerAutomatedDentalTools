@@ -75,6 +75,18 @@ def FindDentalModelSeg():
 
 
 class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
+    # --- description de l'interface, lue par le widget --------------------
+    # Ces trois attributs disaient auparavant leur mot dans une chaine de
+    # `if/elif` sur des index de liste deroulante, repartie sur trois branches
+    # de `AREGWidget.SwitchType`. Ce sont des donnees : la methode decrit, le
+    # widget applique. Rien ici n'importe `qt`.
+
+    #: page du `stackedWidget` a afficher
+    stacked_page = 0
+    #: ce que le widget range dans `self.type`
+    scan_type = "CBCT"
+    #: texte de `label_7`, ou None pour laisser celui qui s'y trouve
+    model_label = None
     # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
     # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La
     # forme variadique dit cela sans mentir sur l'arite -- l'ABC de MRI2CBCT en

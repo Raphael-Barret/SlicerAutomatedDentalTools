@@ -103,6 +103,10 @@ def MGLProcess(method, numberscan, areg_mode, request):
 
 
 class Auto_IOS(Method):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 3
+    scan_type = "IOS"
+    model_label = "Segmentation Model Folder"
     def __init__(self, widget):
         super().__init__(widget)
 
@@ -682,6 +686,9 @@ class Auto_IOS(Method):
 
 
 class Semi_IOS(Auto_IOS):
+    # --- description de l'interface (voir `Method`) ---
+    # `Semi_IOS` herite d'`Auto_IOS` : seule l'etiquette ne s'applique pas.
+    model_label = None
     def TestProcess(self, request) -> str:
         out = ""
 

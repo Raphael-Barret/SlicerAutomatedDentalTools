@@ -24,6 +24,9 @@ logger = get_logger("AREG_Method_CBCT")
 
 
 class Semi_CBCT(Method):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 0
+    scan_type = "CBCT"
     def __init__(self, widget):
         super().__init__(widget)
         documentsLocation = qt.QStandardPaths.DocumentsLocation
@@ -387,6 +390,9 @@ class Semi_CBCT(Method):
 
 
 class Auto_CBCT(Semi_CBCT):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 1
+    model_label = "Segmentation Model Folder"
     def getTestFileList(self):
         return (
             "Fully-Automated",
@@ -604,6 +610,9 @@ class Auto_CBCT(Semi_CBCT):
 
 
 class Or_Auto_CBCT(Semi_CBCT):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 2
+    model_label = "Segmentation Model Folder"
     def getModelUrl(self):
         return {
             "Segmentation": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/AMASSS_CBCT/AMASSS_Models.zip",

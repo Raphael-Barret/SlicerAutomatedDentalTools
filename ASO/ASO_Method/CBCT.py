@@ -278,6 +278,10 @@ class CBCT(Method):
 
 
 class Semi_CBCT(CBCT):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 0
+    scan_type = "CBCT"
+    shows_cbct_input = True
     def getTestFileList(self):
         return (
             "Semi-Automated",
@@ -396,6 +400,11 @@ class Semi_CBCT(CBCT):
 
 
 class Auto_CBCT(CBCT):
+    # --- description de l'interface (voir `Method`) ---
+    stacked_page = 1
+    scan_type = "CBCT"
+    shows_cbct_input = True
+    model_label = "Orientation Model Folder"
     def getTestFileList(self):
         return (
             "Fully-Automated",

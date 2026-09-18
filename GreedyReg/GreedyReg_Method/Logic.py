@@ -339,14 +339,15 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     return [('itk', None), ('dicom2nifti', '2.6.2'), ('pydicom', '3.0.2'), ('monai', monai_version)]
 
   def _checkLibInstalled(self, lib_name, required_version=None):
-    import importlib.metadata
-    try:
-      installed_version = importlib.metadata.version(lib_name)
-      if required_version and installed_version != required_version:
-        return False
-      return True
-    except importlib.metadata.PackageNotFoundError:
-      return False
+    """Delegated to ADTLib, like every other module's copy.
+
+    This one was a tenth copy, out of reach of the sweep that replaced the
+    others because it sits in the method package rather than at the module
+    root. It compared bare strings, so `2.2.0+cu118` read as « wrong version »
+    and a constraint such as `>=2.6.2` could never be satisfied at all.
+    """
+    from ADTLib.env.deps import check_lib_installed
+    return check_lib_installed(lib_name, required_version)
 
   def aliLibrariesReady(self):
     """Quick, non-installing check for the Python libraries ALI_CBCT.py
@@ -363,15 +364,15 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     if not libs_to_install:
       return True
 
+    from ADTLib.env.deps import requirement
     message = "The following libraries are required for ALI-based Distant Registration:\n"
-    message += "\n".join(f"{lib}=={version}" if version else lib for lib, version in libs_to_install)
+    message += "\n".join(requirement(lib, version) for lib, version in libs_to_install)
     message += "\n\nInstall/update them now? Doing so could affect other modules."
     if not slicer.util.confirmYesNoDisplay(message):
       return False
 
     for lib, version in libs_to_install:
-      lib_spec = f"{lib}=={version}" if version else lib
-      slicer.util.pip_install(lib_spec)
+      slicer.util.pip_install(requirement(lib, version))
 
     return all(self._checkLibInstalled(lib, version) for lib, version in self._aliRequiredLibs())
 

@@ -38,7 +38,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import update_line_edit_and_combo_box
-from ADTLib.env.deps import TORCH_FAMILY, torch_cuda_builds_agree
+from ADTLib.env.deps import TORCH_FAMILY, requirement, torch_cuda_builds_agree
 import platform
 
 # --- LOGGING CONFIGURATION ---
@@ -130,7 +130,7 @@ def install_function(self,list_libs:list,system:str):
 
           if libs_to_install:
               message += "\nLibraries to install:\n"
-              message += "\n".join([f"{lib}=={version}" if version else lib for lib, version in libs_to_install])
+              message += "\n".join([requirement(lib, version) for lib, version in libs_to_install])
 
           message += "\n\nDo you agree to modify these libraries? Doing so could cause conflicts with other installed Extensions."
           message += "\n\n (If you are using other extensions, consider downloading another Slicer to use AutomatedDentalTools exclusively.)"
@@ -174,8 +174,7 @@ def install_function(self,list_libs:list,system:str):
                       nb_installed += 3
 
                   else:
-                    lib_version = f'{lib}=={version}' if version else lib
-                    pip_install(lib_version)
+                    pip_install(requirement(lib, version))
                     nb_installed += 1
                   self.ui.nb_package.setText(f"Package: {nb_installed}/{len_libs}")
 
@@ -194,8 +193,7 @@ def install_function(self,list_libs:list,system:str):
                 for lib, version in libs_to_pip:
                   if lib in torch_libs:
                     continue
-                  lib_version = f'{lib}=={version}' if version else lib
-                  pip_install(lib_version)
+                  pip_install(requirement(lib, version))
                   nb_installed += 1
                   self.ui.nb_package.setText(f"Package: {nb_installed}/{len_libs}")
 

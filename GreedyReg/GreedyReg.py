@@ -11,8 +11,6 @@ import ctk
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from GreedyReg_Method.Logic import GreedyRegLogic
-
 import sys
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -24,6 +22,9 @@ while not os.path.isdir(os.path.join(_adt_root, "ADT", "ADTLib")) \
     _adt_root = os.path.dirname(_adt_root)
 if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
+
+# Logic reaches ADTLib (env.deps), so the bootstrap has to be above it.
+from GreedyReg_Method.Logic import GreedyRegLogic
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger

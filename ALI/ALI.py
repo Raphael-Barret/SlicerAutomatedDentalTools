@@ -47,6 +47,7 @@ from ADTLib.env.conda import (
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
 from ADTLib.format import format_timer
+from ADTLib.requests import ALIRequest
 
 
 def check_lib_installed(lib_name, required_version=None):
@@ -960,24 +961,24 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return
 
     error = self.ActualMeth.TestProcess(
-      input_folder=self.input_path,
-      dir_models=self.model_folder,
-      output_dir=self.ui.SaveFolderLineEdit.text,
-    )
+      ALIRequest(input_folder=self.input_path,
+      model_folder=self.model_folder,
+      output_folder=self.ui.SaveFolderLineEdit.text,
+    ))
     if isinstance(error, str):
       qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
       return
     try:
       self.list_Processes_Parameters = self.ActualMeth.Process(
-        input_folder=self.input_path,
-        dir_models=self.model_folder,
+        ALIRequest(input_folder=self.input_path,
+        model_folder=self.model_folder,
         lm_type=self.selected_lm,
         teeth=self.selected_tooth,
         teeth_mg=self.selected_mg_tooth,
-        output_dir=self.ui.SaveFolderLineEdit.text,
-        logPath=self.log_path,
-        DCMInput=self.isDCMInput,
-      )
+        output_folder=self.ui.SaveFolderLineEdit.text,
+        log_path=self.log_path,
+        is_dicom_input=self.isDCMInput,
+      ))
     except RuntimeError as e:
       qt.QMessageBox.warning(self.parent, "Warning", str(e))
       return

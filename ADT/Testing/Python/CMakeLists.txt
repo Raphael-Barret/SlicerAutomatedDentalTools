@@ -21,3 +21,7 @@ slicer_add_python_unittest(SCRIPT test_labels.py)
 # Le canal <filter-progress> : ce sont les octets emis qui comptent, la
 # fenetre comparant la valeur recue a des entiers en dur.
 slicer_add_python_unittest(SCRIPT test_progress_protocol.py)
+
+# Les requetes typees : ce qui compte est que le champ absent leve
+# exactement ce que le dictionnaire levait.
+slicer_add_python_unittest(SCRIPT test_requests.py)

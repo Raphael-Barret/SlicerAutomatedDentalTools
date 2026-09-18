@@ -81,29 +81,29 @@ class Semi_CBCT(Method):
             else:
                 return None
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if testcheckbox is not None:
             out += testcheckbox
 
-        if kwargs["input_t1_folder"] == "":
+        if request.input_t1_folder == "":
             out += "Please select an input folder for T1 scans\n"
 
-        if kwargs["input_t2_folder"] == "":
+        if request.input_t2_folder == "":
             out += "Please select an input folder for T2 scans\n"
             
-        if kwargs["input_t1_mask"] == "":
+        if request.input_t1_mask == "":
             out += "Please select an input folder for T1 masks\n"
 
-        if kwargs["folder_output"] == "":
+        if request.output_folder == "":
             out += "Please select an output folder\n"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out += "Please select an extension for output files\n"
 
-        if kwargs["model_folder_1"] == "":
+        if request.model_folder_1 == "":
             out += "Please select a folder for segmentation models\n"
 
         if out == "":
@@ -247,7 +247,7 @@ class Semi_CBCT(Method):
             "https://github.com/lucanchling/Areg_CBCT/releases/download/TestFiles/SemiAuto.zip",
         )
 
-    def getReviewSteps(self, **kwargs) -> list:
+    def getReviewSteps(self, request) -> list:
         """Pauses this mode can offer, in the order the run reaches them."""
         return Review.stepsFor([
             "cbct_centered_t2",
@@ -255,8 +255,8 @@ class Semi_CBCT(Method):
             "cbct_segmentation",
         ])
 
-    def Process(self, **kwargs):
-        list_struct = self.CheckboxisChecked(kwargs["dic_checkbox"])
+    def Process(self, request):
+        list_struct = self.CheckboxisChecked(request.dic_checkbox)
         full_reg_struct, full_seg_struct = (
             list_struct["Regions of Reference for Registration"],
             list_struct["AMASSS Segmentation"],
@@ -265,18 +265,18 @@ class Semi_CBCT(Method):
             full_reg_struct, False
         ), self.TranslateModels(full_seg_struct, False)
 
-        nb_scan = self.NumberScan(kwargs["input_t1_folder"], kwargs["input_t2_folder"])
+        nb_scan = self.NumberScan(request.input_t1_folder, request.input_t2_folder)
 
-        centered_T2 = kwargs["input_t2_folder"] + "_Center"
+        centered_T2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
-            "input": kwargs["input_t2_folder"],
+            "input": request.input_t2_folder,
             "output_folder": centered_T2,
             "model_folder": os.path.join(
-                kwargs["slicerDownload"], "Models", "Orientation", "PreASO"
+                request.slicerDownload, "Models", "Orientation", "PreASO"
             ),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": request.is_dicom_input,
         }
         
         logger.info(f"PRE_ASO param: {parameter_pre_aso}\n")
@@ -298,16 +298,16 @@ class Semi_CBCT(Method):
         AReg_temp_folder = slicer.util.tempDirectory()
         for i, reg in enumerate(reg_struct.split(",")):
             parameter_areg_cbct = {
-                "t1_folder": kwargs["input_t1_folder"],
+                "t1_folder": request.input_t1_folder,
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
-                "add_name": kwargs["add_in_namefile"],
+                "output_folder": request.output_folder,
+                "add_name": request.add_in_namefile,
                 "DCMInput": False,
-                "SegmentationLabel": kwargs["LabelSeg"],
+                "SegmentationLabel": request.LabelSeg,
                 "temp_folder": AReg_temp_folder,
-                "ApproxReg": kwargs["ApproxStep"],
-                "mask_folder_t1": kwargs["input_t1_mask"],
+                "ApproxReg": request.ApproxStep,
+                "mask_folder_t1": request.input_t1_mask,
             }
             list_process.append(
                 {
@@ -321,9 +321,9 @@ class Semi_CBCT(Method):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        request.output_folder, full_reg_struct[i]
                     ),
-                    "ReviewReferenceFolder": kwargs["input_t1_folder"],
+                    "ReviewReferenceFolder": request.input_t1_folder,
                     "Display": DisplayAREGCBCT(nb_scan),
                 }
             )
@@ -332,13 +332,13 @@ class Semi_CBCT(Method):
         # AMASSS PROCESS - SEGMENTATION
         AMASSSProcess = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
-            "inputVolume": kwargs["input_t1_folder"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.input_t1_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": True,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -346,13 +346,13 @@ class Semi_CBCT(Method):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.output_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": True,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -376,7 +376,7 @@ class Semi_CBCT(Method):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation of T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": request.output_folder,
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),
@@ -398,26 +398,26 @@ class Auto_CBCT(Semi_CBCT):
             scan_folder_t1, scan_folder_t2, mask_folder_t1=mask_folder_t1, liste_keys=["scanT1", "scanT2"]
         )
     
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if testcheckbox is not None:
             out += testcheckbox
 
-        if kwargs["input_t1_folder"] == "":
+        if request.input_t1_folder == "":
             out += "Please select an input folder for T1 scans\n"
 
-        if kwargs["input_t2_folder"] == "":
+        if request.input_t2_folder == "":
             out += "Please select an input folder for T2 scans\n"
             
-        if kwargs["folder_output"] == "":
+        if request.output_folder == "":
             out += "Please select an output folder\n"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out += "Please select an extension for output files\n"
 
-        if kwargs["model_folder_1"] == "":
+        if request.model_folder_1 == "":
             out += "Please select a folder for segmentation models\n"
 
         if out == "":
@@ -426,7 +426,7 @@ class Auto_CBCT(Semi_CBCT):
         return out
 
 
-    def getReviewSteps(self, **kwargs) -> list:
+    def getReviewSteps(self, request) -> list:
         """Pauses this mode can offer, in the order the run reaches them."""
         return Review.stepsFor([
             "cbct_masks",
@@ -435,24 +435,24 @@ class Auto_CBCT(Semi_CBCT):
             "cbct_segmentation",
         ])
 
-    def Process(self, **kwargs):
+    def Process(self, request):
 
-        list_struct = self.CheckboxisChecked(kwargs["dic_checkbox"])
+        list_struct = self.CheckboxisChecked(request.dic_checkbox)
 
         full_reg_struct = list_struct["Regions of Reference for Registration"]
         reg_struct = self.TranslateModels(full_reg_struct, True)
 
-        nb_scan = self.NumberScan(kwargs["input_t1_folder"], kwargs["input_t2_folder"])
+        nb_scan = self.NumberScan(request.input_t1_folder, request.input_t2_folder)
 
         # AMASSS PROCESS - MASK SEGMENTATIONS
         parameter_amasss_mask_t1 = {
-            "inputVolume": kwargs["input_t1_folder"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.input_t1_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": reg_struct,
             "merge": "SEPARATE",
             "genVtk": False,
             "save_in_folder": False,
-            "output_folder": kwargs["input_t1_folder"],
+            "output_folder": request.input_t1_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -466,7 +466,7 @@ class Auto_CBCT(Semi_CBCT):
                 "Parameter": parameter_amasss_mask_t1,
                 "Module": "AMASSS_CBCT - Masks Generation for T1",
                 "ReviewId": "cbct_masks",
-                "ReviewFolder": kwargs["input_t1_folder"],
+                "ReviewFolder": request.input_t1_folder,
                 "Display": DisplayAMASSS(
                     nb_scan, len(full_reg_struct)
                 ),
@@ -474,16 +474,16 @@ class Auto_CBCT(Semi_CBCT):
         ]
 
         logger.info(f'AMASSS Mask Parameters: {parameter_amasss_mask_t1}\n')
-        centered_T2 = kwargs["input_t2_folder"] + "_Center"
+        centered_T2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
-            "input": kwargs["input_t2_folder"],
+            "input": request.input_t2_folder,
             "output_folder": centered_T2,
             "model_folder": os.path.join(
-                kwargs["slicerDownload"], "Models", "Orientation", "PreASO"
+                request.slicerDownload, "Models", "Orientation", "PreASO"
             ),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": request.is_dicom_input,
         }
 
         PreOrientProcess = slicer.modules.pre_aso_cbct
@@ -508,15 +508,15 @@ class Auto_CBCT(Semi_CBCT):
         AReg_temp_folder = slicer.util.tempDirectory()
         for i, reg in enumerate(reg_struct.split(",")):
             parameter_areg_cbct = {
-                "t1_folder": kwargs["input_t1_folder"],
+                "t1_folder": request.input_t1_folder,
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
-                "add_name": kwargs["add_in_namefile"],
+                "output_folder": request.output_folder,
+                "add_name": request.add_in_namefile,
                 "DCMInput": False,
                 "SegmentationLabel": "0",
                 "temp_folder": AReg_temp_folder,
-                "ApproxReg": kwargs["ApproxStep"],
+                "ApproxReg": request.ApproxStep,
                 "mask_folder_t1": "None",
             }
             list_process.append(
@@ -531,9 +531,9 @@ class Auto_CBCT(Semi_CBCT):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        request.output_folder, full_reg_struct[i]
                     ),
-                    "ReviewReferenceFolder": kwargs["input_t1_folder"],
+                    "ReviewReferenceFolder": request.input_t1_folder,
                     "Display": DisplayAREGCBCT(
                         nb_scan
                     ),
@@ -546,13 +546,13 @@ class Auto_CBCT(Semi_CBCT):
         # AMASSS PROCESS - SEGMENTATIONS
         AMASSSProcess = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
-            "inputVolume": kwargs["input_t1_folder"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.input_t1_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -560,13 +560,13 @@ class Auto_CBCT(Semi_CBCT):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.output_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -593,7 +593,7 @@ class Auto_CBCT(Semi_CBCT):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": request.output_folder,
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),
@@ -671,29 +671,29 @@ class Or_Auto_CBCT(Semi_CBCT):
     def NumberScanDCM(self, scan_folder_t1: str, scan_folder_t2: str):
         return len(os.listdir(scan_folder_t1))
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if testcheckbox is not None:
             out += testcheckbox
 
-        if kwargs["input_t1_folder"] == "":
+        if request.input_t1_folder == "":
             out += "Please select an input folder for T1 scans\n"
 
-        if kwargs["input_t2_folder"] == "":
+        if request.input_t2_folder == "":
             out += "Please select an input folder for T2 scans\n"
 
-        if kwargs["folder_output"] == "":
+        if request.output_folder == "":
             out += "Please select an output folder\n"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out += "Please select an extension for output files\n"
 
-        if kwargs["model_folder_1"] == "":
+        if request.model_folder_1 == "":
             out += "Please download the Segmentation models\n"
 
-        if kwargs["model_folder_2"] == "":
+        if request.model_folder_2 == "":
             out += "Please download the Orientation folder\n"
 
         if out == "":
@@ -709,7 +709,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         lms = lm_str.strip().split()
         return ", ".join(f"'{lm}'" for lm in lms)
 
-    def getReviewSteps(self, **kwargs) -> list:
+    def getReviewSteps(self, request) -> list:
         """Pauses this mode can offer, in the order the run reaches them."""
         return Review.stepsFor([
             "cbct_landmarks_orientation",
@@ -720,7 +720,7 @@ class Or_Auto_CBCT(Semi_CBCT):
             "cbct_segmentation",
         ])
 
-    def Process(self, **kwargs):
+    def Process(self, request):
 
         # ====================== ASO Process ======================
         # PRE ASO CBCT
@@ -728,17 +728,17 @@ class Or_Auto_CBCT(Semi_CBCT):
         time.sleep(0.01)
         tempPREASO_folder = slicer.util.tempDirectory()
         parameter_pre_aso = {
-            "input": kwargs["input_t1_folder"],
+            "input": request.input_t1_folder,
             "output_folder": temp_folder,  # kwargs['input_folder'],
-            "model_folder": os.path.join(kwargs["model_folder_2"], "PreASO"),
+            "model_folder": os.path.join(request.model_folder_2, "PreASO"),
             "SmallFOV": False,
             "temp_folder": tempPREASO_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": request.is_dicom_input,
         }
 
         PreOrientProcess = slicer.modules.pre_aso_cbct
 
-        OrientationReference = kwargs["OrientReference"]
+        OrientationReference = request.OrientReference
 
         list_lmrk_str, nb_landmark = self.ReferenceLandmarks(OrientationReference)
 
@@ -747,7 +747,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         # ALI CBCT
         parameter_ali = {
             "input": temp_folder,
-            "dir_models": kwargs["model_folder_3"],
+            "dir_models": request.model_folder_3,
             "lm_type": self.format_lm_string(list_lmrk_str),
             "output_dir": temp_folder,
             "temp_fold": self.tempALI_folder,
@@ -762,10 +762,10 @@ class Or_Auto_CBCT(Semi_CBCT):
         logger.info(f"ALI param: {parameter_ali}\n")
         
         # SEMI ASO CBCT
-        ASO_T1_Oriented = kwargs["input_t1_folder"] + "Or"
+        ASO_T1_Oriented = request.input_t1_folder + "Or"
         parameter_semi_aso = {
             "input": temp_folder,  # kwargs['input_folder'],
-            "gold_folder": os.path.join(kwargs["model_folder_2"], OrientationReference),
+            "gold_folder": os.path.join(request.model_folder_2, OrientationReference),
             "output_folder": ASO_T1_Oriented,
             "add_inname": "Or",
             "list_landmark": list_lmrk_str,
@@ -775,10 +775,10 @@ class Or_Auto_CBCT(Semi_CBCT):
         logger.info(f"SEMI_ASO param: {parameter_semi_aso}\n")
 
         nb_scan = (
-            self.NumberScan(kwargs["input_t1_folder"], kwargs["input_t2_folder"])
-            if not kwargs["isDCMInput"]
+            self.NumberScan(request.input_t1_folder, request.input_t2_folder)
+            if not request.is_dicom_input
             else self.NumberScanDCM(
-                kwargs["input_t1_folder"], kwargs["input_t2_folder"]
+                request.input_t1_folder, request.input_t2_folder
             )
         )
         list_process = [
@@ -808,7 +808,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         ]
 
         # ====================== AREG Process ======================
-        list_struct = self.CheckboxisChecked(kwargs["dic_checkbox"])
+        list_struct = self.CheckboxisChecked(request.dic_checkbox)
 
         full_reg_struct = list_struct["Regions of Reference for Registration"]
         reg_struct = self.TranslateModels(full_reg_struct, True)
@@ -816,7 +816,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         # AMASSS PROCESS - MASK SEGMENTATIONS
         parameter_amasss_mask_t1 = {
             "inputVolume": ASO_T1_Oriented,
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": reg_struct,
             "merge": "SEPARATE",
             "genVtk": False,
@@ -841,14 +841,14 @@ class Or_Auto_CBCT(Semi_CBCT):
             }
         ]
 
-        centered_T2 = kwargs["input_t2_folder"] + "_Center"
+        centered_T2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
-            "input": kwargs["input_t2_folder"],
+            "input": request.input_t2_folder,
             "output_folder": centered_T2,
-            "model_folder": os.path.join(kwargs["model_folder_2"], "PreASO"),
+            "model_folder": os.path.join(request.model_folder_2, "PreASO"),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": request.is_dicom_input,
         }
         logger.info(f"Centering T2 Parameters: {parameter_pre_aso}\n")
 
@@ -875,12 +875,12 @@ class Or_Auto_CBCT(Semi_CBCT):
                 "t1_folder": ASO_T1_Oriented,
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
-                "add_name": kwargs["add_in_namefile"],
-                "DCMInput": kwargs["isDCMInput"],
+                "output_folder": request.output_folder,
+                "add_name": request.add_in_namefile,
+                "DCMInput": request.is_dicom_input,
                 "SegmentationLabel": "0",
                 "temp_folder": AReg_temp_folder,
-                "ApproxReg": kwargs["ApproxStep"],
+                "ApproxReg": request.ApproxStep,
                 "mask_folder_t1": "None",
             }
             list_process.append(
@@ -895,7 +895,7 @@ class Or_Auto_CBCT(Semi_CBCT):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        request.output_folder, full_reg_struct[i]
                     ),
                     "ReviewReferenceFolder": ASO_T1_Oriented,
                     "Display": DisplayAREGCBCT(nb_scan),
@@ -910,12 +910,12 @@ class Or_Auto_CBCT(Semi_CBCT):
         AMASSSProcess = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
             "inputVolume": ASO_T1_Oriented,
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -923,13 +923,13 @@ class Or_Auto_CBCT(Semi_CBCT):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
-            "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
+            "inputVolume": request.output_folder,
+            "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
-            "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
+            "merge": "MERGE" if request.merge_seg else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": request.output_folder,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -953,7 +953,7 @@ class Or_Auto_CBCT(Semi_CBCT):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": request.output_folder,
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),

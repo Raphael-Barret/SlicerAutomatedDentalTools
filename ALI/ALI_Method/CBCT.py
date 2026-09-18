@@ -68,16 +68,16 @@ class Auto_CBCT(Method):
             else:
                 return None
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
         
-        if kwargs["input_folder"] == "":
+        if request.input_folder == "":
             out += "Please select an input folder for T1 scans\n"
 
-        if kwargs["output_dir"] == "":
+        if request.output_folder == "":
             out += "Please select an output folder\n"
 
-        if kwargs["dir_models"] == "":
+        if request.model_folder == "":
             out += "Please select a folder for segmentation models\n"
 
         if out == "":
@@ -180,19 +180,19 @@ class Auto_CBCT(Method):
             "https://github.com/Maxlo24/AMASSS_CBCT/releases/download/v1.0.1/MG_test_scan.nii.gz",
         )
 
-    def Process(self, **kwargs):
+    def Process(self, request):
         
         path_tmp = slicer.util.tempDirectory()
         os.makedirs(path_tmp, exist_ok=True)
-        os.makedirs(kwargs["output_dir"], exist_ok=True)
+        os.makedirs(request.output_folder, exist_ok=True)
         
         parameter_ali = {
-            "input": kwargs["input_folder"],
-            "dir_models": kwargs["dir_models"],
-            "lm_type": kwargs["lm_type"].split(" "),
-            "output_dir": kwargs["output_dir"],
+            "input": request.input_folder,
+            "dir_models": request.model_folder,
+            "lm_type": request.lm_type.split(" "),
+            "output_dir": request.output_folder,
             "temp_fold": path_tmp,
-            "DCMInput": kwargs["DCMInput"],
+            "DCMInput": request.is_dicom_input,
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
             "agent_FOV": "[64,64,64]",
@@ -207,10 +207,10 @@ class Auto_CBCT(Method):
         ALIProcess = slicer.modules.ali_cbct
         
         number_scan = self.NumberScan(
-            kwargs["input_folder"]
+            request.input_folder
         )
         number_lm = self.NumberLandmark(
-            kwargs["lm_type"]
+            request.lm_type
         )
         
         

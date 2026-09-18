@@ -88,6 +88,7 @@ from ADTLib.env.conda import (
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
 from ADTLib.format import format_timer
+from ADTLib.requests import AREGRequest
 
 
 def _get_installed_version(lib_name):
@@ -772,9 +773,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if self.isMGLRegistration():
             error = self.ActualMeth.TestMGLModel(
-                model_folder_3=folder,
+                AREGRequest(model_folder_3=folder,
                 mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
-            ) or None
+            )) or None
         else:
             error = self.ActualMeth.TestModel(folder, self.ui.lineEditModel3.name)
 
@@ -1333,9 +1334,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # That field holds the ALI models in MGL, so the palatal
                 # checkpoint check does not apply to it
                 error = self.ActualMeth.TestMGLModel(
-                    model_folder_3=model_folder,
+                    AREGRequest(model_folder_3=model_folder,
                     mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
-                ) or None
+                )) or None
             else:
                 error = self.ActualMeth.TestModel(model_folder, lineEdit.name)
 
@@ -1530,21 +1531,21 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.ui.label_LibsInstallation.setVisible(False)
         error = self.ActualMeth.TestProcess(
-            input_t1_folder=self.ui.lineEditScanT1LmPath.text,
+            AREGRequest(input_t1_folder=self.ui.lineEditScanT1LmPath.text,
             input_t2_folder=self.ui.lineEditScanT2LmPath.text,
             input_t1_mask=self.ui.lineEditMaskT1Path.text,
             input_t2_landmarks = self.ui.lineEditT2LMPath.text,
-            folder_output=self.ui.lineEditOutputPath.text,
+            output_folder=self.ui.lineEditOutputPath.text,
             model_folder_1=self.ui.lineEditModel1.text,
             model_folder_2=self.ui.lineEditModel2.text,
             model_folder_3=self.ui.lineEditModel3.text,
             add_in_namefile=self.ui.lineEditAddName.text,
             dic_checkbox=self.checkboxes,
-            isDCMInput=self.isDCMInput,
+            is_dicom_input=self.isDCMInput,
             OrientReference=self.CBCTOrientRef,
             reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
             mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
-        )
+        ))
 
         if isinstance(error, str):
             qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
@@ -1566,19 +1567,19 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
 
             self.list_Processes_Parameters = self.ActualMeth.Process(
-                input_t1_folder=self.ui.lineEditScanT1LmPath.text,
+                AREGRequest(input_t1_folder=self.ui.lineEditScanT1LmPath.text,
                 input_t2_folder=self.ui.lineEditScanT2LmPath.text,
                 input_t1_mask=self.ui.lineEditMaskT1Path.text,
                 input_t2_landmarks = self.ui.lineEditT2LMPath.text,
-                folder_output=self.ui.lineEditOutputPath.text,
+                output_folder=self.ui.lineEditOutputPath.text,
                 model_folder_1=self.ui.lineEditModel1.text,
                 model_folder_2=self.ui.lineEditModel2.text,
                 model_folder_3=self.ui.lineEditModel3.text,
                 add_in_namefile=self.ui.lineEditAddName.text,
                 dic_checkbox=self.checkboxes,
-                logPath=self.log_path,
+                log_path=self.log_path,
                 merge_seg=merge_seg,
-                isDCMInput=self.isDCMInput,
+                is_dicom_input=self.isDCMInput,
                 slicerDownload=self.SlicerDownloadPath,
                 OrientReference=self.CBCTOrientRef,
                 LabelSeg=str(
@@ -1588,7 +1589,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 reg_type="MGL" if self.isMGLRegistration() else "Butterfly",
                 patch_radius=self.MGLRadius(),
                 mgl_landmarks=self.lineEditMGLLandmarks.text.strip(),
-            )
+            ))
 
             # Guard: if Process() returned an empty list, log and return to avoid IndexError
             if not self.list_Processes_Parameters:
@@ -1963,8 +1964,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         try:
             steps = method.getReviewSteps(
-                reg_type="MGL" if self.isMGLRegistration() else "Butterfly"
-            )
+                AREGRequest(reg_type="MGL" if self.isMGLRegistration() else "Butterfly"
+            ))
         except Exception as e:
             logger.warning(f"Could not list the reviewable steps: {e}")
             return

@@ -84,23 +84,23 @@ class CBCT(Method):
             else:
                 return None
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if testcheckbox is not None:
             out += testcheckbox
 
-        if kwargs["input_folder"] == "":
+        if request.input_folder == "":
             out += "Please select an input folder\n"
 
-        if kwargs["gold_folder"] == "":
+        if request.gold_folder == "":
             out += "Please select a reference folder\n"
 
-        if kwargs["folder_output"] == "":
+        if request.output_folder == "":
             out += "Please select an output folder\n"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out += "Please select an extension for output files\n"
 
         if out == "":
@@ -368,20 +368,20 @@ class Semi_CBCT(CBCT):
 
         return out
 
-    def Process(self, **kwargs):
-        list_lmrk_str = self.CheckboxisChecked(kwargs["dic_checkbox"], in_str=True)
+    def Process(self, request):
+        list_lmrk_str = self.CheckboxisChecked(request.dic_checkbox, in_str=True)
 
         parameter_semi_aso = {
-            "input": kwargs["input_folder"],
-            "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
-            "add_inname": kwargs["add_in_namefile"],
+            "input": request.input_folder,
+            "gold_folder": request.gold_folder,
+            "output_folder": request.output_folder,
+            "add_inname": request.add_in_namefile,
             "list_landmark": list_lmrk_str,
         }
 
         OrientProcess = slicer.modules.semi_aso_cbct
         
-        nb_scan = self.NumberScan(kwargs["input_folder"])
+        nb_scan = self.NumberScan(request.input_folder)
         list_process = [
             {
                 "Process": OrientProcess,
@@ -466,7 +466,7 @@ class Auto_CBCT(CBCT):
         lms = lm_str.strip().split()
         return ", ".join(f"'{lm}'" for lm in lms)
 
-    def Process(self, **kwargs):
+    def Process(self, request):
 
         # PRE ASO CBCT
         temp_folder = slicer.util.tempDirectory()
@@ -480,21 +480,21 @@ class Auto_CBCT(CBCT):
             documents, slicer.app.applicationName + "_temp_ALI"
         )
         
-        list_lmrk_str = self.CheckboxisChecked(kwargs["dic_checkbox"], in_str=True)
+        list_lmrk_str = self.CheckboxisChecked(request.dic_checkbox, in_str=True)
         nb_landmark = len(list_lmrk_str.split(" "))
         
         parameter_pre_aso = {
-            "input": kwargs["input_folder"],
+            "input": request.input_folder,
             "output_folder": temp_folder,
-            "model_folder": kwargs["model_folder_segor"],
-            "SmallFOV": kwargs["smallFOV"],
+            "model_folder": request.model_folder_segor,
+            "SmallFOV": request.smallFOV,
             "temp_folder": tempPREASO_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": request.is_dicom_input,
         }
         
         parameter_ali = {
             "input": temp_folder,
-            "dir_models": kwargs["model_folder_ali"],
+            "dir_models": request.model_folder_ali,
             "lm_type": self.format_lm_string(list_lmrk_str),
             "output_dir": temp_folder,
             "temp_fold": tempALI_folder,
@@ -507,16 +507,16 @@ class Auto_CBCT(CBCT):
         
         parameter_semi_aso = {
             "input": temp_folder,
-            "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
-            "add_inname": kwargs["add_in_namefile"],
+            "gold_folder": request.gold_folder,
+            "output_folder": request.output_folder,
+            "add_inname": request.add_in_namefile,
             "list_landmark": list_lmrk_str,
         }
         
         nb_scan = (
-            self.NumberScan(kwargs["input_folder"])
-            if not kwargs["isDCMInput"]
-            else self.NumberScanDCM(kwargs["input_folder"])
+            self.NumberScan(request.input_folder)
+            if not request.is_dicom_input
+            else self.NumberScanDCM(request.input_folder)
         )
 
         logger.info(f"Parameter PRE_ASO :  {parameter_pre_aso}")

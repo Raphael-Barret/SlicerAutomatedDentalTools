@@ -148,17 +148,17 @@ class Auto_IOS(Method):
     def getALIModelList(self):
         return super().getALIModelList()
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        scan = self.TestScan(kwargs["input_folder"])
+        scan = self.TestScan(request.input_folder)
         if isinstance(scan, str):
             out = out + f"{scan}\n"
 
-        if kwargs["output_dir"] == "":
+        if request.output_folder == "":
             out = out + "Please select output folder\n"
 
-        if kwargs["dir_models"] == "":
+        if request.model_folder == "":
             out = out + "Please select folder for the landmark identification model\n"
 
         if out != "":
@@ -214,7 +214,7 @@ class Auto_IOS(Method):
         logger.debug(f"File segmented: {out}, Path: {path}")
         return out
 
-    def Process(self, **kwargs):
+    def Process(self, request):
 
         path_tmp = slicer.util.tempDirectory()
         path_input = os.path.join(path_tmp, "input_seg")
@@ -222,12 +222,12 @@ class Auto_IOS(Method):
         
         os.makedirs(path_seg, exist_ok=True)
         os.makedirs(path_input, exist_ok=True)
-        os.makedirs(kwargs["output_dir"], exist_ok=True)
+        os.makedirs(request.output_folder, exist_ok=True)
 
-        path_error = os.path.join(kwargs["output_dir"], "Error")
+        path_error = os.path.join(request.output_folder, "Error")
 
         number_scan_toseg = self.__BypassCrownseg__(
-            kwargs["input_folder"], path_input, path_seg
+            request.input_folder, path_input, path_seg
         )
         slicer_path = slicer.app.applicationDirPath()
         dentalmodelseg_path = os.path.join(slicer_path,"..","lib","Python","bin","dentalmodelseg")
@@ -235,12 +235,12 @@ class Auto_IOS(Method):
         surf = "None"
         input_csv = "None"
         vtk_folder = "None"
-        if os.path.isfile(kwargs["input_folder"]):
-            extension = os.path.splitext(kwargs["input_folder"])[1]
+        if os.path.isfile(request.input_folder):
+            extension = os.path.splitext(request.input_folder)[1]
             if extension == ".vtk" or extension == ".stl":
-              surf = kwargs["input_folder"]
+              surf = request.input_folder
               
-        elif os.path.isdir(kwargs["input_folder"]):
+        elif os.path.isdir(request.input_folder):
           input_csv = self.create_csv(path_input,"liste_csv_file")
           vtk_folder = path_input
 
@@ -261,15 +261,15 @@ class Auto_IOS(Method):
         # Key order matters: values are passed positionally to the ALI_IOS CLI
         parameter_ali = {
             "input": path_seg,
-            "dir_models": kwargs["dir_models"],
-            "lm_type": kwargs["lm_type"],
-            "teeth": kwargs["teeth"],
-            "teeth_mg": kwargs.get("teeth_mg", "None"),
-            "output_dir": kwargs["output_dir"],
+            "dir_models": request.model_folder,
+            "lm_type": request.lm_type,
+            "teeth": request.teeth,
+            "teeth_mg": request.teeth_mg,
+            "output_dir": request.output_folder,
             "image_size": "224",
             "blur_radius": "0",
             "faces_per_pixel": "1",
-            "log_path": kwargs["logPath"],
+            "log_path": request.log_path,
         }
 
         logger.debug("=" * 70)
@@ -281,12 +281,12 @@ class Auto_IOS(Method):
         LandmarkProcess = slicer.modules.ali_ios
 
         numberscan = self.NumberScan(
-            kwargs["input_folder"]
+            request.input_folder
         )
         number_lm = self.NumberLandmark(
-            kwargs["teeth"]
+            request.teeth
         ) + self.NumberLandmark(
-            kwargs.get("teeth_mg", "None")
+            request.teeth_mg
         )
 
         list_process = []
@@ -307,7 +307,7 @@ class Auto_IOS(Method):
                 "Parameter": parameter_segteeth,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
-                    number_scan_toseg, kwargs["logPath"]
+                    number_scan_toseg, request.log_path
                 ),
             })
         else:

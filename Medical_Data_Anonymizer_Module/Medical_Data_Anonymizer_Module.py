@@ -21,6 +21,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import csv
 
 logger = get_logger("Medical_Anonymizer")
 
@@ -573,7 +574,6 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                             logger.warning(f"Aucun texte extrait de {file}, il ressort tel quel")
                 
                 elif file_ext == ".csv":
-                    import csv
                     full_text = ""
                     with open(input_file_path, 'r', encoding='utf-8') as f:
                         reader = csv.reader(f)
@@ -631,7 +631,6 @@ class Medical_Data_Anonymizer_ModuleWidget(ScriptedLoadableModuleWidget):
                     self.logic.save_str_pdf(anonymized_text, output_path)
                 
                 elif file_ext == ".csv":
-                    import csv
                     new_file_name = file.replace(".csv", "_anonymized.csv")
                     output_path = os.path.join(output_folder, new_file_name)
                     with open(output_path, 'w', encoding='utf-8', newline='') as f:

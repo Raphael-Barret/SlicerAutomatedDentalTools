@@ -58,6 +58,8 @@ from slicer import vtkMRMLScalarVolumeNode
 import qt
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.requests import VFACERequest
+import time
+import traceback
 
 
 #
@@ -1182,7 +1184,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._checkCanApply()
 
     def onApplyButton(self) -> None:
-        import time
 
         # Every step downstream reports "0 file" on an input folder holding nothing
         # it can read, and the run walks its whole plan producing nothing. Say so
@@ -2717,7 +2718,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             slicer.util.resetSliceViews()
 
     def executeProcess(self, process_info):
-        import time
         self.CliStepTime = time.time()
         self.module_name = process_info["Module"]
         self.displayModule = process_info["Display"]
@@ -2774,7 +2774,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def startPythonProcess(self):
         """Start a Python process"""
-        import time
 
         started = time.time()
         log_path = None
@@ -2794,7 +2793,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         except Exception as e:
             logger.error(f"Error during the execution of {self.module_name}: {e}")
-            import traceback
             traceback.print_exc()
             self.python_process_error = str(e)
             self.python_process_completed = True
@@ -2868,7 +2866,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     @classmethod
     def onCliUpdated(self, caller, event):
-        import time
 
         # Only the node the pipeline is currently waiting on may advance it.
         # Observers can outlive their step, so a stale callback would start the
@@ -2964,7 +2961,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def OnEndProcess(self):
         from pathlib import Path
-        import time
         act_time = time.time()
         total_time = act_time-self.CliStartTime
 
@@ -3087,7 +3083,6 @@ class VFACELogic(ScriptedLoadableModuleLogic):
         if not inputVolume or not outputVolume:
             raise ValueError("Input or output volume is invalid")
 
-        import time
 
         startTime = time.time()
         logger.info("Processing started")

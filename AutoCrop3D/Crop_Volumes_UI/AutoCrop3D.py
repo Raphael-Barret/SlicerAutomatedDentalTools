@@ -36,6 +36,8 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+import tempfile
+import zipfile
 #import Crop_Volumes_CLI.Crop_Volumes_utils as cpu
 
 #
@@ -908,8 +910,6 @@ def test_AutoCrop3D1(self):
     # The segmentation (CBCT scan) is in the directory Testing/Test_data/Segmentation.zip
     # The JSON file is in the directory Testing/Test_data/ROI.mrk.zip
     import os
-    import zipfile
-    import tempfile
     import slicer
     self.delayDisplay("Starting AutoCropCBCT test")
 

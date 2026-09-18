@@ -15,6 +15,7 @@ import subprocess
 import slicer
 
 import ADTLib
+import inspect
 
 
 def conda_quote(conda, value):
@@ -33,7 +34,6 @@ def conda_quote(conda, value):
     so what they are given keeps its quotes unconditionally.
     """
     try:
-        import inspect
 
         shell = "shell=True" in inspect.getsource(conda.condaRunCommand)
     except Exception:

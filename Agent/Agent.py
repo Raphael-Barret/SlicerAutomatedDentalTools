@@ -8,6 +8,17 @@ from slicer.i18n import translate
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import parameterNodeWrapper
+import json
+import platform
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+import zipfile
 
 # Max number of automatic "fix the parameters from the error and retry"
 # attempts after a real tool execution fails (see AgentWidget.runToolWithRepair).
@@ -64,7 +75,6 @@ def _ollama_env(binary):
 
 def _ollama_responding(timeout=0.5):
     """True if an Ollama server answers on the default port (127.0.0.1:11434)."""
-    import socket
     s = socket.socket()
     s.settimeout(timeout)
     try:
@@ -104,11 +114,6 @@ def install_official_ollama():
     Returns the path to the ollama binary. Raises on any failure so the caller
     can fall back to the manual-install message.
     """
-    import platform
-    import tarfile
-    import zipfile
-    import tempfile
-    import subprocess
 
     system = platform.system()
     machine = platform.machine().lower()
@@ -163,8 +168,6 @@ def ensure_ollama_server(binary):
 
     Returns True once the server answers, False on timeout.
     """
-    import platform
-    import subprocess
 
     if _ollama_responding():
         return True
@@ -198,7 +201,6 @@ def ensure_agent_ollama_running():
     at dependency-check time and before each conversation, since a server we
     launched ourselves does not survive a Slicer restart.
     """
-    import shutil
     if _ollama_responding():
         return True
     binary = shutil.which("ollama") or _bundled_ollama_binary()
@@ -737,8 +739,6 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.conversationHistory = self.conversationHistory[-MAX_HISTORY_ENTRIES:]
 
     def onApplyButton(self) -> None:
-        import time
-        import json
         self.CliStartTime = time.time()
         self.ui.label_4.setVisible(True)
         slicer.app.processEvents()
@@ -783,8 +783,6 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
     def onCliUpdated(self, caller, event):
-        import time
-        import json
         cliNode = caller
 
         status = cliNode.GetStatus()
@@ -883,7 +881,6 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         confirmation is required before each retry since these are real,
         potentially expensive medical-imaging jobs.
         """
-        import subprocess
 
         attempt = 0
         current_params = dict(params or {})
@@ -948,7 +945,6 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             attempt += 1
 
     def OnSaveButton(self):
-        import time
         from pathlib import Path
 
         text = self.ui.textEdit.toPlainText()
@@ -1016,8 +1012,6 @@ class AgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._checkCanApply()
 
     def CheckDependencies(self):
-        import subprocess
-        import shutil
 
         # Python packages required by Agent_CLI. Order matters: the pinned
         # versions must be installed before the packages that would otherwise
@@ -1200,7 +1194,6 @@ class AgentLogic(ScriptedLoadableModuleLogic):
         :return: the CLI output text
         """
 
-        import time
         startTime = time.time()
         logging.info("Processing started")
 
@@ -1241,7 +1234,6 @@ class AgentLogic(ScriptedLoadableModuleLogic):
 
     def _suggestFixFor(self, error_text):
         """Best-effort, keyword-based remediation hint for an Agent_CLI failure."""
-        import re
 
         text = (error_text or "")
         lower = text.lower()
@@ -1286,8 +1278,6 @@ class AgentLogic(ScriptedLoadableModuleLogic):
         could be produced. Reuses Agent_CLI_utils (no duplicated extraction
         logic) by adding Agent_CLI's own directory to sys.path.
         """
-        import sys
-        import json
 
         agent_cli_dir = os.path.dirname(slicer.modules.agent_cli.path)
         if agent_cli_dir not in sys.path:

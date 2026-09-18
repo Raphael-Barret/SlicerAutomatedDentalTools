@@ -31,6 +31,8 @@ from collections import deque
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import gc
+import json
 
 logger = get_logger("BatchDentalSeg_SegmentationWidget")
 
@@ -1141,7 +1143,6 @@ class SegmentationWidget(qt.QWidget):
 
     @staticmethod
     def _readJson(path):
-        import json
         try:
             with open(path, "r") as handle:
                 return json.load(handle)
@@ -1260,7 +1261,6 @@ class SegmentationWidget(qt.QWidget):
             # torch peut etre absent, et empty_cache echoue si le contexte CUDA
             # a deja ete detruit.
             logger.debug("Cache CUDA non vide", exc_info=True)
-        import gc
         gc.collect()
         self.onProgressInfo(
             f"Deep cleanup done ({removed} orphan node(s) removed). "
@@ -2135,7 +2135,6 @@ class SegmentationWidget(qt.QWidget):
                 pass
 
             # 8) GC et memory
-            import gc
             gc.collect()
             self.onProgressInfo(f"Cleanup complete. Memory: {self._get_memory_usage()}")
 

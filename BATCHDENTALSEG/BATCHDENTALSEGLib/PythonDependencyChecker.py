@@ -10,6 +10,8 @@ from github import Github, GithubException
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import shutil
+import traceback
 
 logger = get_logger("BatchDentalSeg_pythonDependency")
 
@@ -124,7 +126,6 @@ class PythonDependencyChecker:
 
         :returns: True if download was successful. False in case of no internet or failure during download.
         """
-        import shutil
         import requests
 
         progressCallback("Downloading model weights...")
@@ -157,7 +158,6 @@ class PythonDependencyChecker:
             self.writeDownloadInfoURL(download_url)
             return True
         except Exception:  # noqa
-            import traceback
             self.errorDisplay(
                 "Failed to download weights. Please retry or manually install them to proceed.\n"
                 "To manually install the weights, please refer to the documentation here :\n"

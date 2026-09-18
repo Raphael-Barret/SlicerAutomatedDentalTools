@@ -10,6 +10,7 @@ from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shar
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+import re
 
 logger = get_logger("ALI_IOS_Process")
 
@@ -31,7 +32,6 @@ class Auto_IOS(Method):
         return 0
     
     def NumberLandmark(self, landmarks: str):
-        import re
         if not landmarks:
             return 0
         cleaned = re.sub(r"[\[\]\"']", "", landmarks)

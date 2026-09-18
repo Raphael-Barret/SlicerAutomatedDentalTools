@@ -4,6 +4,7 @@ import os
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+import re
 
 logger = get_logger("ALI_IOS_IO")
 
@@ -204,7 +205,6 @@ def ScanJawFromName(path):
     renumbering an arch on a guess is worse than leaving it alone. Same refusal
     as AREG_IOSCBCT.extract_jaw, which reads the same files further down.
     """
-    import re
 
     name = os.path.basename(path)
     upper = re.search(r'(?:^|_)(?:u|upper|max|mx)(?=_|\.|$)', name, re.IGNORECASE)

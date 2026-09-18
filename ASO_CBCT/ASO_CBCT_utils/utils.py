@@ -35,6 +35,7 @@ from ADTLib.naming import patient_id as read_patient_id, ASO_CBCT_CLI_MARKERS
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import math
 
 logger = get_logger("ASO_CBCT_utils")
 
@@ -831,7 +832,6 @@ def RotationMatrix(axis, theta):
     np.array
         Rotation matrix
     """
-    import math
 
     axis = np.asarray(axis)
     axis = axis / np.linalg.norm(axis)

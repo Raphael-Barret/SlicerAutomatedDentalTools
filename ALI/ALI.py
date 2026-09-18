@@ -48,6 +48,7 @@ from ADTLib.env.conda import (
     windows_to_linux_path as windows_to_linux_path_shared)
 from ADTLib.format import format_timer
 from ADTLib.requests import ALIRequest
+import traceback
 
 
 def check_lib_installed(lib_name, required_version=None):
@@ -1678,7 +1679,6 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
-      import traceback
       traceback.print_exc()
       
   def HideComputeItems(self, run=False):

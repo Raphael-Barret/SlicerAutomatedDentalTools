@@ -12,6 +12,7 @@ import os,json
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import sys
 
 logger = get_logger("AutoCrop3D_CLI")
 
@@ -129,7 +130,6 @@ def main(args)-> None:
                 sitk.WriteImage(img_crop,ScanOutPath)
 
             except Exception:
-                import sys
                 logger.error("Error for patient: "+str(patient))
                 logger.error('The error says: '+str(sys.exc_info()[0]))
                 logger.error('Lower: '+str(Lower))

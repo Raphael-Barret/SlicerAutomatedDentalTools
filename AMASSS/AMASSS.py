@@ -39,6 +39,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import update_line_edit_and_combo_box
+import platform
 
 # --- LOGGING CONFIGURATION ---
 logger = get_logger("AMASSS")
@@ -780,7 +781,6 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     try:
       logger.info('Prediction button clicked: starting prediction process...')
       
-      import platform
       
       # First, install the required libraries and their version
       try:

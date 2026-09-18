@@ -12,6 +12,8 @@ import qt
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+import gc
+import time
 
 logger = get_logger("VFACE_segmentation_logic")
 
@@ -355,7 +357,6 @@ class SegmentationLogic:
 
     def _waitForSegmentationWithEvents(self):
         """Wait the end of the segmentation"""
-        import time
         
         start_time = time.time()
         last_log_time = start_time
@@ -901,7 +902,6 @@ class SegmentationLogic:
                 pass
             
             # Garbage collection
-            import gc
             gc.collect()
             
             self.log_info("Cleanup completed")
@@ -931,7 +931,6 @@ class SegmentationLogic:
         except ImportError:
             pass
         
-        import gc
         gc.collect()
         self.log_info("Stop completed")
     

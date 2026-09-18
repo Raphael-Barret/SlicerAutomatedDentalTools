@@ -57,6 +57,7 @@ from slicer.parameterNodeWrapper import (
 from slicer import vtkMRMLScalarVolumeNode
 import qt
 from ADTLib.model_registry import ADT_MODELS
+from ADTLib.requests import VFACERequest
 
 
 #
@@ -1237,7 +1238,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CliStartTime = time.time()
         slicer.app.processEvents()
 
-        self.list_process = CreateListProcess(input_folder = self._parameterNode.InputFolder
+        self.list_process = CreateListProcess(VFACERequest(input_folder = self._parameterNode.InputFolder
                                ,output_folder = self._parameterNode.OutputFolder
                                ,model_folder = os.path.join(self.SlicerDownloadPath,"AREG/AREG_CBCT/Models/Segmentation"),
                                model_folder_ali = os.path.join(self.SlicerDownloadPath,"ALI/ALI_CBCT/Models/Landmark"),
@@ -1250,7 +1251,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                 mode = self.ui.comboBox3.currentText,
                                 t2_folder = self.ui.PathLineEdit_4.currentPath,
                                 mode2 = self.ui.comboBox4.currentText,
-                                model_vface = os.path.join(self.SlicerDownloadPath,"V_FACE"))
+                                model_vface = os.path.join(self.SlicerDownloadPath,"V_FACE")))
 
         if self.list_process:
             self.applyReviewSelection()

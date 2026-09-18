@@ -60,6 +60,7 @@ from ADTLib.env.conda import (
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
 from ADTLib.format import format_timer
+from ADTLib.requests import ASORequest
 
 def check_lib_installed(lib_name, required_version=None):
     """Whether the library is installed and satisfies the constraint."""
@@ -1195,7 +1196,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self.ui.label_LibsInstallation.setVisible(False)
         error = self.ActualMeth.TestProcess(
-            input_folder=self.ui.lineEditScanLmPath.text,
+            ASORequest(input_folder=self.ui.lineEditScanLmPath.text,
             gold_folder=self.ui.lineEditRefFolder.text,
             output_folder=self.ui.lineEditOutputPath.text,
             model_folder_ali=self.ui.lineEditModelAli.text,
@@ -1204,13 +1205,13 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             dic_checkbox=self.checkboxes,
             smallFOV=str(self.ui.checkBoxSmallFOV.isChecked()),
             is_dicom_input=self.isDCMInput,
-        )
+        ))
         if isinstance(error, str):
             qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
 
         else:
             self.list_Processes_Parameters = self.ActualMeth.Process(
-                input_folder=self.ui.lineEditScanLmPath.text,
+                ASORequest(input_folder=self.ui.lineEditScanLmPath.text,
                 gold_folder=self.ui.lineEditRefFolder.text,
                 output_folder=self.ui.lineEditOutputPath.text,
                 model_folder_ali=self.ui.lineEditModelAli.text,
@@ -1220,7 +1221,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 log_path=self.log_path,
                 smallFOV=str(self.ui.checkBoxSmallFOV.isChecked()),
                 is_dicom_input=self.isDCMInput,
-            )
+            ))
 
             self.nb_extension_launch = len(self.list_Processes_Parameters)
             self.onProcessStarted()

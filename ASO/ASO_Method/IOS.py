@@ -153,25 +153,25 @@ class Auto_IOS(Method):
             "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/identification_landmark_ios_model.zip",
         )
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        scan = self.TestScan(kwargs["input_folder"])
+        scan = self.TestScan(request.input_folder)
         if isinstance(scan, str):
             out = out + f"{scan},"
 
-        reference = self.TestReference(kwargs["gold_folder"])
+        reference = self.TestReference(request.gold_folder)
         if isinstance(reference, str):
             out = out + f"{reference},"
 
-        if kwargs["output_folder"] == "":
+        if request.output_folder == "":
             out = out + "Please select output folder,"
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if isinstance(testcheckbox, str):
             out = out + f"{testcheckbox},"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out = out + "Please select write suffix ,"
 
         if out != "":
@@ -229,8 +229,8 @@ class Auto_IOS(Method):
         logger.info(f"File segmented in {path}")
         return out
 
-    def Process(self, **kwargs):
-        list_teeth, jaw, occlusion = self.__CheckboxisChecked(kwargs["dic_checkbox"])
+    def Process(self, request):
+        list_teeth, jaw, occlusion = self.__CheckboxisChecked(request.dic_checkbox)
 
         path_tmp = slicer.util.tempDirectory()
         path_input = os.path.join(path_tmp, "input_seg")
@@ -240,12 +240,12 @@ class Auto_IOS(Method):
         os.makedirs(path_input, exist_ok=True)
         os.makedirs(path_seg, exist_ok=True)
         os.makedirs(path_preor, exist_ok=True)
-        os.makedirs(kwargs["output_folder"], exist_ok=True)
+        os.makedirs(request.output_folder, exist_ok=True)
 
-        path_error = os.path.join(kwargs["output_folder"], "Error")
+        path_error = os.path.join(request.output_folder, "Error")
 
         number_scan_toseg = self.__BypassCrownseg__(
-            kwargs["input_folder"], path_input, path_seg
+            request.input_folder, path_input, path_seg
         )
         slicer_path = slicer.app.applicationDirPath()
         dentalmodelseg_path = os.path.join(slicer_path,"..","lib","Python","bin","dentalmodelseg")
@@ -279,14 +279,14 @@ class Auto_IOS(Method):
         
         parameter_pre_aso = {
             "input": path_seg,
-            "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["output_folder"],
-            "add_inname": kwargs["add_in_namefile"],
+            "gold_folder": request.gold_folder,
+            "output_folder": request.output_folder,
+            "add_inname": request.add_in_namefile,
             "list_teeth": ",".join(list_teeth),
             "occlusion": occlusion,
             "jaw": "/".join(jaw),
             "folder_error": path_error,
-            "log_path": kwargs["log_path"],
+            "log_path": request.log_path,
         }
         logger.info(f"Parameter pre aso: {parameter_pre_aso}")
         logger.info(f"Parameter seg: {parameter_seg}")
@@ -294,7 +294,7 @@ class Auto_IOS(Method):
         PreOrientProcess = slicer.modules.pre_aso_ios
         SegProcess = slicer.modules.crownsegmentationcli
         
-        numberscan = self.NumberScan(kwargs["input_folder"])
+        numberscan = self.NumberScan(request.input_folder)
         
         list_process = [
             {
@@ -302,7 +302,7 @@ class Auto_IOS(Method):
                 "Parameter": parameter_seg,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
-                    number_scan_toseg, kwargs["log_path"]
+                    number_scan_toseg, request.log_path
                 ),
             },
             {
@@ -312,7 +312,7 @@ class Auto_IOS(Method):
                 "Display": DisplayASOIOS(
                     numberscan if len(jaw) == 1 else int(numberscan / 2),
                     jaw,
-                    kwargs["log_path"],
+                    request.log_path,
                 ),
             },
         ]
@@ -513,25 +513,25 @@ class Semi_IOS(Auto_IOS):
 
         return out
 
-    def TestProcess(self, **kwargs) -> str:
+    def TestProcess(self, request) -> str:
         out = ""
 
-        scan = self.TestScan(kwargs["input_folder"])
+        scan = self.TestScan(request.input_folder)
         if isinstance(scan, str):
             out = out + f"{scan},"
 
-        reference = self.TestReference(kwargs["gold_folder"])
+        reference = self.TestReference(request.gold_folder)
         if isinstance(reference, str):
             out = out + f"{reference},"
 
-        if kwargs["output_folder"] == "":
+        if request.output_folder == "":
             out = out + "Give output folder,"
 
-        testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
+        testcheckbox = self.TestCheckbox(request.dic_checkbox)
         if isinstance(testcheckbox, str):
             out = out + f"{testcheckbox},"
 
-        if kwargs["add_in_namefile"] == "":
+        if request.add_in_namefile == "":
             out = out + "Please write something in suffix space,"
 
         if out != "":
@@ -572,27 +572,27 @@ class Semi_IOS(Auto_IOS):
 
         return teeth, landmarks, mix, jaw, occlsuion
 
-    def Process(self, **kwargs):
+    def Process(self, request):
         teeth, landmark, mix, jaw, occlusion = self.__CheckboxisChecked(
-            kwargs["dic_checkbox"]
+            request.dic_checkbox
         )
-        path_error = os.path.join(kwargs["output_folder"], "Error")
+        path_error = os.path.join(request.output_folder, "Error")
 
         parameter = {
-            "input": kwargs["input_folder"],
-            "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["output_folder"],
-            "add_inname": kwargs["add_in_namefile"],
+            "input": request.input_folder,
+            "gold_folder": request.gold_folder,
+            "output_folder": request.output_folder,
+            "add_inname": request.add_in_namefile,
             "list_landmark": ",".join(mix),
             "occlusion": occlusion,
             "jaw": "/".join(jaw),
             "folder_error": path_error,
-            "log_path": kwargs["log_path"],
+            "log_path": request.log_path,
         }
 
         logger.info(f"SEMI_ASO_IOS parameter: {parameter}")
         OrientProcess = slicer.modules.semi_aso_ios
-        numberscan = self.NumberScan(kwargs["input_folder"])
+        numberscan = self.NumberScan(request.input_folder)
         list_process = [
             {
                 "Process": OrientProcess,
@@ -601,7 +601,7 @@ class Semi_IOS(Auto_IOS):
                 "Display": DisplayASOIOS(
                     numberscan if len(jaw) == 1 else int(numberscan / 2),
                     jaw,
-                    kwargs["log_path"],
+                    request.log_path,
                 ),
             },
         ]

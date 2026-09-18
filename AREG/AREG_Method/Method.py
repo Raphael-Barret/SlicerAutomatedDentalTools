@@ -119,7 +119,7 @@ class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
         """
         pass
 
-    def getReviewSteps(self, **kwargs) -> list:
+    def getReviewSteps(self, request) -> list:
         """Pauses this mode can offer, in the order the run reaches them.
 
         Declared without running Process(): the widget needs the list to build

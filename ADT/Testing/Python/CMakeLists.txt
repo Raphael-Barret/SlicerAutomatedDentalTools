@@ -25,3 +25,7 @@ slicer_add_python_unittest(SCRIPT test_progress_protocol.py)
 # Les requetes typees : ce qui compte est que le champ absent leve
 # exactement ce que le dictionnaire levait.
 slicer_add_python_unittest(SCRIPT test_requests.py)
+
+# Balaye le depot : toute paire (bibliotheque, version) doit produire une
+# chaine que pip accepte. Ce que le grep avait manque deux fois.
+slicer_add_python_unittest(SCRIPT test_pip_requirements.py)

@@ -580,7 +580,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.ui.ButtonSearchModel1.pressed.connect(
             lambda: self.downloadModel(
-                self.ui.lineEditModel1, self.ui.label_7.text.split(" ")[0]
+                self.ui.lineEditModel1, self.ui.labelModelFolder.text.split(" ")[0]
             )
         )
         self.ui.ButtonSearchModel3.pressed.connect(
@@ -662,15 +662,15 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditMaskT1Path.setVisible(True)
             self.ui.ButtonSearchT1Mask.setVisible(True)
 
-            self.ui.label_7.setVisible(True)
-            self.ui.label_7.setText("Segmentation Model Folder")
+            self.ui.labelModelFolder.setVisible(True)
+            self.ui.labelModelFolder.setText("Segmentation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(True)
             self.ui.lineEditModel1.setVisible(True)
 
         if index == 1:  # Fully Automated
 
-            self.ui.label_7.setVisible(True)
-            self.ui.label_7.setText("Segmentation Model Folder")
+            self.ui.labelModelFolder.setVisible(True)
+            self.ui.labelModelFolder.setText("Segmentation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(True)
             self.ui.lineEditModel1.setVisible(True)
 
@@ -684,8 +684,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if index == 0:  #  Orientation & Fully Auto Reg
 
-            self.ui.label_7.setVisible(True)
-            self.ui.label_7.setText("Segmentation Model Folder")
+            self.ui.labelModelFolder.setVisible(True)
+            self.ui.labelModelFolder.setText("Segmentation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(True)
             self.ui.lineEditModel1.setVisible(True)
 
@@ -831,7 +831,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # the user guessing what to fill in. Outside MGL they come back only in
         # the mode that orients, which is index 0.
         orientation_used = not is_mgl and self.ui.CbModeType.currentIndex == 0
-        for widget in (self.ui.label_7, self.ui.lineEditModel1, self.ui.ButtonSearchModel1,
+        for widget in (self.ui.labelModelFolder, self.ui.lineEditModel1, self.ui.ButtonSearchModel1,
                        self.ui.label_6, self.ui.lineEditModel2, self.ui.ButtonSearchModel2):
             widget.setVisible(orientation_used)
 
@@ -867,8 +867,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # registration and orientation
         if index == 0:
-            self.ui.label_7.setVisible(True)
-            self.ui.label_7.setText("Segmentation Model Folder")
+            self.ui.labelModelFolder.setVisible(True)
+            self.ui.labelModelFolder.setText("Segmentation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(True)
             self.ui.lineEditModel1.setVisible(True)
 
@@ -884,8 +884,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Registration
         if index == 1:
-            self.ui.label_7.setVisible(False)
-            self.ui.label_7.setText("Segmentation Model Folder")
+            self.ui.labelModelFolder.setVisible(False)
+            self.ui.labelModelFolder.setText("Segmentation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(False)
             self.ui.lineEditModel1.setVisible(False)
 
@@ -922,8 +922,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.label_3.setText("IOS Scans")
             self.ui.label_2.setText("CBCT Scans")
 
-            self.ui.label_7.setVisible(True)
-            self.ui.label_7.setText("Orientation Model Folder")
+            self.ui.labelModelFolder.setVisible(True)
+            self.ui.labelModelFolder.setText("Orientation Model Folder")
             self.ui.ButtonSearchModel1.setVisible(True)
             self.ui.lineEditModel1.setVisible(True)
 
@@ -942,7 +942,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.label_3.setText("Oriented IOS Scans")
             self.ui.label_2.setText("Oriented CBCT Scans")
 
-            self.ui.label_7.setVisible(False)
+            self.ui.labelModelFolder.setVisible(False)
             self.ui.ButtonSearchModel1.setVisible(False)
             self.ui.lineEditModel1.setVisible(False)
 
@@ -966,7 +966,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditMaskT1Path.setVisible(True)
             self.ui.ButtonSearchT1Mask.setVisible(True)
 
-            self.ui.label_7.setVisible(False)
+            self.ui.labelModelFolder.setVisible(False)
             self.ui.ButtonSearchModel1.setVisible(False)
             self.ui.lineEditModel1.setVisible(False)
 
@@ -1032,7 +1032,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.stackedWidget.setCurrentIndex(self.ActualMeth.stacked_page)
             self.type = self.ActualMeth.scan_type
             if self.ActualMeth.model_label is not None:
-                self.ui.label_7.setText(self.ActualMeth.model_label)
+                self.ui.labelModelFolder.setText(self.ActualMeth.model_label)
 
         getattr(self, config["switch_mode"])(mode)
 

@@ -85,7 +85,7 @@ class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
     stacked_page = 0
     #: ce que le widget range dans `self.type`
     scan_type = "CBCT"
-    #: texte de `label_7`, ou None pour laisser celui qui s'y trouve
+    #: texte de `labelModelFolder`, ou None pour laisser celui qui s'y trouve
     model_label = None
     # Les dossiers d'entree dependent de l'outil : un seul pour ASO et ALI, deux
     # timepoints pour AREG et MRI2CBCT, patients et matrices pour AutoMatrix. La

@@ -28,7 +28,7 @@ class Method(ADTMethod, LandmarkMethod, CheckboxMethod, DicomMethod):
     scan_type = "CBCT"
     #: la liste deroulante du type d'entree CBCT est-elle montree
     shows_cbct_input = True
-    #: texte de `label_7`, ou None pour laisser celui qui s'y trouve
+    #: texte de `labelModelFolder`, ou None pour laisser celui qui s'y trouve
     model_label = None
     #: la methode travaille-t-elle a partir d'un modele de segmentation
     #: (ce que testait `isinstance(meth, (Auto_IOS, Semi_IOS))`)

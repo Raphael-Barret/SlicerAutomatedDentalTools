@@ -8,11 +8,11 @@ logger = get_logger("ASO_IOS_Transformation")
 
 
 def RotateTransform(surf, transform):
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetTransform(transform)
-    transformFilter.SetInputData(surf)
-    transformFilter.Update()
-    return transformFilter.GetOutput()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetTransform(transform)
+    transform_filter.SetInputData(surf)
+    transform_filter.Update()
+    return transform_filter.GetOutput()
 
 
 def TranslationDict(source, transform):

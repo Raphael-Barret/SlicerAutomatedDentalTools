@@ -199,14 +199,14 @@ def _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower
         try:
             logger.debug(f"Processing upper T1 surface")
             name_t1 = os.path.basename(dataset.getUpperPath(idx, "T1"))
-            surf_T1 = dataset.getUpperSurf(idx, "T1")
+            surf_t1 = dataset.getUpperSurf(idx, "T1")
 
-            if surf_T1 is None:
+            if surf_t1 is None:
                 logger.warning(f"Upper T1 surface is None, skipping")
                 raise ValueError("Upper T1 surface not found")
 
-            surf_T1 = Patched(dataset[idx, "T1"], surf_T1)
-            WriteSurf(surf_T1, args.output, name_t1, args.suffix)
+            surf_t1 = Patched(dataset[idx, "T1"], surf_t1)
+            WriteSurf(surf_t1, args.output, name_t1, args.suffix)
             logger.debug(f"Saved upper T1 surface")
         except Exception as e:
             logger.error(f"Error processing upper T1 surface: {e}")
@@ -223,13 +223,13 @@ def _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower
         try:
             logger.debug(f"Processing upper T2 surface")
             name_t2 = os.path.basename(dataset.getUpperPath(idx, "T2"))
-            surf_T2 = dataset.getUpperSurf(idx, "T2")
+            surf_t2 = dataset.getUpperSurf(idx, "T2")
 
-            if surf_T2 is None:
+            if surf_t2 is None:
                 logger.warning(f"Upper T2 surface is None, skipping")
                 raise ValueError("Upper T2 surface not found")
 
-            surf_T2 = Patched(dataset[idx, "T2"], surf_T2)
+            surf_t2 = Patched(dataset[idx, "T2"], surf_t2)
             logger.debug(f"Predicted upper T2 surface")
         except Exception as e:
             logger.error(f"Error processing upper T2 surface: {e}")
@@ -245,7 +245,7 @@ def _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower
         # ===== RUN ICP REGISTRATION =====
         try:
             logger.debug(f"Running ICP registration")
-            output_icp = icp.run(surf_T2, surf_T1)
+            output_icp = icp.run(surf_t2, surf_t1)
             logger.info(f"ICP registration completed")
         except Exception as e:
             logger.error(f"Error running ICP registration: {e}")
@@ -270,23 +270,23 @@ def _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower
                 patient_id = name_t2.split("_T2")[0]
                 patient_id_short = patient_id.split("_")[0] if "_" in patient_id else patient_id
 
-                aso_tfm_path_T1 = os.path.join(args.T1, f"{patient_id_short}_SegOr.tfm")
-                aso_tfm_path_T2 = os.path.join(args.T2, f"{patient_id_short}_SegOr.tfm")
-                out_tfm_T1 = os.path.join(args.output, f"{patient_id_short}_T1_SegOr.tfm")
+                aso_tfm_path_t1 = os.path.join(args.T1, f"{patient_id_short}_SegOr.tfm")
+                aso_tfm_path_t2 = os.path.join(args.T2, f"{patient_id_short}_SegOr.tfm")
+                out_tfm_t1 = os.path.join(args.output, f"{patient_id_short}_T1_SegOr.tfm")
 
                 # Copy T1 matrix
                 try:
-                    if os.path.exists(aso_tfm_path_T1):
-                        shutil.copy(aso_tfm_path_T1, out_tfm_T1)
-                        logger.debug(f"Saved T1 matrix: {out_tfm_T1}")
+                    if os.path.exists(aso_tfm_path_t1):
+                        shutil.copy(aso_tfm_path_t1, out_tfm_t1)
+                        logger.debug(f"Saved T1 matrix: {out_tfm_t1}")
                     else:
-                        logger.warning(f"T1 tfm file not found at {aso_tfm_path_T1}")
+                        logger.warning(f"T1 tfm file not found at {aso_tfm_path_t1}")
                 except Exception as e:
                     logger.error(f"Error copying T1 matrix: {e}")
 
                 # Save T2 matrix
                 try:
-                    saveMatrixAsTfm(output_icp["matrix"], aso_tfm_path_T2, args.output, patient_id_short, args.suffix, args.areg_mode)
+                    saveMatrixAsTfm(output_icp["matrix"], aso_tfm_path_t2, args.output, patient_id_short, args.suffix, args.areg_mode)
                     logger.debug(f"Saved T2 transformation matrix")
                 except Exception as e:
                     logger.error(f"Error saving T2 matrix: {e}")
@@ -360,9 +360,9 @@ def main(args):
         # ===== REGISTRATION SETUP =====
         try:
             logger.debug("Initializing registration method (vtkICP)")
-            Method = [vtkICP()]
+            method = [vtkICP()]
             option = vtkMeshTeeth(list_teeth=[1], property="Butterfly")
-            icp = ICP(Method, option=option)
+            icp = ICP(method, option=option)
             logger.debug("Registration method initialized")
         except Exception as e:
             logger.error(f"Error initializing registration method: {e}")
@@ -397,7 +397,7 @@ def main(args):
             # pytorch_lightning behind it, and the MGL branch above has
             # already returned without ever needing them.
             from AREG_IOS_utils import PredPatch
-            Patched = PredPatch(args.model)
+            patched = PredPatch(args.model)
             logger.debug("Prediction model loaded")
         except Exception as e:
             logger.error(f"Error loading prediction model: {e}")
@@ -419,7 +419,7 @@ def main(args):
         failed_samples = []
 
         for idx in range(len(dataset)):
-            processed_samples = _register_one_sample(Patched, args, dataset, failed_samples, icp, idx, lower, processed_samples)
+            processed_samples = _register_one_sample(patched, args, dataset, failed_samples, icp, idx, lower, processed_samples)
 
         # ===== FINAL REPORT =====
         try:

@@ -18,8 +18,8 @@ logger = get_logger("MRI2CBCT_TMJ_Crop")
 class TMJ_CROP_MRI2CBCT(Method):
     def __init__(self, widget):
         super().__init__(widget)
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        self.documents = qt.QStandardPaths.writableLocation(documents_location)
 
     def getGPUUsage(self):
         if platform.system() == "Darwin":

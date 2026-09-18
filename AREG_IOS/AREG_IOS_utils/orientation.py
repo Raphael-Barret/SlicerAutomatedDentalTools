@@ -19,10 +19,10 @@ def orientation(source, target, landmarks):
     middle2 = landmarks[2]
     right = landmarks[3]
 
-    meanTeeth = vtkMeanTeeth(
+    mean_teeth = vtkMeanTeeth(
         [int(left), int(middle1), int(middle2), int(right)], property="Universal_ID"
     )
-    mean_source = meanTeeth(source)
+    mean_source = mean_teeth(source)
 
     left_source, middle1_source, middle2_source, right_source = (
         mean_source[left],

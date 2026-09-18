@@ -22,9 +22,9 @@ def drawPatch(outlinePoints: list,polydata,mid,index:int):
 
     P = (1-T)*P0 + T*P1
 
-    Pshape= P.shape
+    pshape= P.shape
 
-    P = P.view(Pshape[0]*Pshape[1],3)
+    P = P.view(pshape[0]*pshape[1],3)
 
          
 
@@ -33,16 +33,16 @@ def drawPatch(outlinePoints: list,polydata,mid,index:int):
 
     dist = torch.cdist(P,V)
     arg_outline = torch.argwhere(dist < radius)[:,1]
-    V_label = torch.zeros((V.shape[0])).cuda()
-    V_label[arg_outline] = 1
+    v_label = torch.zeros((V.shape[0])).cuda()
+    v_label[arg_outline] = 1
 
     mid = torch.tensor(mid).unsqueeze(0).cuda()
     dist_mid_vertex = torch.cdist(mid,V)
     arg_midpoint_min = torch.argmin(dist_mid_vertex)
-    V_label = Dilation(arg_midpoint_min,F,V_label,polydata)
+    v_label = Dilation(arg_midpoint_min,F,v_label,polydata)
 
-    V_labels_prediction = numpy_to_vtk(V_label.cpu().numpy())
-    V_labels_prediction.SetName(f'Butterfly{index}')
+    v_labels_prediction = numpy_to_vtk(v_label.cpu().numpy())
+    v_labels_prediction.SetName(f'Butterfly{index}')
 
-    polydata.GetPointData().AddArray(V_labels_prediction)
+    polydata.GetPointData().AddArray(v_labels_prediction)
     

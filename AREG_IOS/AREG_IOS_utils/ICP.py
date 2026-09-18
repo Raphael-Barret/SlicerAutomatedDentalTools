@@ -95,9 +95,9 @@ class vtkICP:
         icp.Update()
 
         # ============ apply ICP transform ==============
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(source)
-        transformFilter.SetTransform(icp)
-        transformFilter.Update()
+        transform_filter = vtk.vtkTransformPolyDataFilter()
+        transform_filter.SetInputData(source)
+        transform_filter.SetTransform(icp)
+        transform_filter.Update()
 
         return source, VTKMatrixToNumpy(icp.GetMatrix())

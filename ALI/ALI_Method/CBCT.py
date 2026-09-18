@@ -139,7 +139,7 @@ class Auto_CBCT(Method):
         }
 
     def TranslateModels(self, listeModels, mask=False):
-        dicTranslate = {
+        dic_translate = {
             "Models": {
                 "Mandible": "MAND",
                 "Maxilla": "MAX",
@@ -161,14 +161,14 @@ class Auto_CBCT(Method):
         for i, model in enumerate(listeModels):
             if i < len(listeModels) - 1:
                 if mask:
-                    translate += dicTranslate["Masks"][model] + " "
+                    translate += dic_translate["Masks"][model] + " "
                 else:
-                    translate += dicTranslate["Models"][model] + " "
+                    translate += dic_translate["Models"][model] + " "
             else:
                 if mask:
-                    translate += dicTranslate["Masks"][model]
+                    translate += dic_translate["Masks"][model]
                 else:
-                    translate += dicTranslate["Models"][model]
+                    translate += dic_translate["Models"][model]
 
         return translate
 
@@ -205,7 +205,7 @@ class Auto_CBCT(Method):
         logger.debug(f"Processing parameters: {parameter_ali}")
         logger.debug("=" * 70)
         
-        ALIProcess = slicer.modules.ali_cbct
+        ali_process = slicer.modules.ali_cbct
         
         number_scan = self.NumberScan(
             request.input_folder
@@ -217,7 +217,7 @@ class Auto_CBCT(Method):
         
         list_process = [
             {
-                "Process": ALIProcess,
+                "Process": ali_process,
                 "Parameter": parameter_ali,
                 "Module": "ALI_CBCT",
                 "Display": DisplayALICBCT(

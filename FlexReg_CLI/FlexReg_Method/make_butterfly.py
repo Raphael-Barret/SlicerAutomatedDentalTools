@@ -137,21 +137,21 @@ def butterflyPatch(surf,
     arg_bezier_right = compute_bezier_patch(landmark_posterior_right, landmark_middle_posterior, landmark_anterior_right, V, radius)
     arg_bezier_left = compute_bezier_patch(landmark_posterior_left, landmark_middle_posterior, landmark_anterior_left, V, radius)
 
-    V_label = torch.zeros((V.shape[0]))
-    V_label[arg_haut_seg] = 1
-    V_label[arg_bas_seg] = 1
-    V_label[arg_bezier_right] = 1
-    V_label[arg_bezier_left] = 1
+    v_label = torch.zeros((V.shape[0]))
+    v_label[arg_haut_seg] = 1
+    v_label[arg_bas_seg] = 1
+    v_label[arg_bezier_right] = 1
+    v_label[arg_bezier_left] = 1
 
     dist = torch.cdist(torch.tensor(middle[:2]).unsqueeze(0),V[:,:2]).squeeze()
     middle_arg = torch.argmin(dist)
-    V_label = Dilation(middle_arg,F,V_label,surf_tmp)
+    v_label = Dilation(middle_arg,F,v_label,surf_tmp)
 
 
 
-    V_labels_prediction = numpy_to_vtk(V_label.cpu().numpy())
-    V_labels_prediction.SetName(f'Butterfly{index}')
+    v_labels_prediction = numpy_to_vtk(v_label.cpu().numpy())
+    v_labels_prediction.SetName(f'Butterfly{index}')
 
 
 
-    surf.GetPointData().AddArray(V_labels_prediction)
+    surf.GetPointData().AddArray(v_labels_prediction)

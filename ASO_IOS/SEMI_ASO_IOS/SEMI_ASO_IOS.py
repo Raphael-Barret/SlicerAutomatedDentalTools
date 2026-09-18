@@ -334,11 +334,11 @@ def _configure_jaws(args):
 
 def _build_icp_methods(dic_landmark):
     """Une methode ICP par machoire, reglee sur ses reperes."""
-    Method = [InitIcp(), vtkICP()]
+    method = [InitIcp(), vtkICP()]
     option_upper = SelectKey(dic_landmark["Upper"])
     option_lower = SelectKey(dic_landmark["Lower"])
-    icp_upper = ICP(Method, option=option_upper)
-    icp_lower = ICP(Method, option=option_lower)
+    icp_upper = ICP(method, option=option_upper)
+    icp_lower = ICP(method, option=option_lower)
     icp = {"Lower": icp_lower, "Upper": icp_upper}
     logger.debug("ICP methods initialized successfully")
     logger.debug(f"Landmark dictionary: {dic_landmark}")

@@ -30,8 +30,8 @@ class Semi_CBCT(Method):
     scan_type = "CBCT"
     def __init__(self, widget):
         super().__init__(widget)
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        documents = qt.QStandardPaths.writableLocation(documents_location)
         self.tempAMASSS_folder = os.path.join(
             documents, slicer.app.applicationName + "_temp_AMASSS"
         )
@@ -209,7 +209,7 @@ class Semi_CBCT(Method):
         }
 
     def TranslateModels(self, listeModels, mask=False):
-        dicTranslate = {
+        dic_translate = {
             "Models": {
                 "Mandible": "MAND",
                 "Maxilla": "MAX",
@@ -231,14 +231,14 @@ class Semi_CBCT(Method):
         for i, model in enumerate(listeModels):
             if i < len(listeModels) - 1:
                 if mask:
-                    translate += dicTranslate["Masks"][model] + ","
+                    translate += dic_translate["Masks"][model] + ","
                 else:
-                    translate += dicTranslate["Models"][model] + ","
+                    translate += dic_translate["Models"][model] + ","
             else:
                 if mask:
-                    translate += dicTranslate["Masks"][model]
+                    translate += dic_translate["Masks"][model]
                 else:
-                    translate += dicTranslate["Models"][model]
+                    translate += dic_translate["Models"][model]
 
         return translate
 
@@ -271,10 +271,10 @@ class Semi_CBCT(Method):
 
         nb_scan = self.NumberScan(request.input_t1_folder, request.input_t2_folder)
 
-        centered_T2 = request.input_t2_folder + "_Center"
+        centered_t2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
             "input": request.input_t2_folder,
-            "output_folder": centered_T2,
+            "output_folder": centered_t2,
             "model_folder": os.path.join(
                 request.slicerDownload, "Models", "Orientation", "PreASO"
             ),
@@ -285,37 +285,37 @@ class Semi_CBCT(Method):
         
         logger.info(f"PRE_ASO param: {parameter_pre_aso}\n")
 
-        PreOrientProcess = slicer.modules.pre_aso_cbct
+        pre_orient_process = slicer.modules.pre_aso_cbct
         list_process = [
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "Centering T2",
                 "ReviewId": "cbct_centered_t2",
-                "ReviewFolder": centered_T2,
+                "ReviewFolder": centered_t2,
                 "Display": DisplayASOCBCT(nb_scan),
             }
         ]
 
         # AREG CBCT PROCESS
-        AREGProcess = slicer.modules.areg_cbct
-        AReg_temp_folder = slicer.util.tempDirectory()
+        areg_process = slicer.modules.areg_cbct
+        a_reg_temp_folder = slicer.util.tempDirectory()
         for i, reg in enumerate(reg_struct.split(",")):
             parameter_areg_cbct = {
                 "t1_folder": request.input_t1_folder,
-                "t2_folder": centered_T2,
+                "t2_folder": centered_t2,
                 "reg_type": reg,
                 "output_folder": request.output_folder,
                 "add_name": request.add_in_namefile,
                 "DCMInput": False,
                 "SegmentationLabel": request.LabelSeg,
-                "temp_folder": AReg_temp_folder,
+                "temp_folder": a_reg_temp_folder,
                 "ApproxReg": request.ApproxStep,
                 "mask_folder_t1": request.input_t1_mask,
             }
             list_process.append(
                 {
-                    "Process": AREGProcess,
+                    "Process": areg_process,
                     "Parameter": parameter_areg_cbct,
                     "Module": "AREG_CBCT for {}".format(full_reg_struct[i]),
                     "ReviewId": "cbct_registration",
@@ -334,7 +334,7 @@ class Semi_CBCT(Method):
             logger.info(f"AREG_CBCT param {full_reg_struct[i]}: {parameter_areg_cbct}\n")
 
         # AMASSS PROCESS - SEGMENTATION
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
             "inputVolume": request.input_t1_folder,
             "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
@@ -368,7 +368,7 @@ class Semi_CBCT(Method):
         if len(full_seg_struct) > 0:
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t1,
                     "Module": "AMASSS_CBCT Segmentation of T1",
                     "Display": DisplayAMASSS(nb_scan, len(full_seg_struct)),
@@ -376,7 +376,7 @@ class Semi_CBCT(Method):
             )
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation of T2",
                     "ReviewId": "cbct_segmentation",
@@ -466,10 +466,10 @@ class Auto_CBCT(Semi_CBCT):
             "SegmentInput": False,
             "DCMInput": False,
         }
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         list_process = [
             {
-                "Process": AMASSSProcess,
+                "Process": amasss_process,
                 "Parameter": parameter_amasss_mask_t1,
                 "Module": "AMASSS_CBCT - Masks Generation for T1",
                 "ReviewId": "cbct_masks",
@@ -481,10 +481,10 @@ class Auto_CBCT(Semi_CBCT):
         ]
 
         logger.info(f'AMASSS Mask Parameters: {parameter_amasss_mask_t1}\n')
-        centered_T2 = request.input_t2_folder + "_Center"
+        centered_t2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
             "input": request.input_t2_folder,
-            "output_folder": centered_T2,
+            "output_folder": centered_t2,
             "model_folder": os.path.join(
                 request.slicerDownload, "Models", "Orientation", "PreASO"
             ),
@@ -493,14 +493,14 @@ class Auto_CBCT(Semi_CBCT):
             "DCMInput": request.is_dicom_input,
         }
 
-        PreOrientProcess = slicer.modules.pre_aso_cbct
+        pre_orient_process = slicer.modules.pre_aso_cbct
         list_process.append(
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "Centering T2",
                 "ReviewId": "cbct_centered_t2",
-                "ReviewFolder": centered_T2,
+                "ReviewFolder": centered_t2,
                 "Display": DisplayASOCBCT(
                     nb_scan
                 ),
@@ -511,24 +511,24 @@ class Auto_CBCT(Semi_CBCT):
         full_reg_struct = list_struct["Regions of Reference for Registration"]
         reg_struct = self.TranslateModels(full_reg_struct, False)
 
-        AREGProcess = slicer.modules.areg_cbct
-        AReg_temp_folder = slicer.util.tempDirectory()
+        areg_process = slicer.modules.areg_cbct
+        a_reg_temp_folder = slicer.util.tempDirectory()
         for i, reg in enumerate(reg_struct.split(",")):
             parameter_areg_cbct = {
                 "t1_folder": request.input_t1_folder,
-                "t2_folder": centered_T2,
+                "t2_folder": centered_t2,
                 "reg_type": reg,
                 "output_folder": request.output_folder,
                 "add_name": request.add_in_namefile,
                 "DCMInput": False,
                 "SegmentationLabel": "0",
-                "temp_folder": AReg_temp_folder,
+                "temp_folder": a_reg_temp_folder,
                 "ApproxReg": request.ApproxStep,
                 "mask_folder_t1": "None",
             }
             list_process.append(
                 {
-                    "Process": AREGProcess,
+                    "Process": areg_process,
                     "Parameter": parameter_areg_cbct,
                     "Module": "AREG_CBCT for {}".format(full_reg_struct[i]),
                     "ReviewId": "cbct_registration",
@@ -551,7 +551,7 @@ class Auto_CBCT(Semi_CBCT):
         seg_struct = self.TranslateModels(full_seg_struct, False)
 
         # AMASSS PROCESS - SEGMENTATIONS
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
             "inputVolume": request.input_t1_folder,
             "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
@@ -586,7 +586,7 @@ class Auto_CBCT(Semi_CBCT):
         if len(full_seg_struct) > 0:
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t1,
                     "Module": "AMASSS_CBCT Segmentation for T1",
                     "Display": DisplayAMASSS(
@@ -596,7 +596,7 @@ class Auto_CBCT(Semi_CBCT):
             )
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",
@@ -736,21 +736,21 @@ class Or_Auto_CBCT(Semi_CBCT):
         # PRE ASO CBCT
         temp_folder = slicer.util.tempDirectory()
         time.sleep(0.01)
-        tempPREASO_folder = slicer.util.tempDirectory()
+        temp_preaso_folder = slicer.util.tempDirectory()
         parameter_pre_aso = {
             "input": request.input_t1_folder,
             "output_folder": temp_folder,  # kwargs['input_folder'],
             "model_folder": os.path.join(request.model_folder_2, "PreASO"),
             "SmallFOV": False,
-            "temp_folder": tempPREASO_folder,
+            "temp_folder": temp_preaso_folder,
             "DCMInput": request.is_dicom_input,
         }
 
-        PreOrientProcess = slicer.modules.pre_aso_cbct
+        pre_orient_process = slicer.modules.pre_aso_cbct
 
-        OrientationReference = request.OrientReference
+        orientation_reference = request.OrientReference
 
-        list_lmrk_str, nb_landmark = self.ReferenceLandmarks(OrientationReference)
+        list_lmrk_str, nb_landmark = self.ReferenceLandmarks(orientation_reference)
 
         logger.info(f"PRE_ASO param: {parameter_pre_aso}\n")
 
@@ -767,20 +767,20 @@ class Or_Auto_CBCT(Semi_CBCT):
             "agent_FOV": "[64,64,64]",
             "spawn_radius": "10",
         }
-        ALIProcess = slicer.modules.ali_cbct
+        ali_process = slicer.modules.ali_cbct
 
         logger.info(f"ALI param: {parameter_ali}\n")
         
         # SEMI ASO CBCT
-        ASO_T1_Oriented = request.input_t1_folder + "Or"
+        aso_t1_oriented = request.input_t1_folder + "Or"
         parameter_semi_aso = {
             "input": temp_folder,  # kwargs['input_folder'],
-            "gold_folder": os.path.join(request.model_folder_2, OrientationReference),
-            "output_folder": ASO_T1_Oriented,
+            "gold_folder": os.path.join(request.model_folder_2, orientation_reference),
+            "output_folder": aso_t1_oriented,
             "add_inname": "Or",
             "list_landmark": list_lmrk_str,
         }
-        OrientProcess = slicer.modules.semi_aso_cbct
+        orient_process = slicer.modules.semi_aso_cbct
 
         logger.info(f"SEMI_ASO param: {parameter_semi_aso}\n")
 
@@ -793,13 +793,13 @@ class Or_Auto_CBCT(Semi_CBCT):
         )
         list_process = [
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "PRE_ASO_CBCT",
                 "Display": DisplayASOCBCT(nb_scan),
             },
             {
-                "Process": ALIProcess,
+                "Process": ali_process,
                 "Parameter": parameter_ali,
                 "Module": "ALI_CBCT",
                 "ReviewId": "cbct_landmarks_orientation",
@@ -808,11 +808,11 @@ class Or_Auto_CBCT(Semi_CBCT):
                 "Display": DisplayALICBCT(nb_landmark, nb_scan),
             },
             {
-                "Process": OrientProcess,
+                "Process": orient_process,
                 "Parameter": parameter_semi_aso,
                 "Module": "SEMI_ASO_CBCT",
                 "ReviewId": "cbct_oriented",
-                "ReviewFolder": ASO_T1_Oriented,
+                "ReviewFolder": aso_t1_oriented,
                 "Display": DisplayASOCBCT(nb_scan),
             },
         ]
@@ -825,13 +825,13 @@ class Or_Auto_CBCT(Semi_CBCT):
 
         # AMASSS PROCESS - MASK SEGMENTATIONS
         parameter_amasss_mask_t1 = {
-            "inputVolume": ASO_T1_Oriented,
+            "inputVolume": aso_t1_oriented,
             "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": reg_struct,
             "merge": "SEPARATE",
             "genVtk": False,
             "save_in_folder": False,
-            "output_folder": ASO_T1_Oriented,
+            "output_folder": aso_t1_oriented,
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -839,22 +839,22 @@ class Or_Auto_CBCT(Semi_CBCT):
             "DCMInput": False,
         }
         logger.info(f"AMASSS Mask Parameters: {parameter_amasss_mask_t1}\n")
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         list_process += [
             {
-                "Process": AMASSSProcess,
+                "Process": amasss_process,
                 "Parameter": parameter_amasss_mask_t1,
                 "Module": "AMASSS_CBCT - Masks Generation for T1",
                 "ReviewId": "cbct_masks",
-                "ReviewFolder": ASO_T1_Oriented,
+                "ReviewFolder": aso_t1_oriented,
                 "Display": DisplayAMASSS(nb_scan, len(full_reg_struct)),
             }
         ]
 
-        centered_T2 = request.input_t2_folder + "_Center"
+        centered_t2 = request.input_t2_folder + "_Center"
         parameter_pre_aso = {
             "input": request.input_t2_folder,
-            "output_folder": centered_T2,
+            "output_folder": centered_t2,
             "model_folder": os.path.join(request.model_folder_2, "PreASO"),
             "SmallFOV": False,
             "temp_folder": "../",
@@ -862,14 +862,14 @@ class Or_Auto_CBCT(Semi_CBCT):
         }
         logger.info(f"Centering T2 Parameters: {parameter_pre_aso}\n")
 
-        PreOrientProcess = slicer.modules.pre_aso_cbct
+        pre_orient_process = slicer.modules.pre_aso_cbct
         list_process.append(
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "Centering T2",
                 "ReviewId": "cbct_centered_t2",
-                "ReviewFolder": centered_T2,
+                "ReviewFolder": centered_t2,
                 "Display": DisplayASOCBCT(nb_scan),
             }
         )
@@ -878,24 +878,24 @@ class Or_Auto_CBCT(Semi_CBCT):
         full_reg_struct = list_struct["Regions of Reference for Registration"]
         reg_struct = self.TranslateModels(full_reg_struct, False)
 
-        AREGProcess = slicer.modules.areg_cbct
-        AReg_temp_folder = slicer.util.tempDirectory()
+        areg_process = slicer.modules.areg_cbct
+        a_reg_temp_folder = slicer.util.tempDirectory()
         for i, reg in enumerate(reg_struct.split(",")):
             parameter_areg_cbct = {
-                "t1_folder": ASO_T1_Oriented,
-                "t2_folder": centered_T2,
+                "t1_folder": aso_t1_oriented,
+                "t2_folder": centered_t2,
                 "reg_type": reg,
                 "output_folder": request.output_folder,
                 "add_name": request.add_in_namefile,
                 "DCMInput": request.is_dicom_input,
                 "SegmentationLabel": "0",
-                "temp_folder": AReg_temp_folder,
+                "temp_folder": a_reg_temp_folder,
                 "ApproxReg": request.ApproxStep,
                 "mask_folder_t1": "None",
             }
             list_process.append(
                 {
-                    "Process": AREGProcess,
+                    "Process": areg_process,
                     "Parameter": parameter_areg_cbct,
                     "Module": "AREG_CBCT for {}".format(full_reg_struct[i]),
                     "ReviewId": "cbct_registration",
@@ -907,7 +907,7 @@ class Or_Auto_CBCT(Semi_CBCT):
                     "ReviewFolder": os.path.join(
                         request.output_folder, full_reg_struct[i]
                     ),
-                    "ReviewReferenceFolder": ASO_T1_Oriented,
+                    "ReviewReferenceFolder": aso_t1_oriented,
                     "Display": DisplayAREGCBCT(nb_scan),
                 }
             )
@@ -917,9 +917,9 @@ class Or_Auto_CBCT(Semi_CBCT):
         seg_struct = self.TranslateModels(full_seg_struct, False)
 
         # AMASSS PROCESS - SEGMENTATIONS
-        AMASSSProcess = slicer.modules.amasss_cli
+        amasss_process = slicer.modules.amasss_cli
         parameter_amasss_seg_t1 = {
-            "inputVolume": ASO_T1_Oriented,
+            "inputVolume": aso_t1_oriented,
             "modelDirectory": os.path.join(request.model_folder_1, "AMASSS_Models"),
             "skullStructure": seg_struct,
             "merge": "MERGE" if request.merge_seg else "SEPARATE",
@@ -951,7 +951,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         if len(full_seg_struct) > 0:
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t1,
                     "Module": "AMASSS_CBCT Segmentation for T1",
                     "Display": DisplayAMASSS(nb_scan, len(full_seg_struct)),
@@ -959,7 +959,7 @@ class Or_Auto_CBCT(Semi_CBCT):
             )
             list_process.append(
                 {
-                    "Process": AMASSSProcess,
+                    "Process": amasss_process,
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",

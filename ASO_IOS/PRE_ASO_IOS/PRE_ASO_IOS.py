@@ -324,11 +324,11 @@ def _register_one_file(args, dic_teeth, error_details, failed_indices, file, gol
 
 def _build_icp_methods(dic_teeth):
     """Une methode ICP par machoire, reglee sur ses dents de reference."""
-    Method = [InitIcp(), vtkICP()]
+    method = [InitIcp(), vtkICP()]
     option_upper = vtkMeanTeeth(dic_teeth["Upper"],property="Universal_ID")
     option_lower = vtkMeanTeeth(dic_teeth["Lower"],property="Universal_ID")
-    icp_upper = ICP(Method, option=option_upper)
-    icp_lower = ICP(Method, option=option_lower)
+    icp_upper = ICP(method, option=option_upper)
+    icp_lower = ICP(method, option=option_lower)
     icp = {"Upper": icp_upper, "Lower": icp_lower}
     logger.debug("ICP methods initialized successfully")
     return icp

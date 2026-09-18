@@ -41,34 +41,34 @@ def _register_with_icp(args, modelNode):
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(args.path_reg)
     reader.Update()
-    modelNodeT1 = reader.GetOutput()
+    model_node_t1 = reader.GetOutput()
 
     # Transform the data to read it in coordinate RAS (like slicer)
     transform = vtk.vtkTransform()
     transform.Scale(-1, -1, 1)
 
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetInputData(modelNodeT1)
-    transformFilter.SetTransform(transform)
-    transformFilter.Update()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetInputData(model_node_t1)
+    transform_filter.SetTransform(transform)
+    transform_filter.Update()
 
-    modelNodeT1 = transformFilter.GetOutput()
+    model_node_t1 = transform_filter.GetOutput()
 
     if args.lower_arch != "None":
         reader = vtk.vtkPolyDataReader()
         reader.SetFileName(args.lower_arch)
         reader.Update()
-        modelNodeLowerArch = reader.GetOutput()
+        model_node_lower_arch = reader.GetOutput()
 
         transform = vtk.vtkTransform()
         transform.Scale(-1, -1, 1)
 
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(modelNodeLowerArch)
-        transformFilter.SetTransform(transform)
-        transformFilter.Update()
+        transform_filter = vtk.vtkTransformPolyDataFilter()
+        transform_filter.SetInputData(model_node_lower_arch)
+        transform_filter.SetTransform(transform)
+        transform_filter.Update()
 
-        modelNodeLowerArch = transformFilter.GetOutput()
+        model_node_lower_arch = transform_filter.GetOutput()
 
     # ICP
     methode = [vtkICP()]
@@ -78,7 +78,7 @@ def _register_with_icp(args, modelNode):
     logger.info(f"registering on the {patch_array} patch")
     option = vtkMeshTeeth(list_teeth=[1], property=patch_array)
     icp = ICP(methode, option=option)
-    output_icp = icp.run(modelNode, modelNodeT1)
+    output_icp = icp.run(modelNode, model_node_t1)
 
     matrix_array=output_icp["matrix"]
     logger.info(f"matrix output icp : {matrix_array}")
@@ -91,10 +91,10 @@ def _register_with_icp(args, modelNode):
     # Apply the matrix to register
     transform = vtk.vtkTransform()
     transform.SetMatrix(vtk_matrix)
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetInputData(modelNode)
-    transformFilter.SetTransform(transform)
-    transformFilter.Update()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetInputData(modelNode)
+    transform_filter.SetTransform(transform)
+    transform_filter.Update()
 
     # Save the registration matrix
     flip = np.diag([-1, -1, 1, 1])
@@ -110,21 +110,21 @@ def _register_with_icp(args, modelNode):
     sitk.WriteTransform(sitk_tfm, tfm_outpath)
     logger.info(f"Saved inverted matrix to: {tfm_outpath}")
 
-    modelNode = transformFilter.GetOutput()
+    modelNode = transform_filter.GetOutput()
     modelNode.Modified()
 
     if args.lower_arch != "None":
         transform = vtk.vtkTransform()
         transform.SetMatrix(vtk_matrix)
-        transformFilter = vtk.vtkTransformPolyDataFilter()
-        transformFilter.SetInputData(modelNodeLowerArch)
-        transformFilter.SetTransform(transform)
-        transformFilter.Update()
+        transform_filter = vtk.vtkTransformPolyDataFilter()
+        transform_filter.SetInputData(model_node_lower_arch)
+        transform_filter.SetTransform(transform)
+        transform_filter.Update()
 
-        modelNodeLowerArch = transformFilter.GetOutput()
-        modelNodeLowerArch.Modified()
-        modelNodeLowerArch.Modified()
-    return modelNode, modelNodeLowerArch
+        model_node_lower_arch = transform_filter.GetOutput()
+        model_node_lower_arch.Modified()
+        model_node_lower_arch.Modified()
+    return modelNode, model_node_lower_arch
 
 def _delete_patch(args, modelNode):
     """Retire un patch et renumerote ceux qui le suivent."""
@@ -221,42 +221,42 @@ def main(args):
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(args.lineedit)
     reader.Update()
-    modelNode = reader.GetOutput()
+    model_node = reader.GetOutput()
 
     # Transform the data to read it in coordinate RAS (like slicer)
     transform = vtk.vtkTransform()
     transform.Scale(-1, -1, 1)
 
-    transformFilter = vtk.vtkTransformPolyDataFilter()
-    transformFilter.SetInputData(modelNode)
-    transformFilter.SetTransform(transform)
-    transformFilter.Update()
+    transform_filter = vtk.vtkTransformPolyDataFilter()
+    transform_filter.SetInputData(model_node)
+    transform_filter.SetTransform(transform)
+    transform_filter.Update()
 
-    modelNode = transformFilter.GetOutput()
+    model_node = transform_filter.GetOutput()
    
 
     if args.type=="butterfly":
 
-        _apply_butterfly_patch(args, modelNode)
+        _apply_butterfly_patch(args, model_node)
     
     elif args.type=="curve":
         # Reading the data
-        _draw_curve_patch(args, modelNode)
+        _draw_curve_patch(args, model_node)
 
     elif args.type=="delete":
         # To delete the array it will rename all the array with a number > index and delete the last one
-        _delete_patch(args, modelNode)
+        _delete_patch(args, model_node)
 
     elif args.type in ("icp", "icp_mgl"):
         # Reading the T1 model to register
-        modelNode, modelNodeLowerArch = _register_with_icp(args, modelNode)
+        model_node, model_node_lower_arch = _register_with_icp(args, model_node)
         
        
 
         
 
     # Save the changement in modelNode
-    modelNode.Modified()
+    model_node.Modified()
 
     index = 1
     final_array = None
@@ -267,8 +267,8 @@ def main(args):
     while args.type != "icp_mgl":
         array_name = f"Butterfly{index}"
         
-        if modelNode.GetPointData().HasArray(array_name):
-            current_array = modelNode.GetPointData().GetArray(array_name)
+        if model_node.GetPointData().HasArray(array_name):
+            current_array = model_node.GetPointData().GetArray(array_name)
             current_tensor = torch.tensor(vtk_to_numpy(current_array)).to(torch.float32).cuda()
             
             if final_array is None:
@@ -282,28 +282,28 @@ def main(args):
 
     if args.type != "icp_mgl":
         if final_array is None:
-            num_points = modelNode.GetNumberOfPoints()
-            V_label = torch.zeros(num_points).to(torch.float32).cuda()
+            num_points = model_node.GetNumberOfPoints()
+            v_label = torch.zeros(num_points).to(torch.float32).cuda()
         else:
-            V_label = final_array
+            v_label = final_array
 
-        V_labels_prediction = numpy_to_vtk(V_label.cpu().numpy())
-        V_labels_prediction.SetName('Butterfly')
-        modelNode.GetPointData().AddArray(V_labels_prediction)
+        v_labels_prediction = numpy_to_vtk(v_label.cpu().numpy())
+        v_labels_prediction.SetName('Butterfly')
+        model_node.GetPointData().AddArray(v_labels_prediction)
 
 
     # Put back the data in the LPS coordinate
-    inverseTransform = vtk.vtkTransform()
-    inverseTransform.Scale(-1, -1, 1)
+    inverse_transform = vtk.vtkTransform()
+    inverse_transform.Scale(-1, -1, 1)
 
-    inverseTransformFilter = vtk.vtkTransformPolyDataFilter()
-    inverseTransformFilter.SetInputData(modelNode)
-    inverseTransformFilter.SetTransform(inverseTransform)
-    inverseTransformFilter.Update()
+    inverse_transform_filter = vtk.vtkTransformPolyDataFilter()
+    inverse_transform_filter.SetInputData(model_node)
+    inverse_transform_filter.SetTransform(inverse_transform)
+    inverse_transform_filter.Update()
 
-    modelNode = inverseTransformFilter.GetOutput()
+    model_node = inverse_transform_filter.GetOutput()
 
-    modelNode.Modified()
+    model_node.Modified()
 
     # Save the new file with the model
 
@@ -320,29 +320,29 @@ def main(args):
 
         writer.SetFileName(outpath.split('.vtk')[0].split('vtp')[0]+args.suffix+'.vtk')
 
-    writer.SetInputData(modelNode)
+    writer.SetInputData(model_node)
     writer.Write()
     
     if args.lower_arch != "None":
         # Put back the data in the LPS coordinate
-        inverseTransform = vtk.vtkTransform()
-        inverseTransform.Scale(-1, -1, 1)
+        inverse_transform = vtk.vtkTransform()
+        inverse_transform.Scale(-1, -1, 1)
 
-        inverseTransformFilter = vtk.vtkTransformPolyDataFilter()
-        inverseTransformFilter.SetInputData(modelNodeLowerArch)
-        inverseTransformFilter.SetTransform(inverseTransform)
-        inverseTransformFilter.Update()
+        inverse_transform_filter = vtk.vtkTransformPolyDataFilter()
+        inverse_transform_filter.SetInputData(model_node_lower_arch)
+        inverse_transform_filter.SetTransform(inverse_transform)
+        inverse_transform_filter.Update()
 
-        modelNodeLowerArch = inverseTransformFilter.GetOutput()
+        model_node_lower_arch = inverse_transform_filter.GetOutput()
 
-        modelNodeLowerArch.Modified()
+        model_node_lower_arch.Modified()
         
         outpath = args.lower_arch.replace(os.path.dirname(args.lower_arch),args.path_output)
         if not os.path.exists(os.path.dirname(outpath)):
             os.makedirs(os.path.dirname(outpath))
 
         writer.SetFileName(outpath.split('.vtk')[0].split('vtp')[0]+args.suffix+'.vtk')
-        writer.SetInputData(modelNodeLowerArch)
+        writer.SetInputData(model_node_lower_arch)
         writer.Write()
 
 

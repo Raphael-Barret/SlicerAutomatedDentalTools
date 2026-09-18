@@ -74,10 +74,10 @@ class CLICWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # a conda that is not there. The branch already in the 5.12 release keys the
         # path per installation and guards it with executableExists(), which makes
         # this dead weight - drop it once the nightly carries that version.
-        original_getCondaExecutable = self.conda.getCondaExecutable
+        original_get_conda_executable = self.conda.getCondaExecutable
 
         def fixed_getCondaExecutable():
-            path = original_getCondaExecutable()
+            path = original_get_conda_executable()
             logger.debug(f"[DEBUG] original getCondaExecutable returned: {path!r}")
             
             # Fix duplicate /bin/bin

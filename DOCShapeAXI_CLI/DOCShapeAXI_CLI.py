@@ -161,9 +161,9 @@ def saxi_gradcam(args, out_model_path):
     F = F.to(args.device)
     CN = CN.to(args.device)
     
-    X_mesh = model.create_mesh(V, F, CN)
-    X_pc = model.sample_points_from_meshes(X_mesh, model.hparams.sample_levels[0])  ## mhafb
-    X_views, PF = model.render(X_mesh)
+    x_mesh = model.create_mesh(V, F, CN)
+    x_pc = model.sample_points_from_meshes(x_mesh, model.hparams.sample_levels[0])  ## mhafb
+    x_views, PF = model.render(x_mesh)
 
     surf = test_ds.getSurf(idx)
     surf_path = test_ds.getSurfPath(idx)
@@ -172,7 +172,7 @@ def saxi_gradcam(args, out_model_path):
     for class_idx in range(args.num_classes):
       if args.num_classes > 1:
         args.target_class = class_idx
-      mv_att = mv_cam.attribute(inputs=(X_pc,X_views), target=class_idx,attr_dim_summation=False)
+      mv_att = mv_cam.attribute(inputs=(x_pc,x_views), target=class_idx,attr_dim_summation=False)
 
       mv_att = mv_att.sum(dim=1).cpu().detach() ## LayerIntegratedGradients
 
@@ -223,11 +223,11 @@ def saxi_predict(args,out_model_path):
         F = F.to(args.device)
         CN = CN.to(args.device)
 
-        X_mesh = model.create_mesh(V, F, CN)
-        X_pc = model.sample_points_from_meshes(X_mesh, model.hparams.sample_levels[0])
-        X_views, X_PF = model.render(X_mesh)
+        x_mesh = model.create_mesh(V, F, CN)
+        x_pc = model.sample_points_from_meshes(x_mesh, model.hparams.sample_levels[0])
+        x_views, X_PF = model.render(x_mesh)
 
-        x = model(X_pc, X_views)
+        x = model(x_pc, x_views)
         
         if args.nn == 'SaxiMHAFBClassification': # no argmax for regression
           x = softmax(x).detach()

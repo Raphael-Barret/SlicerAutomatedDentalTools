@@ -535,7 +535,7 @@ def VoxelBasedRegistration(
         # ===== PERFORM REGISTRATION =====
         try:
             logger.debug("Starting Elastix registration")
-            TransformObj_Fine = ElastixReg(
+            transform_obj_fine = ElastixReg(
                 fixed_image_masked, moving_image, initial_transform=None
             )
             logger.info("Elastix registration completed")
@@ -546,8 +546,8 @@ def VoxelBasedRegistration(
         # ===== EXTRACT TRANSFORMATION =====
         try:
             logger.debug("Extracting transformation matrix")
-            transforms_Fine = MatrixRetrieval(TransformObj_Fine)
-            Transforms = [transforms_Fine]
+            transforms_fine = MatrixRetrieval(transform_obj_fine)
+            transforms = [transforms_fine]
             logger.debug("Transformation matrix extracted")
         except Exception as e:
             logger.error(f"Error extracting transformation matrix: {e}")
@@ -556,7 +556,7 @@ def VoxelBasedRegistration(
         # ===== COMPUTE FINAL MATRIX =====
         try:
             logger.debug("Computing final transformation matrix")
-            transform = ComputeFinalMatrix(Transforms)
+            transform = ComputeFinalMatrix(transforms)
             logger.info("Final transformation matrix computed")
         except Exception as e:
             logger.error(f"Error computing final transformation matrix: {e}")
@@ -710,17 +710,17 @@ def convertdicom2nifti(input_folder, output_folder=None):
 
 def MatrixRetrieval(TransformParameterMapObject):
     """Retrieve the matrix from the transform parameter map"""
-    ParameterMap = TransformParameterMapObject.GetParameterMap(0)
+    parameter_map = TransformParameterMapObject.GetParameterMap(0)
 
-    if ParameterMap["Transform"][0] == "AffineTransform":
-        matrix = [float(i) for i in ParameterMap["TransformParameters"]]
+    if parameter_map["Transform"][0] == "AffineTransform":
+        matrix = [float(i) for i in parameter_map["TransformParameters"]]
         # Convert to a sitk transform
         transform = sitk.AffineTransform(3)
         transform.SetParameters(matrix)
 
-    elif ParameterMap["Transform"][0] == "EulerTransform":
-        A = [float(i) for i in ParameterMap["TransformParameters"][0:3]]
-        B = [float(i) for i in ParameterMap["TransformParameters"][3:6]]
+    elif parameter_map["Transform"][0] == "EulerTransform":
+        A = [float(i) for i in parameter_map["TransformParameters"][0:3]]
+        B = [float(i) for i in parameter_map["TransformParameters"][3:6]]
         # Convert to a sitk transform
         transform = sitk.Euler3DTransform()
         transform.SetRotation(angleX=A[0], angleY=A[1], angleZ=A[2])
@@ -731,21 +731,21 @@ def MatrixRetrieval(TransformParameterMapObject):
 
 def ComputeFinalMatrix(Transforms):
     """Compute the final matrix from the list of matrices and translations"""
-    Rotation, Translation = [], []
+    rotation, translation = [], []
     for i in range(len(Transforms)):
-        Rotation.append(Transforms[i].GetMatrix())
-        Translation.append(Transforms[i].GetTranslation())
+        rotation.append(Transforms[i].GetMatrix())
+        translation.append(Transforms[i].GetTranslation())
 
     # Compute the final rotation matrix
-    final_rotation = np.reshape(np.asarray(Rotation[0]), (3, 3))
-    for i in range(1, len(Rotation)):
-        final_rotation = final_rotation @ np.reshape(np.asarray(Rotation[i]), (3, 3))
+    final_rotation = np.reshape(np.asarray(rotation[0]), (3, 3))
+    for i in range(1, len(rotation)):
+        final_rotation = final_rotation @ np.reshape(np.asarray(rotation[i]), (3, 3))
 
     # Compute the final translation matrix
-    final_translation = np.reshape(np.asarray(Translation[0]), (1, 3))
-    for i in range(1, len(Translation)):
+    final_translation = np.reshape(np.asarray(translation[0]), (1, 3))
+    for i in range(1, len(translation)):
         final_translation = final_translation + np.reshape(
-            np.asarray(Translation[i]), (1, 3)
+            np.asarray(translation[i]), (1, 3)
         )
 
     # Create the final transform

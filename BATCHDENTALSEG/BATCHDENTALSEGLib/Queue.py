@@ -78,14 +78,14 @@ class SegmentationQueue:
     def addFolder(self, inputFolder, outputDir, model, device, skipExisting=True):
         """Append every volume of a folder. Returns (added, skipped)."""
         added = skipped = 0
-        for filePath in listVolumes(inputFolder):
-            if skipExisting and expectedOutputPath(filePath, outputDir).exists():
+        for file_path in listVolumes(inputFolder):
+            if skipExisting and expectedOutputPath(file_path, outputDir).exists():
                 skipped += 1
                 continue
-            if any(item.inputPath == str(filePath) for item in self.items):
+            if any(item.inputPath == str(file_path) for item in self.items):
                 skipped += 1
                 continue
-            self.items.append(QueueItem(str(filePath), str(outputDir), model, device))
+            self.items.append(QueueItem(str(file_path), str(outputDir), model, device))
             added += 1
         self.save()
         return added, skipped

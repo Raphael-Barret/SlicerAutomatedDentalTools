@@ -264,20 +264,20 @@ class SegmentationLogic:
         """Traite un seul fichier"""
         try:
             #Load volume
-            loadedVolume = slicer.util.loadVolume(str(file_path))
-            if not loadedVolume:
+            loaded_volume = slicer.util.loadVolume(str(file_path))
+            if not loaded_volume:
                 self.log_error(f"Failed to load volume: {file_path}")
                 return False
             
-            self.currentVolumeNode = loadedVolume
-            self.log_info(f"Loaded volume: {loadedVolume.GetName()}")
+            self.currentVolumeNode = loaded_volume
+            self.log_info(f"Loaded volume: {loaded_volume.GetName()}")
             
             # Configuration of display
-            slicer.util.setSliceViewerLayers(background=loadedVolume)
+            slicer.util.setSliceViewerLayers(background=loaded_volume)
             slicer.util.resetSliceViews()
             
             # Run segmentation
-            success = self._runSegmentationForVolume(loadedVolume)
+            success = self._runSegmentationForVolume(loaded_volume)
             
             return success
             
@@ -432,22 +432,22 @@ class SegmentationLogic:
         from SlicerNNUNetLib import Parameter
         
         if self.selectedModel == "PediatricDentalsegmentator":
-            basePath = Path(__file__).parent.joinpath("Resources", "ML", "Dataset001_380CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
-            self._downloadModelIfNeeded("pediatricdentalseg", basePath)
+            base_path = Path(__file__).parent.joinpath("Resources", "ML", "Dataset001_380CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
+            self._downloadModelIfNeeded("pediatricdentalseg", base_path)
             
         elif self.selectedModel == "NasoMaxillaDentSeg":
-            basePath = Path(__file__).parent.joinpath("Resources", "ML", "Dataset001_max4", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
-            self._downloadModelIfNeeded("nasomaxilladentseg", basePath)
+            base_path = Path(__file__).parent.joinpath("Resources", "ML", "Dataset001_max4", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
+            self._downloadModelIfNeeded("nasomaxilladentseg", base_path)
             
         elif self.selectedModel == "UniversalLabDentalsegmentator":
-            basePath = Path(__file__).parent.joinpath("Resources", "ML", "Dataset002_380CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
-            self._downloadModelIfNeeded("universallab", basePath)
+            base_path = Path(__file__).parent.joinpath("Resources", "ML", "Dataset002_380CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
+            self._downloadModelIfNeeded("universallab", base_path)
             
         else:  # Default DentalSegmentator
             self.log_info("Using Dataset111_453CT for DentalSegmentator")
-            basePath = Path(__file__).parent.parent.joinpath("Resources", "ML", "Dataset111_453CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
+            base_path = Path(__file__).parent.parent.joinpath("Resources", "ML", "Dataset111_453CT", "nnUNetTrainer__nnUNetPlans__3d_fullres").resolve()
         
-        return Parameter(folds="0", modelPath=basePath, device=self.selectedDevice)
+        return Parameter(folds="0", modelPath=base_path, device=self.selectedDevice)
     
     def _downloadModelIfNeeded(self, model_type, basePath):
         """Download the model"""
@@ -487,46 +487,46 @@ class SegmentationLogic:
         """Process segmentation results"""
         try:
             #Load results
-            segmentationNode = self._loadSegmentationResults()
-            if not segmentationNode:
+            segmentation_node = self._loadSegmentationResults()
+            if not segmentation_node:
                 self.log_error("No segmentation results found")
                 return False
             
-            segmentationNode.SetName(volumeNode.GetName() + "_Segmentation")
+            segmentation_node.SetName(volumeNode.GetName() + "_Segmentation")
             
             # Display progress
-            self._updateSegmentationDisplay(segmentationNode)
+            self._updateSegmentationDisplay(segmentation_node)
             
             slicer.app.processEvents()
             
             # Export selected formats
             if self.exportFormats & ExportFormat.NIFTI:
                 self.log_info("Starting NIfTI export...")
-                self._saveSegmentationAsNifti(segmentationNode, volumeNode)
+                self._saveSegmentationAsNifti(segmentation_node, volumeNode)
                 slicer.app.processEvents()
             
             if self.exportFormats & ExportFormat.STL:
                 self.log_info("Starting STL export...")
-                self._exportSTL(segmentationNode)
+                self._exportSTL(segmentation_node)
                 slicer.app.processEvents()
             
             if self.exportFormats & ExportFormat.OBJ:
                 self.log_info("Starting OBJ export...")
-                self._exportOBJ(segmentationNode)
+                self._exportOBJ(segmentation_node)
                 slicer.app.processEvents()
             
             if self.exportFormats & ExportFormat.VTK_MERGED:
                 self.log_info("Starting merged VTK export...")
-                self._exportMergedVTK(segmentationNode)
+                self._exportMergedVTK(segmentation_node)
                 slicer.app.processEvents()
             
             if self.exportFormats & ExportFormat.VTK:
                 self.log_info("Starting per-label VTK export...")
-                self._exportVTKPerLabel(segmentationNode)
+                self._exportVTKPerLabel(segmentation_node)
                 slicer.app.processEvents()
             
             # Cleaning
-            self._cleanupAfterCase(volumeNode, segmentationNode)
+            self._cleanupAfterCase(volumeNode, segmentation_node)
             
             return True
             
@@ -537,8 +537,8 @@ class SegmentationLogic:
     def _loadSegmentationResults(self):
         """Load segmentation results"""
         try:
-            segmentationNode = self.logic.loadSegmentation()
-            return segmentationNode
+            segmentation_node = self.logic.loadSegmentation()
+            return segmentation_node
         except Exception as e:
             self.log_error(f"Error loading segmentation: {str(e)}")
             return None
@@ -591,9 +591,9 @@ class SegmentationLogic:
             labels = ["Upper Skull", "Mandible", "Upper Teeth", "Lower Teeth", "Mandibular canal"]
         
         # Application des labels
-        segmentIds = list(segmentation.GetSegmentIDs())
-        for i, (segmentId, label) in enumerate(zip(segmentIds, labels)):
-            segment = segmentation.GetSegment(segmentId)
+        segment_ids = list(segmentation.GetSegmentIDs())
+        for i, (segment_id, label) in enumerate(zip(segment_ids, labels)):
+            segment = segmentation.GetSegment(segment_id)
             if segment:
                 segment.SetName(label)
     
@@ -605,16 +605,16 @@ class SegmentationLogic:
             if volumeNode:
                 segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
             
-            labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+            labelmap_volume_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
             success = slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(
-                segmentationNode, labelmapVolumeNode, slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY)
+                segmentationNode, labelmap_volume_node, slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY)
             
             if not success:
                 self.log_error("Failed to export segments to labelmap")
                 return False
             
             output_path = os.path.join(self.outputFolderPath, segmentationNode.GetName() + ".nii.gz")
-            saved = slicer.util.saveNode(labelmapVolumeNode, output_path)
+            saved = slicer.util.saveNode(labelmap_volume_node, output_path)
             
             if saved:
                 self.log_info(f"Segmentation saved to {output_path}")
@@ -622,7 +622,7 @@ class SegmentationLogic:
                 self.log_error(f"Failed to save segmentation to {output_path}")
             
             # Nettoyage du label-map temporaire
-            slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+            slicer.mrmlScene.RemoveNode(labelmap_volume_node)
             return saved
             
         except Exception as e:
@@ -658,9 +658,9 @@ class SegmentationLogic:
             self.log_info("MergedVTK: Start")
             
             # Create labelmap
-            labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-            slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode)
-            img = labelmapVolumeNode.GetImageData()
+            labelmap_volume_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+            slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentationNode, labelmap_volume_node)
+            img = labelmap_volume_node.GetImageData()
 
             # Marching Cubes
             self.log_info("MergedVTK: MarchingCubes")
@@ -668,9 +668,9 @@ class SegmentationLogic:
             mc.SetInputData(img)
             # SetValue takes a contour index, not a label value: indexing by label
             # leaves index 0 at its default and meshes the background as well.
-            labelValues = [int(l) for l in np.unique(vtk_to_numpy(img.GetPointData().GetScalars())) if l]
-            mc.SetNumberOfContours(len(labelValues))
-            for i, l in enumerate(labelValues):
+            label_values = [int(l) for l in np.unique(vtk_to_numpy(img.GetPointData().GetScalars())) if l]
+            mc.SetNumberOfContours(len(label_values))
+            for i, l in enumerate(label_values):
                 mc.SetValue(i, l)
             mc.Update()
 
@@ -692,36 +692,36 @@ class SegmentationLogic:
 
             # Normales
             self.log_info("MergedVTK: Computing normals")
-            flatN = vtk.vtkPolyDataNormals()
-            flatN.SetInputConnection(ws.GetOutputPort())
-            flatN.ComputePointNormalsOff()
-            flatN.ComputeCellNormalsOn()
-            flatN.SplittingOff()
-            flatN.AutoOrientNormalsOn()
-            flatN.ConsistencyOn()
-            flatN.SetFeatureAngle(180)
-            flatN.Update()
+            flat_n = vtk.vtkPolyDataNormals()
+            flat_n.SetInputConnection(ws.GetOutputPort())
+            flat_n.ComputePointNormalsOff()
+            flat_n.ComputeCellNormalsOn()
+            flat_n.SplittingOff()
+            flat_n.AutoOrientNormalsOn()
+            flat_n.ConsistencyOn()
+            flat_n.SetFeatureAngle(180)
+            flat_n.Update()
 
-            rawPoly = flatN.GetOutput()
-            labelArray = rawPoly.GetCellData().GetScalars()
-            labels = np.unique(vtk_to_numpy(labelArray))
+            raw_poly = flat_n.GetOutput()
+            label_array = raw_poly.GetCellData().GetScalars()
+            labels = np.unique(vtk_to_numpy(label_array))
             append = vtk.vtkAppendPolyData()
 
             # Parcours des labels
-            for i, labelValue in enumerate(labels, start=1):
-                if labelValue == 0:
+            for i, label_value in enumerate(labels, start=1):
+                if label_value == 0:
                     continue
-                self.log_info(f"MergedVTK: Processing label {int(labelValue)} ({i}/{len(labels)})")
+                self.log_info(f"MergedVTK: Processing label {int(label_value)} ({i}/{len(labels)})")
                 
                 slicer.app.processEvents()
 
                 thresh = vtk.vtkThreshold()
-                thresh.SetInputData(rawPoly)
+                thresh.SetInputData(raw_poly)
                 thresh.SetInputArrayToProcess(0, 0, 0,
                     vtk.vtkDataObject.FIELD_ASSOCIATION_CELLS,
-                    labelArray.GetName())
-                thresh.SetLowerThreshold(labelValue)
-                thresh.SetUpperThreshold(labelValue)
+                    label_array.GetName())
+                thresh.SetLowerThreshold(label_value)
+                thresh.SetUpperThreshold(label_value)
                 thresh.SetThresholdFunction(vtk.vtkThreshold.THRESHOLD_BETWEEN)
                 thresh.Update()
 
@@ -735,13 +735,13 @@ class SegmentationLogic:
                 dec.Update()
 
                 out = dec.GetOutput()
-                constLabel = vtk.vtkIntArray()
-                constLabel.SetName("Label")
-                constLabel.SetNumberOfComponents(1)
-                constLabel.SetNumberOfTuples(out.GetNumberOfCells())
-                constLabel.FillComponent(0, float(labelValue))
-                out.GetCellData().AddArray(constLabel)
-                out.GetCellData().SetScalars(constLabel)
+                const_label = vtk.vtkIntArray()
+                const_label.SetName("Label")
+                const_label.SetNumberOfComponents(1)
+                const_label.SetNumberOfTuples(out.GetNumberOfCells())
+                const_label.FillComponent(0, float(label_value))
+                out.GetCellData().AddArray(const_label)
+                out.GetCellData().SetScalars(const_label)
 
                 append.AddInputData(out)
 
@@ -751,39 +751,39 @@ class SegmentationLogic:
             # Transform + Write
             self.log_info("MergedVTK: Transform & Write")
             ijk2ras = vtk.vtkMatrix4x4()
-            labelmapVolumeNode.GetIJKToRASMatrix(ijk2ras)
-            parentMat = vtk.vtkMatrix4x4()
-            parentMat.Identity()
+            labelmap_volume_node.GetIJKToRASMatrix(ijk2ras)
+            parent_mat = vtk.vtkMatrix4x4()
+            parent_mat.Identity()
             
             if self.currentVolumeNode and self.currentVolumeNode.GetParentTransformNode():
-                self.currentVolumeNode.GetParentTransformNode().GetMatrixTransformToWorld(parentMat)
+                self.currentVolumeNode.GetParentTransformNode().GetMatrixTransformToWorld(parent_mat)
             
-            rasMat = vtk.vtkMatrix4x4()
-            vtk.vtkMatrix4x4.Multiply4x4(parentMat, ijk2ras, rasMat)
+            ras_mat = vtk.vtkMatrix4x4()
+            vtk.vtkMatrix4x4.Multiply4x4(parent_mat, ijk2ras, ras_mat)
 
-            rasT = vtk.vtkTransform()
-            rasT.SetMatrix(rasMat)
-            rasF = vtk.vtkTransformPolyDataFilter()
-            rasF.SetTransform(rasT)
-            rasF.SetInputConnection(append.GetOutputPort())
-            rasF.Update()
+            ras_t = vtk.vtkTransform()
+            ras_t.SetMatrix(ras_mat)
+            ras_f = vtk.vtkTransformPolyDataFilter()
+            ras_f.SetTransform(ras_t)
+            ras_f.SetInputConnection(append.GetOutputPort())
+            ras_f.Update()
             
-            lpsT = vtk.vtkTransform()
-            lpsT.Scale(-1, -1, 1)
-            lpsF = vtk.vtkTransformPolyDataFilter()
-            lpsF.SetTransform(lpsT)
-            lpsF.SetInputConnection(rasF.GetOutputPort())
-            lpsF.Update()
+            lps_t = vtk.vtkTransform()
+            lps_t.Scale(-1, -1, 1)
+            lps_f = vtk.vtkTransformPolyDataFilter()
+            lps_f.SetTransform(lps_t)
+            lps_f.SetInputConnection(ras_f.GetOutputPort())
+            lps_f.Update()
 
-            outPath = os.path.join(self.outputFolderPath, f"{segmentationNode.GetName()}_merged.vtk")
+            out_path = os.path.join(self.outputFolderPath, f"{segmentationNode.GetName()}_merged.vtk")
             writer = vtk.vtkPolyDataWriter()
-            writer.SetFileName(outPath)
-            writer.SetInputData(lpsF.GetOutput())
+            writer.SetFileName(out_path)
+            writer.SetInputData(lps_f.GetOutput())
             writer.SetFileTypeToBinary()
             writer.Write()
             
-            slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
-            self.log_info(f"MergedVTK saved to {outPath}")
+            slicer.mrmlScene.RemoveNode(labelmap_volume_node)
+            self.log_info(f"MergedVTK saved to {out_path}")
 
         except Exception as e:
             self.log_error(f"Error exporting MergedVTK: {str(e)}")
@@ -797,23 +797,23 @@ class SegmentationLogic:
             
             segmentationNode.CreateClosedSurfaceRepresentation()
             segmentation = segmentationNode.GetSegmentation()
-            segSafe = re.sub(r"[^0-9A-Za-z_-]+", "_", segmentationNode.GetName())
+            seg_safe = re.sub(r"[^0-9A-Za-z_-]+", "_", segmentationNode.GetName())
             
             tr = segmentationNode.GetParentTransformNode()
-            parentMat = vtk.vtkMatrix4x4()
-            parentMat.Identity()
+            parent_mat = vtk.vtkMatrix4x4()
+            parent_mat.Identity()
             if tr:
-                tr.GetMatrixTransformToWorld(parentMat)
+                tr.GetMatrixTransformToWorld(parent_mat)
 
-            segmentIDs = segmentation.GetSegmentIDs()
-            total = len(segmentIDs)
+            segment_i_ds = segmentation.GetSegmentIDs()
+            total = len(segment_i_ds)
             
-            for idx, segId in enumerate(segmentIDs, start=1):
+            for idx, seg_id in enumerate(segment_i_ds, start=1):
                 self.log_info(f"PerLabelVTK: Segment {idx}/{total}")
                 
                 slicer.app.processEvents()
 
-                segment = segmentation.GetSegment(segId)
+                segment = segmentation.GetSegment(seg_id)
                 poly = segment.GetRepresentation("Closed surface")
                 if not poly or poly.GetNumberOfPoints() == 0:
                     continue
@@ -834,45 +834,45 @@ class SegmentationLogic:
                 ws.Update()
 
                 # Normales
-                flatN = vtk.vtkPolyDataNormals()
-                flatN.SetInputConnection(ws.GetOutputPort())
-                flatN.ComputePointNormalsOff()
-                flatN.ComputeCellNormalsOn()
-                flatN.SplittingOff()
-                flatN.AutoOrientNormalsOn()
-                flatN.ConsistencyOn()
-                flatN.SetFeatureAngle(180)
-                flatN.Update()
+                flat_n = vtk.vtkPolyDataNormals()
+                flat_n.SetInputConnection(ws.GetOutputPort())
+                flat_n.ComputePointNormalsOff()
+                flat_n.ComputeCellNormalsOn()
+                flat_n.SplittingOff()
+                flat_n.AutoOrientNormalsOn()
+                flat_n.ConsistencyOn()
+                flat_n.SetFeatureAngle(180)
+                flat_n.Update()
 
                 # Decimation
                 self.log_info(f"PerLabelVTK: Decimating {segment.GetName()}")
                 dec = vtk.vtkQuadricDecimation()
-                dec.SetInputConnection(flatN.GetOutputPort())
+                dec.SetInputConnection(flat_n.GetOutputPort())
                 dec.SetTargetReduction(0.4)
                 dec.Update()
 
                 # Transform & Write
-                rasT = vtk.vtkTransform()
-                rasT.SetMatrix(parentMat)
-                rasF = vtk.vtkTransformPolyDataFilter()
-                rasF.SetTransform(rasT)
-                rasF.SetInputConnection(dec.GetOutputPort())
-                rasF.Update()
+                ras_t = vtk.vtkTransform()
+                ras_t.SetMatrix(parent_mat)
+                ras_f = vtk.vtkTransformPolyDataFilter()
+                ras_f.SetTransform(ras_t)
+                ras_f.SetInputConnection(dec.GetOutputPort())
+                ras_f.Update()
                 
-                lpsT = vtk.vtkTransform()
-                lpsT.Scale(-1, -1, 1)
-                lpsF = vtk.vtkTransformPolyDataFilter()
-                lpsF.SetTransform(lpsT)
-                lpsF.SetInputConnection(rasF.GetOutputPort())
-                lpsF.Update()
+                lps_t = vtk.vtkTransform()
+                lps_t.Scale(-1, -1, 1)
+                lps_f = vtk.vtkTransformPolyDataFilter()
+                lps_f.SetTransform(lps_t)
+                lps_f.SetInputConnection(ras_f.GetOutputPort())
+                lps_f.Update()
 
-                labelSafe = re.sub(r"[^0-9A-Za-z_-]+", "_", segment.GetName())
-                outPath = os.path.join(self.outputFolderPath, f"{segmentationNode.GetName()}_{labelSafe}.vtk")
-                self.log_info(f"PerLabelVTK: Writing {labelSafe}.vtk")
+                label_safe = re.sub(r"[^0-9A-Za-z_-]+", "_", segment.GetName())
+                out_path = os.path.join(self.outputFolderPath, f"{segmentationNode.GetName()}_{label_safe}.vtk")
+                self.log_info(f"PerLabelVTK: Writing {label_safe}.vtk")
                 
                 writer = vtk.vtkPolyDataWriter()
-                writer.SetFileName(outPath)
-                writer.SetInputData(lpsF.GetOutput())
+                writer.SetFileName(out_path)
+                writer.SetInputData(lps_f.GetOutput())
                 writer.SetFileTypeToBinary()
                 writer.Write()
 

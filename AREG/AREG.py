@@ -253,7 +253,7 @@ class AREG(ScriptedLoadableModule):
 
         import SampleData
 
-        iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+        icons_path = os.path.join(os.path.dirname(__file__), "Resources/Icons")
 
         # To ensure that the source code repository remains small (can be downloaded and installed quickly)
         # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -265,7 +265,7 @@ class AREG(ScriptedLoadableModule):
             sampleName="AREG1",
             # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
             # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-            thumbnailFileName=os.path.join(iconsPath, "AREG1.png"),
+            thumbnailFileName=os.path.join(icons_path, "AREG1.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
             fileNames="AREG1.nrrd",
@@ -280,7 +280,7 @@ class AREG(ScriptedLoadableModule):
             # Category and sample name displayed in Sample Data module
             category="AREG",
             sampleName="AREG2",
-            thumbnailFileName=os.path.join(iconsPath, "AREG2.png"),
+            thumbnailFileName=os.path.join(icons_path, "AREG2.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
             fileNames="AREG2.nrrd",
@@ -363,9 +363,9 @@ class PopUpWindow(qt.QDialog):
             button.setChecked(False)
 
     def onClickedCheckbox(self):
-        TrueFalse = [button.isChecked() for button in self.ListButtons]
+        true_false = [button.isChecked() for button in self.ListButtons]
         self.checked = [
-            self.listename[i] for i in range(len(self.listename)) if TrueFalse[i]
+            self.listename[i] for i in range(len(self.listename)) if true_false[i]
         ]
         self.accept()
 
@@ -427,16 +427,16 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/AREG.ui"))
-        self.uiWidget = uiWidget  # Store reference for styling
-        self.layout.addWidget(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath("UI/AREG.ui"))
+        self.uiWidget = ui_widget  # Store reference for styling
+        self.layout.addWidget(ui_widget)
 
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -499,8 +499,8 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # use messletter to add big comment with univers as police
 
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        self.documents = qt.QStandardPaths.writableLocation(documents_location)
         self.SlicerDownloadPath = os.path.join(
             self.documents,
             slicer.app.applicationName + "Downloads",
@@ -1264,11 +1264,11 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             and not test
             and name == "Orientation"
         ) or (self.type == "IOSCBCT" and name == "Orientation"):
-            referenceList = self.ActualMeth.getReferenceList()
-            refList = list(referenceList.keys())
+            reference_list = self.ActualMeth.getReferenceList()
+            ref_list = list(reference_list.keys())
 
             s = PopUpWindow(
-                title="Choice of Reference Files", listename=refList, type="radio"
+                title="Choice of Reference Files", listename=ref_list, type="radio"
             )
             s.exec_()
             self.CBCTOrientRef = s.checked
@@ -1421,7 +1421,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 torch_version = '==2.2.0'
                 
             if platform.system() == "Windows":
-                list_libs_CBCT_windows = [
+                list_libs_cbct_windows = [
                     ('itk', '>=5.4.0', None),
                     ('itk-elastix', '>=0.19.2', None),
                     ('dicom2nifti', '>=2.6.2', None),
@@ -1434,12 +1434,12 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     ('pandas', None, None),
                     ('torch', torch_version, "https://download.pytorch.org/whl/cu118")
                 ]
-                list_libs_CBCT_windows.append(('monai', monai_version, None))
-                is_installed = install_function(self, list_libs_CBCT_windows)
+                list_libs_cbct_windows.append(('monai', monai_version, None))
+                is_installed = install_function(self, list_libs_cbct_windows)
                 
             else:
                 # macOS / Linux
-                list_libs_CBCT = [
+                list_libs_cbct = [
                     ('itk', '>=5.4.0', None),
                     ('itk-elastix', '>=0.19.2', None),
                     ('dicom2nifti', '>=2.6.2', None),
@@ -1456,7 +1456,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     ('torchaudio',torch_version,None),('nnunetv2','>=2.8.0',None),
                     ('monai', monai_version, None)
                 ]
-                is_installed = install_function(self, list_libs_CBCT)
+                is_installed = install_function(self, list_libs_cbct)
 
                 import numpy as np
                 from packaging.version import Version
@@ -1471,12 +1471,12 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logger.debug(f"Segmentation environment: {check_env}")
             
             if check_env:
-                list_libs_IOS = [("tqdm",None,None),('vtk',None,None),('pandas',None,None)]
+                list_libs_ios = [("tqdm",None,None),('vtk',None,None),('pandas',None,None)]
                 
                 monai_version = '==1.3.2' if sys.version_info >= (3, 10) else '==0.7.0'
-                list_libs_IOS.append(('monai', monai_version, None))
+                list_libs_ios.append(('monai', monai_version, None))
 
-                is_installed = install_function(self,list_libs_IOS)
+                is_installed = install_function(self,list_libs_ios)
 
         if "IOSCBCT" in self.type:
             is_installed = False
@@ -1489,9 +1489,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             if check_env:
                 # libraries and versions compatibility to use AREG_IOSCBCT
-                list_libs_IOSCBCT = [('pyvista', '>=0.47.3',None),('scipy',None,None),('numpy',None,None),('SimpleITK',None,None)]
+                list_libs_ioscbct = [('pyvista', '>=0.47.3',None),('scipy',None,None),('numpy',None,None),('SimpleITK',None,None)]
 
-                is_installed = install_function(self,list_libs_IOSCBCT)
+                is_installed = install_function(self,list_libs_ioscbct)
 
         # If the user didn't accept the installation, the module doesn't run
         if not is_installed:
@@ -2288,9 +2288,9 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         )
         self.RunningUI(False)
 
-        stopTime = time.time()
+        stop_time = time.time()
 
-        logger.info(f"Processing completed in {stopTime-self.startTime:.2f} seconds")
+        logger.info(f"Processing completed in {stop_time-self.startTime:.2f} seconds")
 
         # OnEndProcess is reached from onProcessUpdate, i.e. from inside a VTK
         # observer callback. Opening an application-modal dialog there starts a
@@ -2810,12 +2810,12 @@ qMRMLNodeComboBox:focus {
     
     def onCheckRequirements(self):
         if not self.logic.isCondaSetUp:
-            messageBox = qt.QMessageBox()
+            message_box = qt.QMessageBox()
             text = textwrap.dedent("""
             SlicerConda is not set up, please click
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
             """).strip()
-            messageBox.information(None, "Information", text)
+            message_box.information(None, "Information", text)
             return False
         
         if platform.system() == "Windows":
@@ -2826,24 +2826,24 @@ qMRMLNodeComboBox:focus {
                 self.ui.label_LibsInstallation.setText(f"WSL installed")
                 if not self.logic.check_lib_wsl():
                     self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
-                    messageBox = qt.QMessageBox()
+                    message_box = qt.QMessageBox()
                     text = textwrap.dedent("""
                         WSL doesn't have all the necessary libraries, please download the installer
                         and follow the instructions
                         <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                         for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-                    messageBox.information(None, "Information", text)
+                    message_box.information(None, "Information", text)
                     return False
                 
             else : # if wsl not install, ask user to install it ans stop process
-                messageBox = qt.QMessageBox()
+                message_box = qt.QMessageBox()
                 text = textwrap.dedent("""
                     WSL is not installed, please download the installer and follow the instructions
                     <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                     for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-                messageBox.information(None, "Information", text)
+                message_box.information(None, "Information", text)
                 return False
             
         
@@ -2852,11 +2852,11 @@ qMRMLNodeComboBox:focus {
         
         self.ui.label_LibsInstallation.setText(f"Checking if miniconda is installed")
         if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
-            messageBox = qt.QMessageBox()
+            message_box = qt.QMessageBox()
             text = textwrap.dedent("""
             Code can't be launch. \nConda is not setup.
             Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
-            messageBox.information(None, "Information", text)
+            message_box.information(None, "Information", text)
             return False
         
         
@@ -2865,8 +2865,8 @@ qMRMLNodeComboBox:focus {
 
         self.ui.label_LibsInstallation.setText(f"Checking if environnement exists")
         if not self.logic.conda.condaTestEnv(self.logic.name_env) : # check is environnement exist, if not ask user the permission to do it
-            userResponse = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
-            if userResponse :
+            user_response = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
+            if user_response :
                 start_time = time.time()
                 previous_time = start_time
                 formatted_time = self.format_time(0)
@@ -3032,7 +3032,7 @@ qMRMLNodeComboBox:focus {
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
-        wasModified = (
+        was_modified = (
             self._parameterNode.StartModify()
         )  # Modify all properties in a single batch
 
@@ -3050,7 +3050,7 @@ qMRMLNodeComboBox:focus {
             "OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID
         )
 
-        self._parameterNode.EndModify(wasModified)
+        self._parameterNode.EndModify(was_modified)
 
 
 class AREGLogic(ScriptedLoadableModuleLogic):

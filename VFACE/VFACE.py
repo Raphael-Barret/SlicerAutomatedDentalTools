@@ -106,7 +106,7 @@ def registerSampleData():
     try:
         import SampleData
 
-        iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+        icons_path = os.path.join(os.path.dirname(__file__), "Resources/Icons")
 
         # To ensure that the source code repository remains small (can be downloaded and installed quickly)
         # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -118,7 +118,7 @@ def registerSampleData():
             sampleName="VFACE1",
             # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
             # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-            thumbnailFileName=os.path.join(iconsPath, "VFACE1.png"),
+            thumbnailFileName=os.path.join(icons_path, "VFACE1.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
             fileNames="VFACE1.nrrd",
@@ -134,7 +134,7 @@ def registerSampleData():
             # Category and sample name displayed in Sample Data module
             category="VFACE",
             sampleName="VFACE2",
-            thumbnailFileName=os.path.join(iconsPath, "VFACE2.png"),
+            thumbnailFileName=os.path.join(icons_path, "VFACE2.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
             fileNames="VFACE2.nrrd",
@@ -267,9 +267,9 @@ class PopUpWindow(qt.QDialog):
 
     def onClickedCheckbox(self):
         """Handle checkbox confirmation."""
-        TrueFalse = [button.isChecked() for button in self.ListButtons]
+        true_false = [button.isChecked() for button in self.ListButtons]
         self.checked = [
-            self.listename[i] for i in range(len(self.listename)) if TrueFalse[i]
+            self.listename[i] for i in range(len(self.listename)) if true_false[i]
         ]
         self.accept()
 
@@ -383,25 +383,25 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/VFACE.ui"))
-        self.uiWidget = uiWidget
-        self.layout.addWidget(uiWidget)
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath("UI/VFACE.ui"))
+        self.uiWidget = ui_widget
+        self.layout.addWidget(ui_widget)
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Detect dark mode and apply stylesheet
-        isDarkMode = self._isDarkMode()
-        styleSheet = self._getStyleSheet(isDarkMode)
-        uiWidget.setStyleSheet(styleSheet)
+        is_dark_mode = self._isDarkMode()
+        style_sheet = self._getStyleSheet(is_dark_mode)
+        ui_widget.setStyleSheet(style_sheet)
         
         # Also apply label-specific stylesheet
-        self._applyLabelStyleSheets(isDarkMode)
-        self._applyButtonStyleSheets(isDarkMode)
-        self._applyCheckboxStyleSheets(isDarkMode)
+        self._applyLabelStyleSheets(is_dark_mode)
+        self._applyButtonStyleSheets(is_dark_mode)
+        self._applyCheckboxStyleSheets(is_dark_mode)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -439,8 +439,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.reviewFlagButton.connect("clicked(bool)", self.onReviewToggleFlag)
         self.ui.reviewGoBackButton.connect("clicked(bool)", self.onReviewGoBack)
 
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        self.documents = qt.QStandardPaths.writableLocation(documents_location)
 
         self.display = Display
         self.SlicerDownloadPath = os.path.join(
@@ -459,8 +459,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Check if the application is in dark mode."""
         try:
             palette = slicer.app.palette()
-            bgColor = palette.color(qt.QPalette.Window)
-            luminance = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
+            bg_color = palette.color(qt.QPalette.Window)
+            luminance = (0.299 * bg_color.red() + 0.587 * bg_color.green() + 0.114 * bg_color.blue()) / 255.0
             return luminance < 0.5
         except Exception:
             return False
@@ -594,32 +594,32 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def _applyLabelStyleSheets(self, isDarkMode: bool) -> None:
         """Apply label-specific stylesheets."""
         if isDarkMode:
-            labelStyle = "color: #b0b0b0; font-weight: 600;"
+            label_style = "color: #b0b0b0; font-weight: 600;"
         else:
-            labelStyle = "color: #34495e; font-weight: 600;"
+            label_style = "color: #34495e; font-weight: 600;"
         
         # List of labels to style
         labels = [
             'label_5', 'label_4', 'label_2', 'label_6', 'label_3', 'label', 'modeLabel', 't2label', 'excellabel'
         ]
         
-        for labelName in labels:
-            if hasattr(self.ui, labelName):
-                label = getattr(self.ui, labelName)
-                label.setStyleSheet(labelStyle)
+        for label_name in labels:
+            if hasattr(self.ui, label_name):
+                label = getattr(self.ui, label_name)
+                label.setStyleSheet(label_style)
 
         if hasattr(self.ui, "reviewLabel"):
             if isDarkMode:
-                reviewStyle = (
+                review_style = (
                     "color: #e8e8e8; background-color: #2f3b47;"
                     " border: 1px solid #4ba3ff; border-radius: 4px; padding: 8px;"
                 )
             else:
-                reviewStyle = (
+                review_style = (
                     "color: #1f2d3a; background-color: #eaf3fb;"
                     " border: 1px solid #3498db; border-radius: 4px; padding: 8px;"
                 )
-            self.ui.reviewLabel.setStyleSheet(reviewStyle)
+            self.ui.reviewLabel.setStyleSheet(review_style)
 
     def _applyCheckboxStyleSheets(self, isDarkMode: bool) -> None:
         """
@@ -732,7 +732,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Apply button-specific stylesheets."""
         if isDarkMode:
             # Dark mode button styles
-            standardButtonStyle = """
+            standard_button_style = """
             QPushButton {
               background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4ba3ff, stop:1 #3498db);
               color: white;
@@ -755,7 +755,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             }
             """
             
-            cancelButtonStyle = """
+            cancel_button_style = """
             QPushButton {
               background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #c0392b);
               color: white;
@@ -779,7 +779,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             """
         else:
             # Light mode button styles
-            standardButtonStyle = """
+            standard_button_style = """
             QPushButton {
               background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4ba3ff, stop:1 #3498db);
               color: white;
@@ -802,7 +802,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             }
             """
             
-            cancelButtonStyle = """
+            cancel_button_style = """
             QPushButton {
               background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #c0392b);
               color: white;
@@ -826,19 +826,19 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             """
         
         # Apply standard style to most buttons
-        for buttonName in ['applyButton', 'CheckDependencyButton', 'continueButton',
+        for button_name in ['applyButton', 'CheckDependencyButton', 'continueButton',
                            'DefaultListButton', 'TestFilesButton',
                            'reviewSelectAllButton', 'reviewSelectNoneButton',
                            'reviewSelectRecommendedButton',
                            'reviewPrevPatientButton', 'reviewNextPatientButton',
                            'reviewFlagButton', 'reviewGoBackButton']:
-            if hasattr(self.ui, buttonName):
-                button = getattr(self.ui, buttonName)
-                button.setStyleSheet(standardButtonStyle)
+            if hasattr(self.ui, button_name):
+                button = getattr(self.ui, button_name)
+                button.setStyleSheet(standard_button_style)
         
         # Apply cancel style to cancel button
         if hasattr(self.ui, 'cancelButton'):
-            self.ui.cancelButton.setStyleSheet(cancelButtonStyle)
+            self.ui.cancelButton.setStyleSheet(cancel_button_style)
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
@@ -1401,13 +1401,13 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         Displays confirmation dialog before canceling the current process.
         """
-        msgBox = qt.QMessageBox()
-        msgBox.setWindowTitle("Confirm Cancellation")
-        msgBox.setText("Are you sure you want to cancel the current process?")
-        msgBox.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
-        msgBox.setDefaultButton(qt.QMessageBox.No)
+        msg_box = qt.QMessageBox()
+        msg_box.setWindowTitle("Confirm Cancellation")
+        msg_box.setText("Are you sure you want to cancel the current process?")
+        msg_box.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
+        msg_box.setDefaultButton(qt.QMessageBox.No)
         
-        result = msgBox.exec_()
+        result = msg_box.exec_()
         
         if result == qt.QMessageBox.Yes:
             self.cancelProcess()
@@ -2704,18 +2704,18 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Args:
             item: Review item currently on screen
         """
-        layoutManager = slicer.app.layoutManager()
+        layout_manager = slicer.app.layoutManager()
         surfaces_only = not item.get("volume") and all(
             f.endswith(self.MODEL_EXT) for f in item["files"]
         )
 
         if surfaces_only:
-            layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
-            widget = layoutManager.threeDWidget(0)
+            layout_manager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
+            widget = layout_manager.threeDWidget(0)
             if widget:
                 widget.threeDView().resetFocalPoint()
         else:
-            layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+            layout_manager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
             slicer.util.resetSliceViews()
 
     def executeProcess(self, process_info):
@@ -2879,14 +2879,14 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if caller.GetID() != self.cliNode.GetID():
             return
 
-        cliNode = caller
+        cli_node = caller
 
-        status = cliNode.GetStatus()
+        status = cli_node.GetStatus()
 
         if status & slicer.vtkMRMLCommandLineModuleNode.Completed or \
            status & slicer.vtkMRMLCommandLineModuleNode.Cancelled:
 
-            self.removeObserver(cliNode, vtk.vtkCommand.ModifiedEvent, self.onCliUpdated)
+            self.removeObserver(cli_node, vtk.vtkCommand.ModifiedEvent, self.onCliUpdated)
 
             # Deferred on purpose: Slicer captures its own stdout into a pipe
             # that it drains from the Qt event loop, and this method runs inside
@@ -3085,22 +3085,22 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             raise ValueError("Input or output volume is invalid")
 
 
-        startTime = time.time()
+        start_time = time.time()
         logger.info("Processing started")
 
         # Compute the thresholded output volume using the "Threshold Scalar Volume" CLI module
-        cliParams = {
+        cli_params = {
             "InputVolume": inputVolume.GetID(),
             "OutputVolume": outputVolume.GetID(),
             "ThresholdValue": imageThreshold,
             "ThresholdType": "Above" if invert else "Below",
         }
-        cliNode = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cliParams, wait_for_completion=True, update_display=showResult)
+        cli_node = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cli_params, wait_for_completion=True, update_display=showResult)
         # We don't need the CLI module node anymore, remove it to not clutter the scene with it
-        slicer.mrmlScene.RemoveNode(cliNode)
+        slicer.mrmlScene.RemoveNode(cli_node)
 
-        stopTime = time.time()
-        logger.info(f"Processing completed in {stopTime-startTime:.2f} seconds")
+        stop_time = time.time()
+        logger.info(f"Processing completed in {stop_time-start_time:.2f} seconds")
     def belongsToRun(patient: str, wanted_ids: set) -> bool:
         """Whether a produced file's id names one of the run's patients.
 
@@ -3364,14 +3364,14 @@ class VFACETest(ScriptedLoadableModuleTest):
         import SampleData
 
         registerSampleData()
-        inputVolume = SampleData.downloadSample("VFACE1")
+        input_volume = SampleData.downloadSample("VFACE1")
         self.delayDisplay("Loaded test data set")
 
-        inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(inputScalarRange[0], 0)
-        self.assertEqual(inputScalarRange[1], 695)
+        input_scalar_range = input_volume.GetImageData().GetScalarRange()
+        self.assertEqual(input_scalar_range[0], 0)
+        self.assertEqual(input_scalar_range[1], 695)
 
-        outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
+        output_volume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
         threshold = 100
 
         # Test the module logic
@@ -3379,15 +3379,15 @@ class VFACETest(ScriptedLoadableModuleTest):
         logic = VFACELogic()
 
         # Test algorithm with non-inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, True)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], threshold)
+        logic.process(input_volume, output_volume, threshold, True)
+        output_scalar_range = output_volume.GetImageData().GetScalarRange()
+        self.assertEqual(output_scalar_range[0], input_scalar_range[0])
+        self.assertEqual(output_scalar_range[1], threshold)
 
         # Test algorithm with inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, False)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], inputScalarRange[1])
+        logic.process(input_volume, output_volume, threshold, False)
+        output_scalar_range = output_volume.GetImageData().GetScalarRange()
+        self.assertEqual(output_scalar_range[0], input_scalar_range[0])
+        self.assertEqual(output_scalar_range[1], input_scalar_range[1])
 
         self.delayDisplay("Test passed")

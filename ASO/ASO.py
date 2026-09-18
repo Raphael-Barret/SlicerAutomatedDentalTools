@@ -201,7 +201,7 @@ class ASO(ScriptedLoadableModule):
 
         import SampleData
 
-        iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
+        icons_path = os.path.join(os.path.dirname(__file__), "Resources/Icons")
 
         # To ensure that the source code repository remains small (can be downloaded and installed quickly)
         # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -213,7 +213,7 @@ class ASO(ScriptedLoadableModule):
             sampleName="ASO1",
             # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
             # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-            thumbnailFileName=os.path.join(iconsPath, "ASO1.png"),
+            thumbnailFileName=os.path.join(icons_path, "ASO1.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
             fileNames="ASO1.nrrd",
@@ -229,7 +229,7 @@ class ASO(ScriptedLoadableModule):
             # Category and sample name displayed in Sample Data module
             category="ASO",
             sampleName="ASO2",
-            thumbnailFileName=os.path.join(iconsPath, "ASO2.png"),
+            thumbnailFileName=os.path.join(icons_path, "ASO2.png"),
             # Download URL and target file name
             uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
             fileNames="ASO2.nrrd",
@@ -348,9 +348,9 @@ class PopUpWindow(qt.QDialog):
             button.setChecked(False)
 
     def onClickedCheckbox(self):
-        TrueFalse = [button.isChecked() for button in self.ListButtons]
+        true_false = [button.isChecked() for button in self.ListButtons]
         self.checked = [
-            self.listename[i] for i in range(len(self.listename)) if TrueFalse[i]
+            self.listename[i] for i in range(len(self.listename)) if true_false[i]
         ]
         self.accept()
 
@@ -610,16 +610,16 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/ASO.ui"))
-        self.layout.addWidget(uiWidget)
-        self.uiWidget = uiWidget  # Store reference for styling
+        ui_widget = slicer.util.loadUI(self.resourcePath("UI/ASO.ui"))
+        self.layout.addWidget(ui_widget)
+        self.uiWidget = ui_widget  # Store reference for styling
 
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Apply dark mode styling if needed
         self.applyDarkModeStyles()
@@ -678,8 +678,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # use messletter to add big comment with univers as police
 
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        self.documents = qt.QStandardPaths.writableLocation(documentsLocation)
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        self.documents = qt.QStandardPaths.writableLocation(documents_location)
         self.SlicerDownloadPath = os.path.join(
             self.documents,
             slicer.app.applicationName + "Downloads",
@@ -981,16 +981,16 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def SearchReference(self, test=False):
         """Function to search the reference folder and to check if the reference is valid"""
-        referenceList = self.ActualMeth.getReferenceList()
-        refList = list(referenceList.keys())
-        refList.append("Select your own folder")
+        reference_list = self.ActualMeth.getReferenceList()
+        ref_list = list(reference_list.keys())
+        ref_list.append("Select your own folder")
 
         if test:
-            ret = refList[0]
+            ret = ref_list[0]
 
         else:
             s = PopUpWindow(
-                title="Choice of Reference Files", listename=refList, type="radio"
+                title="Choice of Reference Files", listename=ref_list, type="radio"
             )
             s.exec_()
             ret = s.checked
@@ -1003,7 +1003,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         else:  # Automatically Download the reference, unzip it and set the path
             ref_folder = self.DownloadUnzip(
-                url=referenceList[ret],
+                url=reference_list[ret],
                 directory=os.path.join(self.SlicerDownloadPath),
                 folder_name=os.path.join("Reference", ret),
             )
@@ -1057,9 +1057,9 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def SearchModelALI(self, test=False):
         """Function to search the model folder of the ALI model and to check if the model is valid"""
-        listeLandmark = []
+        liste_landmark = []
         for key, data in self.ActualMeth.DicLandmark()["Landmark"].items():
-            listeLandmark += data
+            liste_landmark += data
 
         if test:
             ret = self.reference_lm
@@ -1068,7 +1068,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             s = PopUpWindow(
                 title="Chose ALI Models to Download",
-                listename=sorted(listeLandmark),
+                listename=sorted(liste_landmark),
                 type="checkbox",
                 tocheck=self.reference_lm,
             )
@@ -1304,8 +1304,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 logger.info("========= PROCESS COMPLETED WITH ERRORS =========")
                 logger.info(self.process.GetOutputText())
                 logger.error("========= ERROR DETAILS =========")
-                errorText = self.process.GetErrorText()
-                logger.error(f"CLI execution failed: \n{errorText}")
+                error_text = self.process.GetErrorText()
+                logger.error(f"CLI execution failed: \n{error_text}")
                 self.onCancel()
 
             else:
@@ -1352,9 +1352,9 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.RunningUI(False)
         self.RunningUI(False)
 
-        stopTime = time.time()
+        stop_time = time.time()
 
-        logger.info(f"Processing completed in {stopTime-self.startTime:.2f} seconds")
+        logger.info(f"Processing completed in {stop_time-self.startTime:.2f} seconds")
 
         s = PopUpWindow(
             title="Process Done",
@@ -1839,12 +1839,12 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onCheckRequirements(self):
         if not self.logic.isCondaSetUp:
-            messageBox = qt.QMessageBox()
+            message_box = qt.QMessageBox()
             text = textwrap.dedent("""
             SlicerConda is not set up, please click
             <a href=\"https://github.com/DCBIA-OrthoLab/SlicerConda/\">here</a> for installation.
             """).strip()
-            messageBox.information(None, "Information", text)
+            message_box.information(None, "Information", text)
             return False
         
         if platform.system() == "Windows":
@@ -1855,24 +1855,24 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.label_LibsInstallation.setText(f"WSL installed")
                 if not self.logic.check_lib_wsl():
                     self.ui.label_LibsInstallation.setText(f"Checking if the required librairies are installed, this task may take a moments")
-                    messageBox = qt.QMessageBox()
+                    message_box = qt.QMessageBox()
                     text = textwrap.dedent("""
                         WSL doesn't have all the necessary libraries, please download the installer
                         and follow the instructions
                         <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                         for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-                    messageBox.information(None, "Information", text)
+                    message_box.information(None, "Information", text)
                     return False
                 
             else : # if wsl not install, ask user to install it ans stop process
-                messageBox = qt.QMessageBox()
+                message_box = qt.QMessageBox()
                 text = textwrap.dedent("""
                     WSL is not installed, please download the installer and follow the instructions
                     <a href=\"https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/wsl2_windows/installer_WSL2.zip\">here</a>
                     for installation. The link may be blocked by Chrome, just authorize it.""").strip()
 
-                messageBox.information(None, "Information", text)
+                message_box.information(None, "Information", text)
                 return False
             
         
@@ -1881,11 +1881,11 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self.ui.label_LibsInstallation.setText(f"Checking if miniconda is installed")
         if "no setup" in self.logic.conda.condaRunCommand([self.logic.conda.getCondaExecutable(),"--version"]):
-            messageBox = qt.QMessageBox()
+            message_box = qt.QMessageBox()
             text = textwrap.dedent("""
             Code can't be launch. \nConda is not setup.
             Please go the extension CondaSetUp in SlicerConda to do it.""").strip()
-            messageBox.information(None, "Information", text)
+            message_box.information(None, "Information", text)
             return False
         
         
@@ -1894,8 +1894,8 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.ui.label_LibsInstallation.setText(f"Checking if environnement exists")
         if not self.logic.conda.condaTestEnv(self.logic.name_env) : # check is environnement exist, if not ask user the permission to do it
-            userResponse = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
-            if userResponse :
+            user_response = slicer.util.confirmYesNoDisplay("The environnement to run the classification doesn't exist, do you want to create it ? ", windowTitle="Env doesn't exist")
+            if user_response :
                 start_time = time.time()
                 previous_time = start_time
                 formatted_time = self.format_time(0)
@@ -2065,7 +2065,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
-        wasModified = (
+        was_modified = (
             self._parameterNode.StartModify()
         )  # Modify all properties in a single batch
 
@@ -2082,7 +2082,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID
         )
 
-        self._parameterNode.EndModify(wasModified)
+        self._parameterNode.EndModify(was_modified)
 
     def applyDarkModeStyles(self):
         app = qt.QApplication.instance()

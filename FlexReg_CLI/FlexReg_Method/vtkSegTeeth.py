@@ -95,7 +95,7 @@ class vtkMeshTeeth(vtkTeeth):
             size += points.shape[0]
             
         Points = vtk.vtkPoints()
-        Vertices = vtk.vtkCellArray()
+        vertices = vtk.vtkCellArray()
         labels = vtk.vtkStringArray()
         labels.SetNumberOfValues(size)
         labels.SetName("labels")
@@ -103,14 +103,14 @@ class vtkMeshTeeth(vtkTeeth):
         for points in list_points:
             for i in range(points.shape[0]):
                 sp_id = Points.InsertNextPoint(points[i, :].squeeze(0))
-                Vertices.InsertNextCell(1)
-                Vertices.InsertCellPoint(sp_id)
+                vertices.InsertNextCell(1)
+                vertices.InsertCellPoint(sp_id)
                 labels.SetValue(index, str(index))
                 index += 1
 
         output = vtk.vtkPolyData()
         output.SetPoints(Points)
-        output.SetVerts(Vertices)
+        output.SetVerts(vertices)
         output.GetPointData().AddArray(labels)
 
         return output

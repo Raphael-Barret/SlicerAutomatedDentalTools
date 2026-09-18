@@ -298,14 +298,14 @@ class Auto_IOS(Method):
         logger.info(f"Parameter pre aso: {parameter_pre_aso}")
         logger.info(f"Parameter seg: {parameter_seg}")
 
-        PreOrientProcess = slicer.modules.pre_aso_ios
-        SegProcess = slicer.modules.crownsegmentationcli
+        pre_orient_process = slicer.modules.pre_aso_ios
+        seg_process = slicer.modules.crownsegmentationcli
         
         numberscan = self.NumberScan(request.input_folder)
         
         list_process = [
             {
-                "Process": SegProcess,
+                "Process": seg_process,
                 "Parameter": parameter_seg,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
@@ -313,7 +313,7 @@ class Auto_IOS(Method):
                 ),
             },
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "PRE_ASO_IOS",
                 "Display": DisplayASOIOS(
@@ -602,11 +602,11 @@ class Semi_IOS(Auto_IOS):
         }
 
         logger.info(f"SEMI_ASO_IOS parameter: {parameter}")
-        OrientProcess = slicer.modules.semi_aso_ios
+        orient_process = slicer.modules.semi_aso_ios
         numberscan = self.NumberScan(request.input_folder)
         list_process = [
             {
-                "Process": OrientProcess,
+                "Process": orient_process,
                 "Parameter": parameter,
                 "Module": "SEMI_ASO_IOS",
                 "Display": DisplayASOIOS(

@@ -279,7 +279,7 @@ class Auto_IOS(Method):
         logger.debug(f"Landmark parameters: {parameter_ali}")
         logger.debug("=" * 70)
 
-        LandmarkProcess = slicer.modules.ali_ios
+        landmark_process = slicer.modules.ali_ios
 
         numberscan = self.NumberScan(
             request.input_folder
@@ -315,7 +315,7 @@ class Auto_IOS(Method):
             logger.info("All scans are already segmented, skipping crown segmentation")
 
         list_process.append({
-            "Process": LandmarkProcess,
+            "Process": landmark_process,
             "Parameter": parameter_ali,
             "Module": "ALI_IOS",
             "Display": DisplayALIIOS(

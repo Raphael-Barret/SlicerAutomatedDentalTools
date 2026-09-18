@@ -130,8 +130,8 @@ def _read_obj_with_material(fileName, fname):
     actors.InitTraversal()
     append = vtk.vtkAppendPolyData()
     for _ in range(actors.GetNumberOfItems()):
-        surfActor = actors.GetNextActor()
-        append.AddInputData(surfActor.GetMapper().GetInputAsDataSet())
+        surf_actor = actors.GetNextActor()
+        append.AddInputData(surf_actor.GetMapper().GetInputAsDataSet())
     append.Update()
     return append.GetOutput()
 

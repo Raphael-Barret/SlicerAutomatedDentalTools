@@ -384,12 +384,12 @@ class Semi_CBCT(CBCT):
             "list_landmark": list_lmrk_str,
         }
 
-        OrientProcess = slicer.modules.semi_aso_cbct
+        orient_process = slicer.modules.semi_aso_cbct
         
         nb_scan = self.NumberScan(request.input_folder)
         list_process = [
             {
-                "Process": OrientProcess,
+                "Process": orient_process,
                 "Parameter": parameter_semi_aso,
                 "Module": "SEMI_ASO_CBCT",
                 "Display": DisplayASOCBCT(
@@ -481,12 +481,12 @@ class Auto_CBCT(CBCT):
         # PRE ASO CBCT
         temp_folder = slicer.util.tempDirectory()
         time.sleep(0.01)
-        tempPREASO_folder = slicer.util.tempDirectory()
+        temp_preaso_folder = slicer.util.tempDirectory()
         
         # ALI CBCT
-        documentsLocation = qt.QStandardPaths.DocumentsLocation
-        documents = qt.QStandardPaths.writableLocation(documentsLocation)
-        tempALI_folder = os.path.join(
+        documents_location = qt.QStandardPaths.DocumentsLocation
+        documents = qt.QStandardPaths.writableLocation(documents_location)
+        temp_ali_folder = os.path.join(
             documents, slicer.app.applicationName + "_temp_ALI"
         )
         
@@ -498,7 +498,7 @@ class Auto_CBCT(CBCT):
             "output_folder": temp_folder,
             "model_folder": request.model_folder_segor,
             "SmallFOV": request.smallFOV,
-            "temp_folder": tempPREASO_folder,
+            "temp_folder": temp_preaso_folder,
             "DCMInput": request.is_dicom_input,
         }
         
@@ -507,7 +507,7 @@ class Auto_CBCT(CBCT):
             "dir_models": request.model_folder_ali,
             "lm_type": self.format_lm_string(list_lmrk_str),
             "output_dir": temp_folder,
-            "temp_fold": tempALI_folder,
+            "temp_fold": temp_ali_folder,
             "DCMInput": False,
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
@@ -533,13 +533,13 @@ class Auto_CBCT(CBCT):
         logger.info(f"Parameter ALI :  {parameter_ali}")
         logger.info(f"Parameter SEMI_ASO : {parameter_semi_aso}")
         
-        PreOrientProcess = slicer.modules.pre_aso_cbct
-        ALIProcess = slicer.modules.ali_cbct
-        OrientProcess = slicer.modules.semi_aso_cbct
+        pre_orient_process = slicer.modules.pre_aso_cbct
+        ali_process = slicer.modules.ali_cbct
+        orient_process = slicer.modules.semi_aso_cbct
         
         list_process = [
             {
-                "Process": PreOrientProcess,
+                "Process": pre_orient_process,
                 "Parameter": parameter_pre_aso,
                 "Module": "PRE_ASO_CBCT",
                 "Display": DisplayASOCBCT(
@@ -547,7 +547,7 @@ class Auto_CBCT(CBCT):
                 ),
             },
             {
-                "Process": ALIProcess,
+                "Process": ali_process,
                 "Parameter": parameter_ali,
                 "Module": "ALI_CBCT",
                 "Display": DisplayALICBCT(
@@ -555,7 +555,7 @@ class Auto_CBCT(CBCT):
                 ),
             },
             {
-                "Process": OrientProcess,
+                "Process": orient_process,
                 "Parameter": parameter_semi_aso,
                 "Module": "SEMI_ASO_CBCT",
                 "Display": DisplayASOCBCT(

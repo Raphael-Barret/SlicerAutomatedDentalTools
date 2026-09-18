@@ -99,26 +99,26 @@ def main(input_folder,output_folder,resample_size,spacing,center,iso_spacing,is_
             linear = False if is_seg else True
             center_image = 1 if center == "True" else 0
             
-            isMRI = 1 if iso_spacing else 0
+            is_mri = 1 if iso_spacing else 0
             
             if "left" in input_path.lower():
-                isRight = 0
+                is_right = 0
             elif "right" in input_path.lower():
-                isRight = 1
+                is_right = 1
             else:
-                isRight = 0  # default fallback
+                is_right = 0  # default fallback
             
             if resample_size != "None" and spacing=="None" :
-                run_resample(img=input_path,out=out_path,size=list(map(int, resample_size.split(','))),fit_spacing=True,center=center_image,rightSide=isRight,mri=isMRI,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
+                run_resample(img=input_path,out=out_path,size=list(map(int, resample_size.split(','))),fit_spacing=True,center=center_image,rightSide=is_right,mri=is_mri,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
             elif resample_size == "None" and spacing!="None" :
-                run_resample(img=input_path,out=out_path,spacing=list(map(float, spacing.split(','))),size=[size_file[0],size_file[1],size_file[2]],fit_spacing=False,center=center_image,rightSide=isRight,mri=isMRI,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
+                run_resample(img=input_path,out=out_path,spacing=list(map(float, spacing.split(','))),size=[size_file[0],size_file[1],size_file[2]],fit_spacing=False,center=center_image,rightSide=is_right,mri=is_mri,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
             elif resample_size != "None" and spacing!="None" :
-                run_resample(img=input_path,out=out_path,spacing=list(map(float, spacing.split(','))),size=list(map(int, resample_size.split(','))),fit_spacing=True,center=center_image,rightSide=isRight,mri=isMRI,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
+                run_resample(img=input_path,out=out_path,spacing=list(map(float, spacing.split(','))),size=list(map(int, resample_size.split(','))),fit_spacing=True,center=center_image,rightSide=is_right,mri=is_mri,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
             else:
                 # Neither a target size nor a target spacing was requested -
                 # keep this file's own original size/spacing (e.g. just to
                 # apply centering/mirroring) instead of silently skipping it.
-                run_resample(img=input_path,out=out_path,spacing=list(spacing_file),size=[size_file[0],size_file[1],size_file[2]],fit_spacing=False,center=center_image,rightSide=isRight,mri=isMRI,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
+                run_resample(img=input_path,out=out_path,spacing=list(spacing_file),size=[size_file[0],size_file[1],size_file[2]],fit_spacing=False,center=center_image,rightSide=is_right,mri=is_mri,iso_spacing=False,linear=linear,image_dimension=3,pixel_dimension=1,rgb=False,ow=0)
 
             if total_patients > 0:
                 patient_count += 1

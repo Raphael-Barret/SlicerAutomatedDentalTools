@@ -51,8 +51,8 @@ SKIP_KEY = "AutomatedDentalTools/skipSharedEnvironmentCheck"
 
 def _settings():
     """Settings of the running installation, falling back to the user's own."""
-    revisionUserSettings = getattr(slicer.app, "revisionUserSettings", None)
-    settings = revisionUserSettings() if revisionUserSettings else None
+    revision_user_settings = getattr(slicer.app, "revisionUserSettings", None)
+    settings = revision_user_settings() if revision_user_settings else None
     if settings and settings.isWritable():
         return settings
     return slicer.app.userSettings()
@@ -78,10 +78,10 @@ def environmentIsPresent(conda):
     """
     if platform.system() == "Windows":
         return conda.condaTestEnv(ENV_NAME) is True
-    condaPath = conda.getCondaPath()
-    if not condaPath or condaPath == "None":
+    conda_path = conda.getCondaPath()
+    if not conda_path or conda_path == "None":
         return False
-    return os.path.isdir(os.path.join(condaPath, "envs", ENV_NAME))
+    return os.path.isdir(os.path.join(conda_path, "envs", ENV_NAME))
 
 
 def _formatTime(seconds):
@@ -244,8 +244,8 @@ def checkAtStartup():
         # already reported by the extension manager, not this check's business.
         return
 
-    condaPath = conda.getCondaPath()
-    if not condaPath or condaPath == "None":
+    conda_path = conda.getCondaPath()
+    if not conda_path or conda_path == "None":
         _informCondaMissing()
         return
 

@@ -66,7 +66,7 @@ class Automatrix_Method(Method):
         
         logger.info(f"Parameter automatrix :{parameter_automatrix}")
         
-        AutomatrixProcess = slicer.modules.automatrix_cli
+        automatrix_process = slicer.modules.automatrix_cli
 
         nb_files = self.NumberScan(
             kwargs["input_patient"],
@@ -75,7 +75,7 @@ class Automatrix_Method(Method):
         
         list_process = [
             {
-                "Process": AutomatrixProcess,
+                "Process": automatrix_process,
                 "Parameter": parameter_automatrix,
                 "Module": "AutoMatrix",
                 "Display": DisplayAutomatrix(

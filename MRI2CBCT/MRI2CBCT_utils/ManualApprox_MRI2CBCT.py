@@ -151,27 +151,27 @@ class ManualApproximation_MRI2CBCT:
             s.valueChanged.connect(self.onManualTransformChanged)
 
         # Reset button
-        resetBtn = qt.QPushButton("Reset Transform")
-        resetBtn.setStyleSheet(
+        reset_btn = qt.QPushButton("Reset Transform")
+        reset_btn.setStyleSheet(
             "QPushButton { background-color: #546E7A; color: white; "
             "padding: 6px; border-radius: 4px; }")
-        resetBtn.clicked.connect(self.onResetTransform)
-        layout.addRow(resetBtn)
+        reset_btn.clicked.connect(self.onResetTransform)
+        layout.addRow(reset_btn)
 
         # Interactive tools sub-section
-        toolsBox = ctk.ctkCollapsibleButton()
-        toolsBox.text = "Interactive Tools"
-        toolsBox.collapsed = True
+        tools_box = ctk.ctkCollapsibleButton()
+        tools_box.text = "Interactive Tools"
+        tools_box.collapsed = True
         # We add it as a row spanning both columns
-        layout.addRow(toolsBox)
-        toolsLayout = qt.QFormLayout(toolsBox)
+        layout.addRow(tools_box)
+        tools_layout = qt.QFormLayout(tools_box)
 
         self.centerButton = qt.QPushButton("Center MRI on CBCT")
         self.centerButton.setStyleSheet(
             "QPushButton { background-color: #607D8B; color: white; "
             "font-weight: bold; padding: 6px; border-radius: 4px; }")
         self.centerButton.clicked.connect(self.onCenterVolumes)
-        toolsLayout.addRow(self.centerButton)
+        tools_layout.addRow(self.centerButton)
 
         self.interactiveButton = qt.QPushButton("Enable Interactive Tool")
         self.interactiveButton.setCheckable(True)
@@ -180,20 +180,20 @@ class ManualApproximation_MRI2CBCT:
             "font-weight: bold; padding: 6px; border-radius: 4px; }"
             "QPushButton:checked { background-color: #F44336; }")
         self.interactiveButton.clicked.connect(self.onInteractiveToolToggled)
-        toolsLayout.addRow(self.interactiveButton)
+        tools_layout.addRow(self.interactiveButton)
 
         self.interactiveHint = qt.QLabel(
             "Drag the arrows to translate, the rings to rotate (Slicer's built-in transform handles)")
         self.interactiveHint.setStyleSheet("color: gray; font-size: 10px;")
         self.interactiveHint.setVisible(False)
-        toolsLayout.addRow(self.interactiveHint)
+        tools_layout.addRow(self.interactiveHint)
 
         # Embed the standard Transforms module Display panel (interaction
         # handle checkboxes, axis enables, glyph/grid options, etc.) instead
         # of only toggling the handles invisibly from code - same as GreedyReg.
         self.transformDisplayWidget = slicer.qMRMLTransformDisplayNodeWidget()
         self.transformDisplayWidget.setVisible(False)
-        toolsLayout.addRow(self.transformDisplayWidget)
+        tools_layout.addRow(self.transformDisplayWidget)
 
         # Confirm button
         self.confirmButton = qt.QPushButton("Confirm & Save Alignment")
@@ -390,23 +390,23 @@ class ManualApproximation_MRI2CBCT:
             return
         self.mriNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
 
-        displayNode = self.transformNode.GetDisplayNode()
-        if not displayNode:
+        display_node = self.transformNode.GetDisplayNode()
+        if not display_node:
             self.transformNode.CreateDefaultDisplayNodes()
-            displayNode = self.transformNode.GetDisplayNode()
+            display_node = self.transformNode.GetDisplayNode()
 
-        displayNode.SetVisibility(True)
-        displayNode.SetEditorVisibility(True)
-        displayNode.SetEditorVisibility3D(True)
-        displayNode.SetEditorSliceIntersectionVisibility(True)
+        display_node.SetVisibility(True)
+        display_node.SetEditorVisibility(True)
+        display_node.SetEditorVisibility3D(True)
+        display_node.SetEditorSliceIntersectionVisibility(True)
 
         # Rigid alignment only: translation + rotation, no scaling handles
-        displayNode.SetEditorTranslationEnabled(True)
-        displayNode.SetEditorRotationEnabled(True)
-        displayNode.SetEditorScalingEnabled(False)
-        displayNode.SetEditorTranslationSliceEnabled(True)
-        displayNode.SetEditorRotationSliceEnabled(True)
-        displayNode.SetEditorScalingSliceEnabled(False)
+        display_node.SetEditorTranslationEnabled(True)
+        display_node.SetEditorRotationEnabled(True)
+        display_node.SetEditorScalingEnabled(False)
+        display_node.SetEditorTranslationSliceEnabled(True)
+        display_node.SetEditorRotationSliceEnabled(True)
+        display_node.SetEditorScalingSliceEnabled(False)
 
         self.transformDisplayWidget.setMRMLTransformNode(self.transformNode)
         self.transformDisplayWidget.setVisible(True)
@@ -414,9 +414,9 @@ class ManualApproximation_MRI2CBCT:
     def stopInteractiveTool(self):
         if not self.transformNode:
             return
-        displayNode = self.transformNode.GetDisplayNode()
-        if displayNode:
-            displayNode.SetEditorVisibility(False)
+        display_node = self.transformNode.GetDisplayNode()
+        if display_node:
+            display_node.SetEditorVisibility(False)
         self.transformDisplayWidget.setVisible(False)
 
     # ------------------------------------------------------------------ #

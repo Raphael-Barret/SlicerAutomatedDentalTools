@@ -90,18 +90,18 @@ def ResampleImage(input, size, spacing, origin, direction, interpolator, VectorI
     """Resample image with error handling."""
     try:
         logger.debug("Starting image resampling")
-        ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
+        resample_type = itk.ResampleImageFilter[VectorImageType, VectorImageType]
 
-        resampleImageFilter = ResampleType.New()
-        resampleImageFilter.SetOutputSpacing(spacing.tolist())
-        resampleImageFilter.SetOutputOrigin(origin)
-        resampleImageFilter.SetOutputDirection(direction)
-        resampleImageFilter.SetInterpolator(interpolator)
-        resampleImageFilter.SetSize(size)
-        resampleImageFilter.SetInput(input)
-        resampleImageFilter.Update()
+        resample_image_filter = resample_type.New()
+        resample_image_filter.SetOutputSpacing(spacing.tolist())
+        resample_image_filter.SetOutputOrigin(origin)
+        resample_image_filter.SetOutputDirection(direction)
+        resample_image_filter.SetInterpolator(interpolator)
+        resample_image_filter.SetSize(size)
+        resample_image_filter.SetInput(input)
+        resample_image_filter.Update()
 
-        resampled_img = resampleImageFilter.GetOutput()
+        resampled_img = resample_image_filter.GetOutput()
         logger.debug("Image resampling completed successfully")
         return resampled_img
     except Exception as e:
@@ -146,15 +146,15 @@ def SetSpacing(filepath, output_spacing=[0.5, 0.5, 0.5], outpath=-1):
             pixel_type = img_info[0]
             pixel_dimension = img_info[1]
 
-            VectorImageType = itk.Image[pixel_type, pixel_dimension]
+            vector_image_type = itk.Image[pixel_type, pixel_dimension]
 
             if True in [seg in os.path.basename(filepath) for seg in ["seg", "Seg"]]:
-                InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
+                interpolator_type = itk.NearestNeighborInterpolateImageFunction[vector_image_type, itk.D]
             else:
-                InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
+                interpolator_type = itk.LinearInterpolateImageFunction[vector_image_type, itk.D]
 
-            interpolator = InterpolatorType.New()
-            resampled_img = ResampleImage(img, output_size, output_spacing, output_origin, img.GetDirection(), interpolator, VectorImageType)
+            interpolator = interpolator_type.New()
+            resampled_img = ResampleImage(img, output_size, output_spacing, output_origin, img.GetDirection(), interpolator, vector_image_type)
 
             if outpath != -1:
                 out_dir = os.path.dirname(outpath)

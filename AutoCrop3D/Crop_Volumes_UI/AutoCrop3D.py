@@ -87,7 +87,7 @@ def registerSampleData():
     # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
 
     import SampleData
-    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+    icons_path = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
 
     # To ensure that the source code repository remains small (can be downloaded and installed quickly)
     # it is recommended to store data sets that are larger than a few MB in a Github release.
@@ -99,7 +99,7 @@ def registerSampleData():
         sampleName='AutoCrop3D1',
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, 'AutoCrop3D.png'),
+        thumbnailFileName=os.path.join(icons_path, 'AutoCrop3D.png'),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         fileNames='AutoCrop3D1.nrrd',
@@ -115,7 +115,7 @@ def registerSampleData():
         # Category and sample name displayed in Sample Data module
         category='AutoCrop3D',
         sampleName='AutoCrop3D2',
-        thumbnailFileName=os.path.join(iconsPath, 'AutoCrop3D2.png'),
+        thumbnailFileName=os.path.join(icons_path, 'AutoCrop3D2.png'),
         # Download URL and target file name
         uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         fileNames='AutoCrop3D2.nrrd',
@@ -154,15 +154,15 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath('UI/AutoCrop3D.ui'))
-        self.layout.addWidget(uiWidget)
-        self.uiWidget = uiWidget  # Store reference for styling
-        self.ui = slicer.util.childWidgetVariables(uiWidget)
+        ui_widget = slicer.util.loadUI(self.resourcePath('UI/AutoCrop3D.ui'))
+        self.layout.addWidget(ui_widget)
+        self.uiWidget = ui_widget  # Store reference for styling
+        self.ui = slicer.util.childWidgetVariables(ui_widget)
 
         # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
-        uiWidget.setMRMLScene(slicer.mrmlScene)
+        ui_widget.setMRMLScene(slicer.mrmlScene)
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
@@ -260,9 +260,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Select default input nodes if nothing is selected yet to save a few clicks for the user
         if not self._parameterNode.GetNodeReference("InputVolume"):
-            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-            if firstVolumeNode:
-                self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
+            first_volume_node = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
+            if first_volume_node:
+                self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
     def setParameterNode(self, inputParameterNode):
         """
@@ -315,9 +315,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
-        wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+        was_modified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
-        self._parameterNode.EndModify(wasModified)
+        self._parameterNode.EndModify(was_modified)
 
     def optionCheckBox(self,index):
         '''
@@ -333,8 +333,8 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Run process when user clicks "Apply" button.
         """
-        isValid = self.CheckInput()
-        if isValid :
+        is_valid = self.CheckInput()
+        if is_valid :
             if self.ui.checkBoxCV.isChecked():
                 pass
                 self.onProcessStarted()
@@ -349,12 +349,12 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                         self.ui.editSuffix.text) # use module Crop Volume of Slicer
 
             else:
-                box_Size =str(self.ui.checkBoxSize.isChecked())
+                box_size =str(self.ui.checkBoxSize.isChecked())
                 self.logic = AutoCrop3DLogic(self.ui.editPathF.text,
                                                 self.ui.editPathVolume.text,
                                                 self.ui.editPathOutput.text,
                                                 self.ui.editSuffix.text,
-                                                box_Size,
+                                                box_size,
                                                 self.log_path)
 
                 self.logic.process()
@@ -407,10 +407,10 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             if self.logic.cliNode.GetStatus() & self.logic.cliNode.ErrorsMask:
                 # error
-                errorText = self.logic.cliNode.GetErrorText()
-                logger.error("CLI execution failed: \n \n" + errorText)
+                error_text = self.logic.cliNode.GetErrorText()
+                logger.error("CLI execution failed: \n \n" + error_text)
                 msg = qt.QMessageBox()
-                msg.setText(f'There was an error during the process:\n \n {errorText} ')
+                msg.setText(f'There was an error during the process:\n \n {error_text} ')
                 msg.setWindowTitle("Error")
                 msg.exec_()
 
@@ -446,9 +446,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.chooseType_ROI.setCurrentIndex(0)
 
 
-                processTime = round(time.time() - self.startTime,3)
+                process_time = round(time.time() - self.startTime,3)
                 self.ui.label_time.setVisible(True)
-                self.ui.label_time.setText("done in "+ str(processTime)+ "s")
+                self.ui.label_time.setText("done in "+ str(process_time)+ "s")
 
 
     def updateProgressCV(self):
@@ -486,9 +486,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.chooseType_ROI.setCurrentIndex(0)
 
 
-                processTime = round(time.time() - self.startTime,3)
+                process_time = round(time.time() - self.startTime,3)
                 self.ui.label_time.setVisible(True)
-                self.ui.label_time.setText("done in "+ str(processTime)+ "s")
+                self.ui.label_time.setText("done in "+ str(process_time)+ "s")
 
             return
         except Exception as e:
@@ -644,23 +644,23 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def processCropVolume(self,path_input,path_ROI,output_dir,suffix):
         index =0
-        ScanList = self.logic.Search(path_input, ".nii.gz",".nii",".nrrd.gz",".nrrd",".gipl.gz",".gipl")
+        scan_list = self.logic.Search(path_input, ".nii.gz",".nii",".nrrd.gz",".nrrd",".gipl.gz",".gipl")
         if os.path.isdir(path_ROI):
-            ROIList = self.logic.Search(path_ROI,".mrk.json")
-            ROI_dict = self.logic.ChangeKeyDict(ROIList)
+            roi_list = self.logic.Search(path_ROI,".mrk.json")
+            roi_dict = self.logic.ChangeKeyDict(roi_list)
         else:
-            ROIList = None
+            roi_list = None
 
         idx=0
-        for key,data in ScanList.items():
+        for key,data in scan_list.items():
             for patient_path in data:
                 patient = os.path.basename(patient_path).split('_Scan')[0].split('_scan')[0].split('_Seg')[0].split('_seg')[0].split('_Or')[0].split('_OR')[0].split('_MAND')[0].split('_MD')[0].split('_MAX')[0].split('_MX')[0].split('_CB')[0].split('_lm')[0].split('_Or')[0].split('_OR')[0].split('_MAND')[0].split('_MD')[0].split('_MAX')[0].split('_MX')[0].split('_CB')[0].split('_lm')[0].split('_T2')[0].split('_T1')[0].split('_Cl')[0].split('.')[0]
 
                 img = sitk.ReadImage(patient_path)
 
-                if ROIList is not None:
+                if roi_list is not None:
                     try:
-                        ROI_Path = ROI_dict[patient]
+                        roi_path = roi_dict[patient]
                     except Exception:
                         logger.warning('No ROI for patient:'+str(patient))
                         idx+=1
@@ -678,42 +678,42 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         else:
                             continue
                 else:
-                    ROI_Path = path_ROI
+                    roi_path = path_ROI
 
-                roiNode = slicer.util.loadMarkups(ROI_Path)
+                roi_node = slicer.util.loadMarkups(roi_path)
 
                 # Crop Volume is not working on segmentation so we need to put them as scans :)
-                inputVolume = slicer.util.loadVolume(patient_path)
+                input_volume = slicer.util.loadVolume(patient_path)
 
-                outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
+                output_volume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
 
                 #Crop Volume being a Loadable module and not a cli, suggestion:
-                cropVolumeLogic= slicer.modules.cropvolume.logic()
+                crop_volume_logic= slicer.modules.cropvolume.logic()
 
                 parameters = slicer.vtkMRMLCropVolumeParametersNode()
-                parameters.SetInputVolumeNodeID(inputVolume.GetID())
-                parameters.SetROINodeID(roiNode.GetID())
-                parameters.SetOutputVolumeNodeID(outputVolume.GetID())
+                parameters.SetInputVolumeNodeID(input_volume.GetID())
+                parameters.SetROINodeID(roi_node.GetID())
+                parameters.SetOutputVolumeNodeID(output_volume.GetID())
 
                 slicer.mrmlScene.AddNode(parameters)
 
-                cropVolumeLogic.Apply(parameters)
+                crop_volume_logic.Apply(parameters)
 
-                outputVolume = slicer.mrmlScene.GetNodeByID(parameters.GetOutputVolumeNodeID())
+                output_volume = slicer.mrmlScene.GetNodeByID(parameters.GetOutputVolumeNodeID())
 
                 original_stdin = sys.stdin
                 sys.stdin = DummyFile()
 
-                outputQueue = Queue()
+                output_queue = Queue()
 
-                self.thread = threading.Thread(target=self.saveOutput, args=(outputQueue,outputVolume,path_input,patient_path,output_dir,suffix))
+                self.thread = threading.Thread(target=self.saveOutput, args=(output_queue,output_volume,path_input,patient_path,output_dir,suffix))
                 self.thread.start()
 
                 while self.thread.is_alive():
                     slicer.app.processEvents()
                     self.updateProgressCV()
                     try:
-                        success = outputQueue.get_nowait()
+                        success = output_queue.get_nowait()
                         if not success:
                             logger.error(f"Failed to save volume {patient_path}")
                             continue
@@ -724,9 +724,9 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 sys.stdin = original_stdin
 
-                slicer.mrmlScene.RemoveNode(inputVolume)
-                slicer.mrmlScene.RemoveNode(outputVolume)
-                slicer.mrmlScene.RemoveNode(roiNode)
+                slicer.mrmlScene.RemoveNode(input_volume)
+                slicer.mrmlScene.RemoveNode(output_volume)
+                slicer.mrmlScene.RemoveNode(roi_node)
                 slicer.mrmlScene.Clear(0)
 
 
@@ -788,10 +788,10 @@ class AutoCrop3DLogic(ScriptedLoadableModuleLogic):
         parameters ["logPath"] = self.logPath
 
 
-        CLI_autoCrop3D = slicer.modules.autocrop3d_cli
-        self.cliNode = slicer.cli.run(CLI_autoCrop3D,None, parameters)
+        cli_auto_crop3_d = slicer.modules.autocrop3d_cli
+        self.cliNode = slicer.cli.run(cli_auto_crop3_d,None, parameters)
 
-        return CLI_autoCrop3D
+        return cli_auto_crop3_d
     def Search(self,path : str,*args ) :
         """
         Return a dictionary with args element as key and a list of file in path directory finishing by args extension for each key
@@ -917,30 +917,30 @@ def test_AutoCrop3D1(self):
     # Test Initialization
     # Load sample CBCT scans and JSON file
     # Unzip files
-    tempDir = tempfile.mkdtemp()
-    segmentationZip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'Segmentation.zip')
-    segmentationDir = os.path.join(tempDir, 'Segmentation')
-    os.mkdir(segmentationDir)
-    with zipfile.ZipFile(segmentationZip, 'r') as zip_ref:
-        zip_ref.extractall(segmentationDir)
+    temp_dir = tempfile.mkdtemp()
+    segmentation_zip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'Segmentation.zip')
+    segmentation_dir = os.path.join(temp_dir, 'Segmentation')
+    os.mkdir(segmentation_dir)
+    with zipfile.ZipFile(segmentation_zip, 'r') as zip_ref:
+        zip_ref.extractall(segmentation_dir)
     #Try Load CBCT scan
     try:
-        segmentationFile = os.path.join(segmentationDir, 'Segmentation.nrrd')
-        segmentationNode = slicer.util.loadVolume(segmentationFile)
+        segmentation_file = os.path.join(segmentation_dir, 'Segmentation.nrrd')
+        segmentation_node = slicer.util.loadVolume(segmentation_file)
     except Exception:
         raise ValueError("CBCT scan could not be loaded")
 
     #Try Load JSON file
-    jsonZip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'ROI.mrk.zip')
-    jsonDir = os.path.join(tempDir, 'ROI.mrk')
-    os.mkdir(jsonDir)
-    with zipfile.ZipFile(jsonZip, 'r') as zip_ref:
-        zip_ref.extractall(jsonDir)
+    json_zip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'ROI.mrk.zip')
+    json_dir = os.path.join(temp_dir, 'ROI.mrk')
+    os.mkdir(json_dir)
+    with zipfile.ZipFile(json_zip, 'r') as zip_ref:
+        zip_ref.extractall(json_dir)
 
-    jsonFile = os.path.join(jsonDir, 'ROI.mrk.json')
+    json_file = os.path.join(json_dir, 'ROI.mrk.json')
     try:
-        with open(jsonFile) as f:
-            jsonROI = json.load(f)
+        with open(json_file) as f:
+            json_roi = json.load(f)
     except Exception:
         raise ValueError("JSON file could not be loaded")
 

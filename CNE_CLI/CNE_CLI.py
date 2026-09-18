@@ -85,10 +85,10 @@ def extract_text(file_path: str) -> str:
 
 def main(args):
     # Arguments extraction
-    notesFolder_input = args.notesFolder_input
-    notesType = args.notesType
-    notesFolder_output = args.notesFolder_output
-    modelPath = args.modelPath
+    notes_folder_input = args.notesFolder_input
+    notes_type = args.notesType
+    notes_folder_output = args.notesFolder_output
+    model_path = args.modelPath
     
     print("<filter-start><filter-name>Clinical Notes Extraction</filter-name></filter-start>", flush=True)
     
@@ -117,12 +117,12 @@ def main(args):
         sys.exit(1)
 
     # Validate that modelPath is provided and exists
-    if not modelPath or not os.path.exists(modelPath):
-        error_msg = f"ERROR: Model file not found or not provided: {modelPath}"
+    if not model_path or not os.path.exists(model_path):
+        error_msg = f"ERROR: Model file not found or not provided: {model_path}"
         logger.error(error_msg)
         sys.exit(1)
     
-    logger.info(f"Using model: {modelPath}")
+    logger.info(f"Using model: {model_path}")
     
     # ---------------------------------------------------------
     # STEP 2 : Verification
@@ -132,11 +132,11 @@ def main(args):
 
     files_to_process = []
     for ext in SUPPORTED_EXTENSIONS:
-        files_to_process.extend(glob.glob(os.path.join(notesFolder_input, f"*{ext}")))
+        files_to_process.extend(glob.glob(os.path.join(notes_folder_input, f"*{ext}")))
 
     if not files_to_process:
         supported = ", ".join(SUPPORTED_EXTENSIONS)
-        logger.warning(f"WARNING: No supported files ({supported}) found in {notesFolder_input}")
+        logger.warning(f"WARNING: No supported files ({supported}) found in {notes_folder_input}")
         emit_fraction(1.00)
         sys.exit(0)
 
@@ -147,9 +147,9 @@ def main(args):
     print(f"<filter-comment>Loading model...</filter-comment>", flush=True)
     
     try:
-        logger.info(f"Initializing Llama engine with {modelPath}...")
+        logger.info(f"Initializing Llama engine with {model_path}...")
 
-        if notesType == "TMJ":
+        if notes_type == "TMJ":
             max_seq_length = 6144
         else:
             max_seq_length = 2048
@@ -160,7 +160,7 @@ def main(args):
 
         # Loading the model into memory with GPU support
         llm = Llama(
-            model_path=modelPath,
+            model_path=model_path,
             n_gpu_layers=-1,    # Use GPU if available
             n_ctx=max_seq_length,
             verbose=False       # Keep logs clean
@@ -192,7 +192,7 @@ def main(args):
                 logger.info(f"Generating extraction for {filename}...")
 
                 messages = []
-                if notesType.upper() == "TMJ":
+                if notes_type.upper() == "TMJ":
                     messages.append({"role": "system", "content": INSTRUCTION_TMJ})
                 messages.append({"role": "user", "content": clinical_text})
 
@@ -226,7 +226,7 @@ def main(args):
                     formatted_response = ai_response
 
                 output_filename = f"Extraction_{os.path.splitext(filename)[0]}.txt"
-                output_filepath = os.path.join(notesFolder_output, output_filename)
+                output_filepath = os.path.join(notes_folder_output, output_filename)
 
                 with open(output_filepath, 'w', encoding='utf-8') as f:
                     f.write(formatted_response)

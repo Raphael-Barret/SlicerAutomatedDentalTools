@@ -2834,9 +2834,6 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # fills the pipe and blocks the main thread for good - Slicer goes black and
     # never comes back. Slicer already logs each CLI's full standard output
     # itself, so echoing a bounded tail here is enough.
-    MAX_CLI_OUTPUT_CHARS = 8000
-
-    @classmethod
     def onCliUpdated(self, caller, event):
 
         # Only the node the pipeline is currently waiting on may advance it.
@@ -3176,6 +3173,14 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             return f"{seconds // 60}min and {seconds % 60}s"
         return f"{seconds // 3600}h, {seconds % 3600 // 60}min and {seconds % 60}s"
 
+    #: Assez court pour ne jamais remplir le tuyau dans lequel Slicer
+    #: capture sa propre sortie. Vivait sur le Widget, alors que seule
+    #: cette methode la lit : le deplacement vers le Logic l'a laissee
+    #: derriere, et `cls.MAX_CLI_OUTPUT_CHARS` levait un AttributeError
+    #: des le premier CLI termine.
+    MAX_CLI_OUTPUT_CHARS = 8000
+
+    @classmethod
     def _briefCliOutput(cls, text) -> str:
         """The tail of a CLI's output, small enough to never fill the stdout pipe."""
         text = text or ""

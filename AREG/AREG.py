@@ -1887,9 +1887,6 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     return
                 self.advanceToNextProcess()
 
-    MAX_CLI_OUTPUT_CHARS = 8000
-
-    @classmethod
     def advanceToNextProcess(self):
         """Launch the next step of the run, or finish if there is none left."""
         try:
@@ -3357,6 +3354,14 @@ class AREGLogic(ScriptedLoadableModuleLogic):
             dropped = self.conda_output_dropped
             self.conda_output_dropped = 0
         return "\n".join(taken), dropped
+    #: Assez court pour ne jamais remplir le tuyau dans lequel Slicer
+    #: capture sa propre sortie. Vivait sur le Widget, alors que seule
+    #: cette methode la lit : le deplacement vers le Logic l'a laissee
+    #: derriere, et `cls.MAX_CLI_OUTPUT_CHARS` levait un AttributeError
+    #: des le premier CLI termine.
+    MAX_CLI_OUTPUT_CHARS = 8000
+
+    @classmethod
     def _briefCliOutput(cls, text) -> str:
         """The tail of a CLI's output, small enough to never fill the stdout pipe."""
         text = text or ""

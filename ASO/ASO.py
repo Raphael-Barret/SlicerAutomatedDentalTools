@@ -1445,7 +1445,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     """
 
-    def initCheckbox(self, Method, layout, tohide: qt.QLabel):
+    def initCheckbox(self, method, layout, tohide: qt.QLabel):
         """Function to create the checkbox at the beginning of the program"""
         if not tohide is None:
             tohide.setHidden(True)
@@ -1482,7 +1482,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           }
         """
         
-        dic = Method.DicLandmark()
+        dic = method.DicLandmark()
         dicchebox = {}
         dicchebox2 = {}
         for type, tab in dic.items():
@@ -1513,20 +1513,20 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             dicchebox[type] = listcheckboxlandmark
             dicchebox2[type] = listcheckboxlandmark2
 
-        Method.setcheckbox(dicchebox)
-        Method.setcheckbox2(dicchebox2)
+        method.setcheckbox(dicchebox)
+        method.setcheckbox2(dicchebox2)
 
         return dicchebox, dicchebox2
 
-    def CreateMiniTab(self, tabWidget: QTabWidget, name: str, index: int):
+    def CreateMiniTab(self, tab_widget: QTabWidget, name: str, index: int):
         """Function to create a new tab in the tabWidget"""
         new_widget = QWidget()
-        new_widget.resize(tabWidget.size)
+        new_widget.resize(tab_widget.size)
 
         layout = QGridLayout(new_widget)
 
         scr_box = QScrollArea(new_widget)
-        scr_box.resize(tabWidget.size)
+        scr_box.resize(tab_widget.size)
 
         layout.addWidget(scr_box, 0, 0)
 
@@ -1536,7 +1536,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         scr_box.setWidgetResizable(True)
         scr_box.setWidget(new_widget2)
 
-        tabWidget.insertTab(index, new_widget, name)
+        tab_widget.insertTab(index, new_widget, name)
 
         return layout2
 
@@ -1570,7 +1570,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def initCheckboxIOS(
         self,
-        Method: Auto_IOS,
+        method: Auto_IOS,
         layout: QGridLayout,
         tohide: QLabel,
         layout2: QVBoxLayout,
@@ -1790,10 +1790,10 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             partial(self.logic.UpperLowerChooseOcclusion, upper_checbox, occlusion)
         )
 
-        if isinstance(Method, Semi_IOS):
-            dic1, dic2 = self.initCheckbox(Method, layout2, None)
+        if isinstance(method, Semi_IOS):
+            dic1, dic2 = self.initCheckbox(method, layout2, None)
 
-            Method.setcheckbox(
+            method.setcheckbox(
                 {
                     "Teeth": diccheckbox,
                     "Landmark": dic1,
@@ -1801,7 +1801,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     "Occlusion": occlusion,
                 }
             )
-            Method.setcheckbox2(
+            method.setcheckbox2(
                 {
                     "Teeth": diccheckbox,
                     "Landmark": dic2,
@@ -1811,14 +1811,14 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
         else:
 
-            Method.setcheckbox(
+            method.setcheckbox(
                 {
                     "Teeth": diccheckbox,
                     "Jaw": {"Upper": upper_checbox, "Lower": lower_checkbox},
                     "Occlusion": occlusion,
                 }
             )
-            Method.setcheckbox2(
+            method.setcheckbox2(
                 {
                     "Teeth": diccheckbox,
                     "Jaw": {"Upper": upper_checbox, "Lower": lower_checkbox},
@@ -1997,7 +1997,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Parameter node stores all user choices in parameter values, node selections, etc.
         # so that when the scene is saved and reloaded, these settings are restored.
 
-    def setParameterNode(self, inputParameterNode):
+    def setParameterNode(self, input_parameter_node):
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -2015,7 +2015,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 vtk.vtkCommand.ModifiedEvent,
                 self.updateGUIFromParameterNode,
             )
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
         if self._parameterNode is not None:
             self.addObserver(
                 self._parameterNode,
@@ -2472,9 +2472,9 @@ class ASOLogic(ScriptedLoadableModuleLogic):
                 Lower.setEnabled(True)
 
     def UpperLowerChooseOcclusion(
-        self, opposit_jaw: QCheckBox, Occlusion_checkbox: QCheckBox, booleean: bool
+        self, opposit_jaw: QCheckBox, occlusion_checkbox: QCheckBox, booleean: bool
     ):
-        if booleean and Occlusion_checkbox.isChecked() and opposit_jaw.isChecked():
+        if booleean and occlusion_checkbox.isChecked() and opposit_jaw.isChecked():
             opposit_jaw.setChecked(False)
     def read_log_path(self, log_path):
       with open(log_path, 'r') as f:

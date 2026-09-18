@@ -22,7 +22,7 @@ def is_dark_mode():
     return palette.color(qt.QPalette.Window).lightness() < 128
 
 
-def apply_dark_mode(uiWidget):
+def apply_dark_mode(ui_widget):
     """Give `uiWidget` the dark palette, when Slicer is running dark.
 
     Does nothing under a light palette, so a module can call it
@@ -152,10 +152,10 @@ QSlider::handle:horizontal:hover {
   background-color: #7bbcef;
 }
         """
-        uiWidget.setStyleSheet(dark_stylesheet)
+        ui_widget.setStyleSheet(dark_stylesheet)
         
         # Update QLineEdit, QComboBox, and QLabel for dark mode
-        update_line_edit_and_combo_box(uiWidget)
+        update_line_edit_and_combo_box(ui_widget)
 
 def update_line_edit_and_combo_box(parent):
     """

@@ -78,14 +78,14 @@ class Auto_IOS(Method):
             out = "Please select folder with vkt or stl files"
         return out
 
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
         out = None
         if model_folder == "":
             out = "Please select folder with one .pht file"
         else:
             files = self.search(model_folder, ".pth")[".pth"]
 
-            if "lineEditModelSegOr" == lineEditName:
+            if "lineEditModelSegOr" == line_edit_name:
                 if len(files) != 1:
                     out = "Please select folder with only one .pth file"
 

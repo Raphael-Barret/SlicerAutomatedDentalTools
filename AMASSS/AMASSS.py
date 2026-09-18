@@ -557,12 +557,12 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if index == 2: # Segmentation Files
       self.isSegmentInputFunction(True)
 
-  def isSegmentInputFunction(self,SegInput):
+  def isSegmentInputFunction(self,seg_input):
 
     # Set the value to True when checked and vice-versa
     # self.isSegmentInput = not self.isSegmentInput
 
-    if SegInput:
+    if seg_input:
       self.isSegmentInput = True
       self.isDCMInput = False
       self.ui.label_folder_select.setText("Segmentation's Folder")
@@ -578,33 +578,33 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.PrePredInfo.setText("Number of scans to process : 0")
     # Set to invisble all the unnecessary input
 
-    self.ui.DownloadScanButton.setVisible(not SegInput)
-    self.ui.DownloadButton.setVisible(not SegInput)
-    self.ui.label_model_select.setVisible(not SegInput)
-    self.ui.lineEditModelPath.setVisible(not SegInput)
-    self.ui.SearchModelFolder.setVisible(not SegInput)
+    self.ui.DownloadScanButton.setVisible(not seg_input)
+    self.ui.DownloadButton.setVisible(not seg_input)
+    self.ui.label_model_select.setVisible(not seg_input)
+    self.ui.lineEditModelPath.setVisible(not seg_input)
+    self.ui.SearchModelFolder.setVisible(not seg_input)
 
-    self.ui.smallFOVCheckBox.setVisible(not SegInput)
-    self.ui.label_6.setVisible(not SegInput)
+    self.ui.smallFOVCheckBox.setVisible(not seg_input)
+    self.ui.label_6.setVisible(not seg_input)
 
     # OUTPUT
-    self.ui.CenterAllCheckBox.setVisible(not SegInput)
-    self.ui.SaveAdjustedCheckBox.setVisible(not SegInput)
+    self.ui.CenterAllCheckBox.setVisible(not seg_input)
+    self.ui.SaveAdjustedCheckBox.setVisible(not seg_input)
 
-    self.ui.label_2.setVisible(not SegInput)
-    self.ui.OutputTypecomboBox.setVisible(not SegInput)
+    self.ui.label_2.setVisible(not seg_input)
+    self.ui.OutputTypecomboBox.setVisible(not seg_input)
 
-    self.ui.label_9.setVisible(not SegInput)
-    self.ui.SaveId.setVisible(not SegInput)
+    self.ui.label_9.setVisible(not seg_input)
+    self.ui.SaveId.setVisible(not seg_input)
 
-    self.ui.checkBoxSurfaceSelect.setVisible(not SegInput)
+    self.ui.checkBoxSurfaceSelect.setVisible(not seg_input)
 
     # ADVANCED
-    self.ui.labelSmoothing.setVisible(SegInput)
-    self.ui.horizontalSliderSmoothing.setVisible(SegInput)
-    self.ui.spinBoxSmoothing.setVisible(SegInput)
+    self.ui.labelSmoothing.setVisible(seg_input)
+    self.ui.horizontalSliderSmoothing.setVisible(seg_input)
+    self.ui.spinBoxSmoothing.setVisible(seg_input)
 
-    self.ui.saveInFolder.setVisible(not SegInput)
+    self.ui.saveInFolder.setVisible(not seg_input)
 
     # self.ui..setVisible(not self.isSegmentInput)
 
@@ -1333,7 +1333,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if first_volume_node:
         self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
-  def setParameterNode(self, inputParameterNode):
+  def setParameterNode(self, input_parameter_node):
     """
     Set and observe parameter node.
     Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -1347,7 +1347,7 @@ class AMASSSWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # those are reflected immediately in the GUI.
     if self._parameterNode is not None:
       self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-    self._parameterNode = inputParameterNode
+    self._parameterNode = input_parameter_node
     if self._parameterNode is not None:
       self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 

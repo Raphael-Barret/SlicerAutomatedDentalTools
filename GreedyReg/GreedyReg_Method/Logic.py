@@ -261,40 +261,40 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
             pass
       shutil.rmtree(install_dir, ignore_errors=True)
 
-  def _findFileRecursive(self, rootDir, fileName):
-    for root, _dirs, files in os.walk(rootDir):
-      if fileName in files:
-        return os.path.join(root, fileName)
+  def _findFileRecursive(self, root_dir, file_name):
+    for root, _dirs, files in os.walk(root_dir):
+      if file_name in files:
+        return os.path.join(root, file_name)
     return None
 
   # ------------------------------------------------------------------ #
   #  GreedyReg_CLI parameters
   # ------------------------------------------------------------------ #
 
-  def exportMask(self, maskNode, maskPath):
+  def exportMask(self, mask_node, mask_path):
     """Export a mask/segmentation MRML node to a NIfTI file. Binarizing
     for Greedy's -gm mask argument is handled by GreedyReg_CLI."""
-    slicer.util.exportNode(maskNode, maskPath)
+    slicer.util.exportNode(mask_node, mask_path)
 
-  def writeInitTransform(self, initPath, matrix):
+  def writeInitTransform(self, init_path, matrix):
     """Write a vtkMatrix4x4 to a Greedy-format .mat init file, nudging a
     zero translation slightly so Greedy doesn't treat it as identity."""
     if matrix.GetElement(0, 3) == 0 and matrix.GetElement(1, 3) == 0 and matrix.GetElement(2, 3) == 0:
       matrix.SetElement(0, 3, 0.001)
-    with open(initPath, 'w') as f:
+    with open(init_path, 'w') as f:
       for i in range(4):
         f.write(' '.join([str(matrix.GetElement(i, j)) for j in range(4)]) + '\n')
 
-  def buildGreedyCliParameters(self, t1Folder, t2Folder, outputFolder,
-                                metricIndex, dofIndex, maskFolder=None, initFolder=None):
-    metric = ["NMI", "NCC", "SSD"][metricIndex]
-    transform_type = "Rigid" if dofIndex == 0 else "Affine"
+  def buildGreedyCliParameters(self, t1_folder, t2_folder, output_folder,
+                                metric_index, dof_index, maskFolder=None, initFolder=None):
+    metric = ["NMI", "NCC", "SSD"][metric_index]
+    transform_type = "Rigid" if dof_index == 0 else "Affine"
     return {
-      "t1Folder": t1Folder,
-      "t2Folder": t2Folder,
+      "t1Folder": t1_folder,
+      "t2Folder": t2_folder,
       "maskFolder": maskFolder or "",
       "initFolder": initFolder or "",
-      "outputFolder": outputFolder,
+      "outputFolder": output_folder,
       "greedyBinary": self.greedyBinaryPath(),
       "metric": metric,
       "transformType": transform_type,
@@ -303,7 +303,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   def runGreedyCli(self, parameters):
     return slicer.cli.run(slicer.modules.greedyreg_cli, None, parameters)
 
-  def findBatchPairs(self, t1Folder, t2Folder, maskFolder=None):
+  def findBatchPairs(self, t1_folder, t2_folder, maskFolder=None):
     """Preview the pairs GreedyReg_CLI would find, for the 'Found N pairs'
     label. Matching logic must stay consistent with GreedyReg_CLI.py."""
     id_pattern = re.compile(r'^([A-Za-z]+\d+)', re.IGNORECASE)
@@ -319,8 +319,8 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
             ids[m.group(1).upper()] = os.path.join(folder, fname)
       return ids
 
-    t1s = getNiftiFiles(t1Folder)
-    t2s = getNiftiFiles(t2Folder)
+    t1s = getNiftiFiles(t1_folder)
+    t2s = getNiftiFiles(t2_folder)
     masks = getNiftiFiles(maskFolder) if maskFolder else {}
 
     pairs = []
@@ -338,11 +338,11 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     monai_version = '1.3.2' if sys.version_info >= (3, 10) else '0.7.0'
     return [('itk', None), ('dicom2nifti', '2.6.2'), ('pydicom', '3.0.2'), ('monai', monai_version)]
 
-  def _checkLibInstalled(self, libName, requiredVersion=None):
+  def _checkLibInstalled(self, lib_name, required_version=None):
     import importlib.metadata
     try:
-      installed_version = importlib.metadata.version(libName)
-      if requiredVersion and installed_version != requiredVersion:
+      installed_version = importlib.metadata.version(lib_name)
+      if required_version and installed_version != required_version:
         return False
       return True
     except importlib.metadata.PackageNotFoundError:
@@ -413,7 +413,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   def _allAliModelDirs(self):
     return sorted({d for cfg in self.REGION_CONFIG.values() for d in cfg["model_dirs"]})
 
-  def aliModelsReady(self, aliModelsDir, regions=None):
+  def aliModelsReady(self, ali_models_dir, regions=None):
     """True if every model subdirectory needed by the given regions (or
     all regions if None) already exists and is non-empty under
     aliModelsDir."""
@@ -422,10 +422,10 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     else:
       dir_names = self._allAliModelDirs()
     return all(
-      os.path.isdir(os.path.join(aliModelsDir, d)) and os.listdir(os.path.join(aliModelsDir, d))
+      os.path.isdir(os.path.join(ali_models_dir, d)) and os.listdir(os.path.join(ali_models_dir, d))
       for d in dir_names)
 
-  def downloadAliModels(self, aliModelsDir, regions=None, statusCallback=None):
+  def downloadAliModels(self, ali_models_dir, regions=None, statusCallback=None):
     """Download and extract the ALI landmark-detection models Distant
     Registration needs (the same release the ALI module's own "Download
     latest models" button uses) into aliModelsDir/<model_dir>/, e.g.
@@ -445,19 +445,19 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
 
     missing = [
       d for d in dir_names
-      if not (os.path.isdir(os.path.join(aliModelsDir, d)) and os.listdir(os.path.join(aliModelsDir, d)))]
+      if not (os.path.isdir(os.path.join(ali_models_dir, d)) and os.listdir(os.path.join(ali_models_dir, d)))]
     if not missing:
-      return aliModelsDir
+      return ali_models_dir
 
     if not slicer.util.confirmYesNoDisplay(
         "The following ALI landmark-detection models used by Distant Registration "
         "are missing:\n" + "\n".join(missing) +
-        f"\n\nDownload them now into:\n{aliModelsDir}\n(this can take a while)?"):
+        f"\n\nDownload them now into:\n{ali_models_dir}\n(this can take a while)?"):
       raise RuntimeError("ALI model download cancelled by user")
 
-    os.makedirs(aliModelsDir, exist_ok=True)
+    os.makedirs(ali_models_dir, exist_ok=True)
     for i, dir_name in enumerate(missing):
-      dest_dir = os.path.join(aliModelsDir, dir_name)
+      dest_dir = os.path.join(ali_models_dir, dir_name)
       url = f"{self.ALI_MODEL_DOWNLOAD_BASE_URL}{dir_name}.zip"
       report(f"Downloading {dir_name} ({i + 1}/{len(missing)})...")
       tmp_zip = tempfile.mktemp(suffix=".zip")
@@ -467,14 +467,14 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
       with zipfile.ZipFile(tmp_zip, "r") as zf:
         zf.extractall(dest_dir)
       os.remove(tmp_zip)
-    return aliModelsDir
+    return ali_models_dir
 
-  def buildAliParameters(self, scanPath, modelSubDir, aliModelDir, landmarks, outputDir, tmpDir):
-    model_path = os.path.join(aliModelDir, modelSubDir)
+  def buildAliParameters(self, scanPath, model_sub_dir, ali_model_dir, landmarks, outputDir, tmp_dir):
+    model_path = os.path.join(ali_model_dir, model_sub_dir)
     if not os.path.exists(model_path):
       raise RuntimeError(f"ALI model folder not found: {model_path}")
     os.makedirs(outputDir, exist_ok=True)
-    sub_tmp = os.path.join(tmpDir, f"ali_tmp_{modelSubDir}")
+    sub_tmp = os.path.join(tmp_dir, f"ali_tmp_{model_sub_dir}")
     os.makedirs(sub_tmp, exist_ok=True)
     lm_str = ",".join(f"\"{lm}\"" for lm in landmarks)
     return {
@@ -493,7 +493,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   def runAliCli(self, parameters):
     return slicer.cli.run(slicer.modules.ali_cbct, None, parameters)
 
-  def buildAliJobQueue(self, scans, aliModelDir, region, tmpDir):
+  def buildAliJobQueue(self, scans, ali_model_dir, region, tmp_dir):
     """scans: dict like {"fixed": scanPath, "moving": scanPath}.
     Returns a list of job dicts, one per (scan, model subdir) combination,
     each carrying the slicer.cli parameters needed to run ALI_CBCT and the
@@ -502,7 +502,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     landmarks = cfg["landmarks"]
     jobs = []
     for scan_key, scan_path in scans.items():
-      output_dir = os.path.join(tmpDir, f"ali_{scan_key}")
+      output_dir = os.path.join(tmp_dir, f"ali_{scan_key}")
       for subdir in cfg["model_dirs"]:
         sub_output_dir = os.path.join(output_dir, subdir)
         jobs.append({
@@ -511,7 +511,7 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
           "outputDir": sub_output_dir,
           "landmarks": landmarks,
           "parameters": self.buildAliParameters(
-            scan_path, subdir, aliModelDir, landmarks, sub_output_dir, tmpDir),
+            scan_path, subdir, ali_model_dir, landmarks, sub_output_dir, tmp_dir),
         })
     return jobs
 
@@ -533,14 +533,14 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
           found[name] = [-pos[0], -pos[1], pos[2]]
     return found
 
-  def rigidFromLandmarks(self, fixedPts, movingPts):
+  def rigidFromLandmarks(self, fixed_pts, moving_pts):
     """Compute rigid 4x4 RAS transform from matched landmark arrays using
     SVD. fixedPts, movingPts: Nx3 numpy arrays of corresponding points."""
     import numpy as np
-    fc = fixedPts.mean(axis=0)
-    mc = movingPts.mean(axis=0)
-    f_c = fixedPts - fc
-    m_c = movingPts - mc
+    fc = fixed_pts.mean(axis=0)
+    mc = moving_pts.mean(axis=0)
+    f_c = fixed_pts - fc
+    m_c = moving_pts - mc
     H = m_c.T @ f_c
     U, S, vt = np.linalg.svd(H)
     R = vt.T @ U.T
@@ -559,8 +559,8 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
   #  drives one ALI job-queue per pair from the widget)
   # ------------------------------------------------------------------ #
 
-  def findBatchPairsDistant(self, t1Folder, t2Folder):
-    return [(pid, t1, t2) for pid, t1, t2, _mask in self.findBatchPairs(t1Folder, t2Folder)]
+  def findBatchPairsDistant(self, t1_folder, t2_folder):
+    return [(pid, t1, t2) for pid, t1, t2, _mask in self.findBatchPairs(t1_folder, t2_folder)]
   def _centerSensitivityDemoWheel(self, pad):
     """Keep a wheel centered in its parent slice view.
 
@@ -584,10 +584,10 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     pad.move(max(0, x), max(0, y))
 
 
-  def _currentSliceFovMean(self, sliceName):
+  def _currentSliceFovMean(self, slice_name):
     try:
       lm = slicer.app.layoutManager()
-      slice_widget = lm.sliceWidget(sliceName)
+      slice_widget = lm.sliceWidget(slice_name)
       slice_node = slice_widget.mrmlSliceNode()
       fov = slice_node.GetFieldOfView()
       return max(1e-3, (float(fov[0]) + float(fov[1])) / 2.0)
@@ -595,19 +595,19 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
       return None
 
 
-  def _rotationAxisForSlice(self, sliceName):
+  def _rotationAxisForSlice(self, slice_name):
     # Slicer default slice conventions:
     # Red = axial plane -> rotate around Z.
     # Yellow = sagittal plane -> rotate around X.
     # Green = coronal plane -> rotate around Y.
-    if sliceName == "Yellow":
+    if slice_name == "Yellow":
       return "X"
-    if sliceName == "Green":
+    if slice_name == "Green":
       return "Y"
     return "Z"
 
 
-  def _translationDeltasForSlice(self, sliceName, dxPixels, dyPixels, mmPerPixel):
+  def _translationDeltasForSlice(self, slice_name, dx_pixels, dy_pixels, mm_per_pixel):
     # Background drag translates in the visible plane of the slice. This removes
     # the axis buttons entirely while still giving access to X/Y/Z translation:
     #   Red axial:     horizontal=X, vertical=Y
@@ -616,10 +616,10 @@ class GreedyRegLogic(ScriptedLoadableModuleLogic):
     # Screen Y grows downward. For this demo we intentionally keep the mapping
     # cursor-following instead of anatomically inverted: drag down -> positive
     # vertical movement in the displayed slice plane.
-    if sliceName == "Yellow":
-      return {"X": 0.0, "Y": dxPixels * mmPerPixel, "Z": dyPixels * mmPerPixel}
-    if sliceName == "Green":
-      return {"X": dxPixels * mmPerPixel, "Y": 0.0, "Z": dyPixels * mmPerPixel}
-    return {"X": dxPixels * mmPerPixel, "Y": dyPixels * mmPerPixel, "Z": 0.0}
+    if slice_name == "Yellow":
+      return {"X": 0.0, "Y": dx_pixels * mm_per_pixel, "Z": dy_pixels * mm_per_pixel}
+    if slice_name == "Green":
+      return {"X": dx_pixels * mm_per_pixel, "Y": 0.0, "Z": dy_pixels * mm_per_pixel}
+    return {"X": dx_pixels * mm_per_pixel, "Y": dy_pixels * mm_per_pixel, "Z": 0.0}
 
 

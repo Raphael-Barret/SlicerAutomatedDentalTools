@@ -492,21 +492,21 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if first_volume_node:
                 self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
-    def setParameterNode(self, inputParameterNode):
+    def setParameterNode(self, input_parameter_node):
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
         """
 
-        if inputParameterNode:
-            self.logic.setDefaultParameters(inputParameterNode)
+        if input_parameter_node:
+            self.logic.setDefaultParameters(input_parameter_node)
 
         # Unobserve previously selected parameter node and add an observer to the newly selected.
         # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
         # those are reflected immediately in the GUI.
         if self._parameterNode is not None:
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
         if self._parameterNode is not None:
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
@@ -876,14 +876,14 @@ class AutoMatrixLogic(ScriptedLoadableModuleLogic):
         self.installCliNode = None
 
 
-    def setDefaultParameters(self, parameterNode):
+    def setDefaultParameters(self, parameter_node):
         """
         Initialize parameter node with default settings.
         """
-        if not parameterNode.GetParameter("Threshold"):
-            parameterNode.SetParameter("Threshold", "100.0")
-        if not parameterNode.GetParameter("Invert"):
-            parameterNode.SetParameter("Invert", "false")
+        if not parameter_node.GetParameter("Threshold"):
+            parameter_node.SetParameter("Threshold", "100.0")
+        if not parameter_node.GetParameter("Invert"):
+            parameter_node.SetParameter("Invert", "false")
 
     def process(self)->None:
         """
@@ -891,17 +891,17 @@ class AutoMatrixLogic(ScriptedLoadableModuleLogic):
         """
 
         pass
-    def saveOutput(self, outputVolumeNode, outputFilePath)->None:
+    def saveOutput(self, output_volume_node, output_file_path)->None:
         """
         Saves the output volume in the specified file with the .nii.gz extension.
 
         :param outputVolumeNode: The output volume node in Slicer MRML scene.
         :param outputFilePath: The full path where the file is to be saved.
         """
-        if not os.path.exists(os.path.dirname(outputFilePath)):
-            os.makedirs(os.path.dirname(outputFilePath))
+        if not os.path.exists(os.path.dirname(output_file_path)):
+            os.makedirs(os.path.dirname(output_file_path))
 
-        slicer.util.exportNode(outputVolumeNode, outputFilePath,world=True)
+        slicer.util.exportNode(output_volume_node, output_file_path,world=True)
 
 
 

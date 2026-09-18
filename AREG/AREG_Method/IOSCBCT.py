@@ -74,15 +74,15 @@ class IOSCBCT(Method):
             out = "Please select at least 3 landmarks\n"
         return out
 
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
 
-        if lineEditName == "lineEditModelSegOr":
+        if line_edit_name == "lineEditModelSegOr":
             if len(super().search(model_folder, "ckpt")["ckpt"]) == 0:
                 return "Folder must have Pre ASO models files"
             else:
                 return None
 
-        if lineEditName == "lineEditModelAli":
+        if line_edit_name == "lineEditModelAli":
             if len(super().search(model_folder, "pth")["pth"]) == 0:
                 return "Folder must have ALI models files"
             else:

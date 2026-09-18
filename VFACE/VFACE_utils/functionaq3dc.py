@@ -835,7 +835,7 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.addTabLandmarks(new_tabwidget, group, i, parent=parent)
 
     def addTabLandmarks(
-        self, tabWidget: QTabWidget, group: str, index: int, parent: str = ""
+        self, tab_widget: QTabWidget, group: str, index: int, parent: str = ""
     ):
         """Add a new Tab in tabWidget
 
@@ -862,7 +862,7 @@ class AQ3DCWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         scr_box.setWidgetResizable(True)
         scr_box.setWidget(new_widget2)
 
-        tabWidget.insertTab(index, new_widget, group)
+        tab_widget.insertTab(index, new_widget, group)
 
         self.dict_Group2Layout[group + parent] = [layout2, scr_box]
 
@@ -1381,16 +1381,16 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
     """
         ScriptedLoadableModuleLogic.__init__(self)
 
-    def setDefaultParameters(self, parameterNode):
+    def setDefaultParameters(self, parameter_node):
         """
     Initialize parameter node with default settings.
     """
-        if not parameterNode.GetParameter("Threshold"):
-            parameterNode.SetParameter("Threshold", "100.0")
-        if not parameterNode.GetParameter("Invert"):
-            parameterNode.SetParameter("Invert", "false")
+        if not parameter_node.GetParameter("Threshold"):
+            parameter_node.SetParameter("Threshold", "100.0")
+        if not parameter_node.GetParameter("Invert"):
+            parameter_node.SetParameter("Invert", "false")
 
-    def concatenateT1T2Patient(self, dict_patients_T1: dict, dict_patients_T2: dict):
+    def concatenateT1T2Patient(self, dict_patients_t1: dict, dict_patients_t2: dict):
         """ Concatenate dict patient T1 and dict patient T2
         Can concatenate if dict_patient_T2 is avoid
 
@@ -1416,7 +1416,7 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
               }
     """
         dict_patient = {}
-        for patient, points in dict_patients_T1.items():
+        for patient, points in dict_patients_t1.items():
             try:
                 dict_patient[patient] = {
                     "T1": {
@@ -1424,7 +1424,7 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
                     },
                     "T2": {
                         landmark.upper(): value
-                        for landmark, value in dict_patients_T2[patient].items()
+                        for landmark, value in dict_patients_t2[patient].items()
                     },
                 }
             except KeyError:
@@ -1519,7 +1519,7 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
         return patients_dict,dict_patient_extraction
 
-    def compareT1T2(self, dict_patinetT1: dict, dict_patientT2: dict):
+    def compareT1T2(self, dict_patinet_t1: dict, dict_patient_t2: dict):
         """Check if patient T1 and T2 have the same landmark, and the same patient
 
     Display in the terminal difference between T1 and T2
@@ -1537,11 +1537,11 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
         # compare landmark patient T1 and T2
         dif_landmark = {}
-        for patient_t1, landmarks in dict_patinetT1.items():
-            if patient_t1 in dict_patientT2:
-                if set(landmarks) != set(dict_patientT2[patient_t1]):
-                    dif = set(landmarks) - set(dict_patientT2[patient_t1])
-                    dif.union(set(dict_patientT2[patient_t1]) - set(landmarks))
+        for patient_t1, landmarks in dict_patinet_t1.items():
+            if patient_t1 in dict_patient_t2:
+                if set(landmarks) != set(dict_patient_t2[patient_t1]):
+                    dif = set(landmarks) - set(dict_patient_t2[patient_t1])
+                    dif.union(set(dict_patient_t2[patient_t1]) - set(landmarks))
                     dif_landmark[patient_t1] = dif
                     logger.warning(
                         f"T1 and T2 of this patient {patient_t1} doesnt have the same landmark, landmark dif {dif}"
@@ -1549,9 +1549,9 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
         # compare the name patient T1 and T2
         dif_patient = None
-        if set(dict_patinetT1.keys()) != set(dict_patientT2.keys()):
-            dif = set(dict_patinetT1.keys()) - set(dict_patientT2.keys())
-            dif.union(set(dict_patientT2.keys()) - set(dict_patinetT1.keys()))
+        if set(dict_patinet_t1.keys()) != set(dict_patient_t2.keys()):
+            dif = set(dict_patinet_t1.keys()) - set(dict_patient_t2.keys())
+            dif.union(set(dict_patient_t2.keys()) - set(dict_patinet_t1.keys()))
             dif_patient = dif_landmark
             logger.warning(f"T1 and T2 doesnt have the same patient, dif patient {dif}")
         return dif_landmark , dif_patient
@@ -1664,26 +1664,26 @@ class AQ3DCLogic(ScriptedLoadableModuleLogic):
 
             self.writeJson(f"{patient}_Midpoint", cp_lst, out_path)
             
-    def findOriginalJson(self, folderPath, patientId):
+    def findOriginalJson(self, folderPath, patient_id):
         for file in glob.glob(os.path.join(folderPath, "*.json")):
-            if file.startswith(os.path.join(folderPath, patientId)):
+            if file.startswith(os.path.join(folderPath, patient_id)):
                 return file
         return None
 
-    def appendMidpointsToJson(self, filePath, patientLandmarks, midpoints):
-        with open(filePath, 'r') as f:
+    def appendMidpointsToJson(self, file_path, patient_landmarks, midpoints):
+        with open(file_path, 'r') as f:
             data = json.load(f)
 
         control_points = data['markups'][0]['controlPoints']
 
         for P1, P2 in midpoints:
-            if P1 in patientLandmarks and P2 in patientLandmarks:
-                midpoint_pos = self.computeMidPoint(np.array(patientLandmarks[P1]), np.array(patientLandmarks[P2]))
+            if P1 in patient_landmarks and P2 in patient_landmarks:
+                midpoint_pos = self.computeMidPoint(np.array(patient_landmarks[P1]), np.array(patient_landmarks[P2]))
                 control_points.append(self.generateControlePoint(f"Mid_{P1}_{P2}", midpoint_pos))
 
         data['markups'][0]['controlPoints'] = control_points
 
-        with open(filePath, 'w') as f:
+        with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
 
 

@@ -61,9 +61,9 @@ class Auto_CBCT(Method):
 
         return None
 
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
 
-        if lineEditName == "lineEditModelPath":
+        if line_edit_name == "lineEditModelPath":
             if len(super().search(model_folder, "pth")["pth"]) == 0:
                 return "Folder must have models for mask segmentation"
             else:
@@ -138,7 +138,7 @@ class Auto_CBCT(Method):
             ],
         }
 
-    def TranslateModels(self, listeModels, mask=False):
+    def TranslateModels(self, liste_models, mask=False):
         dic_translate = {
             "Models": {
                 "Mandible": "MAND",
@@ -158,8 +158,8 @@ class Auto_CBCT(Method):
         }
 
         translate = ""
-        for i, model in enumerate(listeModels):
-            if i < len(listeModels) - 1:
+        for i, model in enumerate(liste_models):
+            if i < len(liste_models) - 1:
                 if mask:
                     translate += dic_translate["Masks"][model] + " "
                 else:

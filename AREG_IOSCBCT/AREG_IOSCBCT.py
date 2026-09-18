@@ -965,12 +965,12 @@ def surface_threshold(image_array, ijk_to_lps, landmarks, patient_id=""):
     return level
 
 
-def load_data(scan_path,json_path_CBCT_U,json_path_CBCT_L,json_path_IOS_U,json_path_IOS_L,patient_id=""):
+def load_data(scan_path,json_path_cbct_u,json_path_cbct_l,json_path_ios_u,json_path_ios_l,patient_id=""):
     
-    lm_cbct_u = get_landmarks(json_path_CBCT_U)
-    lm_cbct_l = get_landmarks(json_path_CBCT_L)
-    lm_ios_u = get_landmarks(json_path_IOS_U)
-    lm_ios_l = get_landmarks(json_path_IOS_L)
+    lm_cbct_u = get_landmarks(json_path_cbct_u)
+    lm_cbct_l = get_landmarks(json_path_cbct_l)
+    lm_ios_u = get_landmarks(json_path_ios_u)
+    lm_ios_l = get_landmarks(json_path_ios_l)
 
     image = sitk.ReadImage(scan_path)
     image_array = sitk.GetArrayFromImage(image)
@@ -991,9 +991,9 @@ def load_data(scan_path,json_path_CBCT_U,json_path_CBCT_L,json_path_IOS_U,json_p
     # Judged here, where the voxels are already in hand: the array is gigabytes
     # and is dropped on the way out of this function.
     on_enamel = {
-        "Upper": _landmarks_on_enamel(image_array, ijk_to_lps, json_path_CBCT_U,
+        "Upper": _landmarks_on_enamel(image_array, ijk_to_lps, json_path_cbct_u,
                                       level, "Upper", patient_id),
-        "Lower": _landmarks_on_enamel(image_array, ijk_to_lps, json_path_CBCT_L,
+        "Lower": _landmarks_on_enamel(image_array, ijk_to_lps, json_path_cbct_l,
                                       level, "Lower", patient_id),
     }
 

@@ -887,7 +887,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not self._parameterNode.MeasurementsFolder:
             self._parameterNode.MeasurementsFolder = ""
 
-    def setParameterNode(self, inputParameterNode: VFACEParameterNode | None) -> None:
+    def setParameterNode(self, input_parameter_node: VFACEParameterNode | None) -> None:
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -896,7 +896,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
 
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
 
         if self._parameterNode:
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
@@ -3068,7 +3068,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
     def process(self,
                 inputVolume: vtkMRMLScalarVolumeNode,
                 outputVolume: vtkMRMLScalarVolumeNode,
-                imageThreshold: float,
+                image_threshold: float,
                 invert: bool = False,
                 showResult: bool = True) -> None:
         """
@@ -3092,7 +3092,7 @@ class VFACELogic(ScriptedLoadableModuleLogic):
         cli_params = {
             "InputVolume": inputVolume.GetID(),
             "OutputVolume": outputVolume.GetID(),
-            "ThresholdValue": imageThreshold,
+            "ThresholdValue": image_threshold,
             "ThresholdType": "Above" if invert else "Below",
         }
         cli_node = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cli_params, wait_for_completion=True, update_display=showResult)

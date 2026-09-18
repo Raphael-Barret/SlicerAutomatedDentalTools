@@ -58,7 +58,7 @@ class Auto_IOS(Method):
             out = None
         return out
 
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
         out = None
         if model_folder == "":
             out = "Please five folder with one .pht file"

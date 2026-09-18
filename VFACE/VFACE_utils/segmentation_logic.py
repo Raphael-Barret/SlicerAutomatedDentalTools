@@ -84,19 +84,19 @@ class PythonDependencyChecker:
             logger.error(f"Cannot read {info_path}: {e}")
             return None
 
-    def downloadWeightsIfNeeded(self, onLine):
+    def downloadWeightsIfNeeded(self, on_line):
         """Check and download the weights if necessary"""
         if not self.areWeightsMissing():
-            onLine("Weights check completed")
+            on_line("Weights check completed")
             return True
 
         url = self.downloadUrl()
         if not url:
-            onLine(f"Model weights are missing and no download URL is available in {self.weightsFolder}")
+            on_line(f"Model weights are missing and no download URL is available in {self.weightsFolder}")
             return False
 
-        onLine(f"Model weights are missing, downloading them from {url}")
-        onLine("This is about 220 MB and only happens once.")
+        on_line(f"Model weights are missing, downloading them from {url}")
+        on_line("This is about 220 MB and only happens once.")
 
         temp_dir = Path(slicer.util.tempDirectory())
         zip_path = temp_dir.joinpath("weights.zip")
@@ -113,16 +113,16 @@ class PythonDependencyChecker:
                 ]
                 archive.extractall(self.weightsFolder, members)
         except Exception as e:
-            onLine(f"Failed to download the model weights: {e}")
+            on_line(f"Failed to download the model weights: {e}")
             return False
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
         if self.areWeightsMissing():
-            onLine(f"The downloaded archive did not contain {self.CHECKPOINT}")
+            on_line(f"The downloaded archive did not contain {self.CHECKPOINT}")
             return False
 
-        onLine("Weights check completed")
+        on_line("Weights check completed")
         return True
 
 # ─── Segmentation Logic ───────────────────────────────────────────
@@ -153,10 +153,10 @@ class SegmentationLogic:
         self.selectedDevice = "cuda"
         self.exportFormats = ExportFormat.STL | ExportFormat.NIFTI
     
-    def setInputFolder(self, folderPath):
+    def setInputFolder(self, folder_path):
         """Define input folder"""
-        self.folderPath = folderPath
-        folder = Path(folderPath)
+        self.folderPath = folder_path
+        folder = Path(folder_path)
         # Filtrer selon vos formats, ex. tous les fichiers NIfTI
         self.folderFiles = [
             f for f in sorted(folder.rglob("*"))
@@ -313,7 +313,7 @@ class SegmentationLogic:
             self.log_error(f"Error installing dependencies: {str(e)}")
             return False
     
-    def _runSegmentationForVolume(self, volumeNode):
+    def _runSegmentationForVolume(self, volume_node):
         """Run the segmentation"""
         try:
             
@@ -327,7 +327,7 @@ class SegmentationLogic:
             self.logic.setParameter(parameter)
             
             #Start the segmentation
-            self.logic.startSegmentation(volumeNode)
+            self.logic.startSegmentation(volume_node)
 
             # startSegmentation reports an invalid configuration through
             # errorOccurred and returns without launching anything. Both return
@@ -343,7 +343,7 @@ class SegmentationLogic:
                 return False
             
             # Process results
-            return self._processSegmentationResults(volumeNode)
+            return self._processSegmentationResults(volume_node)
             
         except Exception as e:
             self.log_error(f"Error in segmentation: {str(e)}")
@@ -483,7 +483,7 @@ class SegmentationLogic:
                 slicer.util.downloadFile(model_urls["dataset"], str(basePath.joinpath("dataset.json")))
                 slicer.util.downloadFile(model_urls["plans"], str(basePath.joinpath("plans.json")))
     
-    def _processSegmentationResults(self, volumeNode):
+    def _processSegmentationResults(self, volume_node):
         """Process segmentation results"""
         try:
             #Load results
@@ -492,7 +492,7 @@ class SegmentationLogic:
                 self.log_error("No segmentation results found")
                 return False
             
-            segmentation_node.SetName(volumeNode.GetName() + "_Segmentation")
+            segmentation_node.SetName(volume_node.GetName() + "_Segmentation")
             
             # Display progress
             self._updateSegmentationDisplay(segmentation_node)
@@ -502,7 +502,7 @@ class SegmentationLogic:
             # Export selected formats
             if self.exportFormats & ExportFormat.NIFTI:
                 self.log_info("Starting NIfTI export...")
-                self._saveSegmentationAsNifti(segmentation_node, volumeNode)
+                self._saveSegmentationAsNifti(segmentation_node, volume_node)
                 slicer.app.processEvents()
             
             if self.exportFormats & ExportFormat.STL:
@@ -526,7 +526,7 @@ class SegmentationLogic:
                 slicer.app.processEvents()
             
             # Cleaning
-            self._cleanupAfterCase(volumeNode, segmentation_node)
+            self._cleanupAfterCase(volume_node, segmentation_node)
             
             return True
             
@@ -597,13 +597,13 @@ class SegmentationLogic:
             if segment:
                 segment.SetName(label)
     
-    def _saveSegmentationAsNifti(self, segmentationNode, volumeNode):
+    def _saveSegmentationAsNifti(self, segmentationNode, volume_node):
         """Sauvegarde la segmentation au format NIfTI"""
         try:
             self.log_info("Saving segmentation as NIfTI")
             
-            if volumeNode:
-                segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
+            if volume_node:
+                segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volume_node)
             
             labelmap_volume_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
             success = slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(
@@ -881,7 +881,7 @@ class SegmentationLogic:
         except Exception as e:
             self.log_error(f"Error exporting VTKPerLabel: {str(e)}")
     
-    def _cleanupAfterCase(self, volumeNode, segmentationNode):
+    def _cleanupAfterCase(self, volume_node, segmentationNode):
         """Cleanup after each case"""
         try:
             self.log_info("Starting cleanup")
@@ -890,8 +890,8 @@ class SegmentationLogic:
             if segmentationNode and slicer.mrmlScene.IsNodePresent(segmentationNode):
                 slicer.mrmlScene.RemoveNode(segmentationNode)
             
-            if volumeNode and slicer.mrmlScene.IsNodePresent(volumeNode):
-                slicer.mrmlScene.RemoveNode(volumeNode)
+            if volume_node and slicer.mrmlScene.IsNodePresent(volume_node):
+                slicer.mrmlScene.RemoveNode(volume_node)
             
             # Clean CUDA memory
             try:

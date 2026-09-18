@@ -564,21 +564,21 @@ class FlexRegWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if first_volume_node:
                 self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
-    def setParameterNode(self, inputParameterNode):
+    def setParameterNode(self, input_parameter_node):
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
         """
 
-        if inputParameterNode:
-            self.logic.setDefaultParameters(inputParameterNode)
+        if input_parameter_node:
+            self.logic.setDefaultParameters(input_parameter_node)
 
         # Unobserve previously selected parameter node and add an observer to the newly selected.
         # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
         # those are reflected immediately in the GUI.
         if self._parameterNode is not None:
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
         if self._parameterNode is not None:
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
@@ -705,14 +705,14 @@ class FlexRegLogic(ScriptedLoadableModuleLogic):
         # cp310-cp313, so 3.12 is now both possible and required.
         self.python_version = "3.12"
 
-    def setDefaultParameters(self, parameterNode):
+    def setDefaultParameters(self, parameter_node):
         """
         Initialize parameter node with default settings.
         """
-        if not parameterNode.GetParameter("Threshold"):
-            parameterNode.SetParameter("Threshold", "100.0")
-        if not parameterNode.GetParameter("Invert"):
-            parameterNode.SetParameter("Invert", "false")
+        if not parameter_node.GetParameter("Threshold"):
+            parameter_node.SetParameter("Threshold", "100.0")
+        if not parameter_node.GetParameter("Invert"):
+            parameter_node.SetParameter("Invert", "false")
 
     def process(self)->None:
         """

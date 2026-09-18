@@ -107,13 +107,13 @@ class PipRunner(qt.QObject):
             self._onLine(line_str)
 
 
-    def _procFinished(self, exitCode, *args):
+    def _procFinished(self, exit_code, *args):
         """
         Slot called at the end of QProcess.
         Qt5 : finished(int)
         Qt6 : finished(int, QProcess.ExitStatus)
         """
-        self._onFinished(exitCode == 0)
+        self._onFinished(exit_code == 0)
         self.deleteLater()
 
 class SegmentationWidget(qt.QWidget):
@@ -632,12 +632,12 @@ class SegmentationWidget(qt.QWidget):
     def _isUnattended(self):
         return self.unattendedCheckBox.isChecked()
 
-    def _notify(self, message, isError=False):
+    def _notify(self, message, is_error=False):
         """Log; only interrupt the user when not running unattended."""
         self.onProgressInfo(message)
         if self._isUnattended():
             return
-        if isError:
+        if is_error:
             slicer.util.errorDisplay(message)
         else:
             slicer.util.infoDisplay(message)
@@ -710,10 +710,10 @@ class SegmentationWidget(qt.QWidget):
             self._finishCurrentItem(STATUS_FAILED, f"start failed: {e}")
 
     @staticmethod
-    def _selectComboItem(comboBox, text):
-        index = comboBox.findText(text)
-        if index >= 0 and index != comboBox.currentIndex:
-            comboBox.setCurrentIndex(index)
+    def _selectComboItem(combo_box, text):
+        index = combo_box.findText(text)
+        if index >= 0 and index != combo_box.currentIndex:
+            combo_box.setCurrentIndex(index)
 
     def _finishCurrentItem(self, status, error=""):
         """Single exit point for a scan: records the result and schedules the next."""
@@ -881,7 +881,7 @@ class SegmentationWidget(qt.QWidget):
         except Exception:
             return False
 
-    def _killInferenceTree(self, timeoutSec=10):
+    def _killInferenceTree(self, timeout_sec=10):
         """
         Kill nnUNet *and every descendant*.
 
@@ -906,7 +906,7 @@ class SegmentationWidget(qt.QWidget):
                         pass
                     except Exception as e:
                         logger.error(f"Could not kill pid {proc.pid}: {e}")
-                psutil.wait_procs(victims, timeout=timeoutSec)
+                psutil.wait_procs(victims, timeout=timeout_sec)
             except psutil.NoSuchProcess:
                 pass
             except Exception as e:
@@ -1073,7 +1073,7 @@ class SegmentationWidget(qt.QWidget):
             self._cropOffsetIJK = None
             return volumeNode
 
-    def _restoreCropToOriginalGrid(self, labelArray, croppedNode):
+    def _restoreCropToOriginalGrid(self, labelArray, cropped_node):
         """
         Paste a label array computed on the cropped grid back into the original.
 
@@ -1082,7 +1082,7 @@ class SegmentationWidget(qt.QWidget):
         original = self._uncroppedVolumeNode
         offset = self._cropOffsetIJK
         if original is None or offset is None:
-            return labelArray, croppedNode
+            return labelArray, cropped_node
 
         try:
             dims = original.GetImageData().GetDimensions()             # (I, J, K)
@@ -1097,7 +1097,7 @@ class SegmentationWidget(qt.QWidget):
             # Better a segmentation on the cropped grid than none at all.
             logger.error(f"Could not restore the crop: {e}", exc_info=True)
             self.onProgressInfo(f"[CROP][WARN] Output kept on the cropped grid: {e}")
-            return labelArray, croppedNode
+            return labelArray, cropped_node
 
     def _releaseCropNodes(self):
         node = self._uncroppedVolumeNode
@@ -1129,13 +1129,13 @@ class SegmentationWidget(qt.QWidget):
         return resources
 
     @staticmethod
-    def _configurationFolder(basePath, maxDepth=3):
+    def _configurationFolder(basePath, max_depth=3):
         """
         Folder holding dataset.json, searched the way nnUNet itself does it:
         shallowest match wins (see Parameter._getFirstFolderWithDatasetFile).
         """
         pattern = "dataset.json"
-        for _ in range(maxDepth):
+        for _ in range(max_depth):
             match = next(Path(basePath).glob(pattern), None)
             if match is not None:
                 return match.parent
@@ -2167,8 +2167,8 @@ class SegmentationWidget(qt.QWidget):
         slicer.mrmlScene.RemoveNode(segmentationNode)
 
     @staticmethod
-    def toRGB(colorString):
-        color = qt.QColor(colorString)
+    def toRGB(color_string):
+        color = qt.QColor(color_string)
         return color.redF(), color.greenF(), color.blueF()
 
     def _updateSegmentationDisplay(self):
@@ -2472,12 +2472,12 @@ class SegmentationWidget(qt.QWidget):
             logger.error(f"Cleanup after inference error failed: {e}", exc_info=True)
         self._finishCurrentItem(STATUS_FAILED, f"inference error: {errorMsg}")
 
-    def onProgressInfo(self, infoMsg):
-        infoMsg = self.removeImageIOError(infoMsg)
-        if not infoMsg:
+    def onProgressInfo(self, info_msg):
+        info_msg = self.removeImageIOError(info_msg)
+        if not info_msg:
             return
-        self._appendLog(infoMsg)
-        if "done with volume" in infoMsg.lower():
+        self._appendLog(info_msg)
+        if "done with volume" in info_msg.lower():
             self._doneVolumeSeen = True
             self._fallbackCheckAttempts = 0
             self._fallbackLastOutputSize = None
@@ -2542,12 +2542,12 @@ class SegmentationWidget(qt.QWidget):
             self.onProgressInfo("[DEBUG][SegWidget] Fallback completion check timeout (no stable output file)")
 
     @staticmethod
-    def removeImageIOError(infoMsg):
-        return "\n".join([msg for msg in infoMsg.strip().splitlines() if "Error ImageIO factory" not in msg])
+    def removeImageIOError(info_msg):
+        return "\n".join([msg for msg in info_msg.strip().splitlines() if "Error ImageIO factory" not in msg])
 
-    def insertDatedInfoLogs(self, infoMsg):
+    def insertDatedInfoLogs(self, info_msg):
         now = qt.QDateTime.currentDateTime().toString("yyyy/MM/dd hh:mm:ss.zzz")
-        self.fullInfoLogs.extend([f"{now} :: {msg_line}" for msg_line in infoMsg.splitlines()])
+        self.fullInfoLogs.extend([f"{now} :: {msg_line}" for msg_line in info_msg.splitlines()])
 
     def showInfoLogs(self):
         dialog = qt.QDialog()
@@ -2567,13 +2567,13 @@ class SegmentationWidget(qt.QWidget):
     def moveTextEditToEnd(textEdit):
         textEdit.verticalScrollBar().setValue(textEdit.verticalScrollBar().maximum)
 
-    def _setApplyVisible(self, isVisible):
-        self.applyWidget.setVisible(isVisible)
-        self.stopWidgetContainer.setVisible(not isVisible)
-        self.inputWidget.setEnabled(isVisible)
+    def _setApplyVisible(self, is_visible):
+        self.applyWidget.setVisible(is_visible)
+        self.stopWidgetContainer.setVisible(not is_visible)
+        self.inputWidget.setEnabled(is_visible)
 
-        self.batchCounterLabel.setVisible(not isVisible)
-        if not isVisible:
+        self.batchCounterLabel.setVisible(not is_visible)
+        if not is_visible:
             self._updateBatchCounter(show_file_name=True)
 
 

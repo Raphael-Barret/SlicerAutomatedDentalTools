@@ -1568,7 +1568,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # so that when the scene is saved and reloaded, these settings are restored.
 
 
-  def setParameterNode(self, inputParameterNode):
+  def setParameterNode(self, input_parameter_node):
     """
     Set and observe parameter node.
     Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -1586,7 +1586,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         vtk.vtkCommand.ModifiedEvent,
         self.updateGUIFromParameterNode
       )
-    self._parameterNode = inputParameterNode
+    self._parameterNode = input_parameter_node
     if self._parameterNode is not None:
       self.addObserver(
         self._parameterNode,

@@ -264,21 +264,21 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if first_volume_node:
                 self._parameterNode.SetNodeReferenceID("InputVolume", first_volume_node.GetID())
 
-    def setParameterNode(self, inputParameterNode):
+    def setParameterNode(self, input_parameter_node):
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
         """
 
-        if inputParameterNode:
-            self.logic.setDefaultParameters(inputParameterNode)
+        if input_parameter_node:
+            self.logic.setDefaultParameters(input_parameter_node)
 
         # Unobserve previously selected parameter node and add an observer to the newly selected.
         # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
         # those are reflected immediately in the GUI.
         if self._parameterNode is not None:
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-        self._parameterNode = inputParameterNode
+        self._parameterNode = input_parameter_node
         if self._parameterNode is not None:
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
@@ -642,11 +642,11 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return success
 
 
-    def processCropVolume(self,path_input,path_ROI,output_dir,suffix):
+    def processCropVolume(self,path_input,path_roi,output_dir,suffix):
         index =0
         scan_list = self.logic.Search(path_input, ".nii.gz",".nii",".nrrd.gz",".nrrd",".gipl.gz",".gipl")
-        if os.path.isdir(path_ROI):
-            roi_list = self.logic.Search(path_ROI,".mrk.json")
+        if os.path.isdir(path_roi):
+            roi_list = self.logic.Search(path_roi,".mrk.json")
             roi_dict = self.logic.ChangeKeyDict(roi_list)
         else:
             roi_list = None
@@ -678,7 +678,7 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         else:
                             continue
                 else:
-                    roi_path = path_ROI
+                    roi_path = path_roi
 
                 roi_node = slicer.util.loadMarkups(roi_path)
 
@@ -764,14 +764,14 @@ class AutoCrop3DLogic(ScriptedLoadableModuleLogic):
         self.cliNode = None
         self.installCliNode = None
 
-    def setDefaultParameters(self, parameterNode):
+    def setDefaultParameters(self, parameter_node):
         """
         Initialize parameter node with default settings.
         """
-        if not parameterNode.GetParameter("Threshold"):
-            parameterNode.SetParameter("Threshold", "100.0")
-        if not parameterNode.GetParameter("Invert"):
-            parameterNode.SetParameter("Invert", "false")
+        if not parameter_node.GetParameter("Threshold"):
+            parameter_node.SetParameter("Threshold", "100.0")
+        if not parameter_node.GetParameter("Invert"):
+            parameter_node.SetParameter("Invert", "false")
 
 
     def process(self):

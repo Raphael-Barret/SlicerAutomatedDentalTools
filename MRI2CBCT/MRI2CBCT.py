@@ -610,7 +610,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         check_box2.stateChanged.connect(lambda state: self.toggleSpinBoxes(state, [spin_box4, spin_box5, spin_box6]))
         self.tableWidgetResample.setCellWidget(1, 3, check_box2)
         
-    def toggleSpinBoxes(self, state, spinBoxes):
+    def toggleSpinBoxes(self, state, spin_boxes):
         """
         Enable or disable a list of QSpinBox widgets based on the provided state.
 
@@ -626,7 +626,7 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         (state == 2), the spin boxes are disabled and shown in gray. If the checkbox is unchecked,
         the spin boxes are enabled and restored to their default style.
         """
-        for spin_box in spinBoxes:
+        for spin_box in spin_boxes:
             if state == 2:
                 spin_box.setEnabled(False)
                 spin_box.setStyleSheet("color: gray;")
@@ -2088,7 +2088,7 @@ class MRI2CBCTLogic(ScriptedLoadableModuleLogic):
     def process(self,
                 inputVolume: vtkMRMLScalarVolumeNode,
                 outputVolume: vtkMRMLScalarVolumeNode,
-                imageThreshold: float,
+                image_threshold: float,
                 invert: bool = False,
                 showResult: bool = True) -> None:
         """
@@ -2113,7 +2113,7 @@ class MRI2CBCTLogic(ScriptedLoadableModuleLogic):
         cli_params = {
             "InputVolume": inputVolume.GetID(),
             "OutputVolume": outputVolume.GetID(),
-            "ThresholdValue": imageThreshold,
+            "ThresholdValue": image_threshold,
             "ThresholdType": "Above" if invert else "Below",
         }
         cli_node = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cli_params, wait_for_completion=True, update_display=showResult)

@@ -36,7 +36,7 @@ class Method(ADTMethod, LandmarkMethod, DicomMethod):
         """
 
     @abstractmethod
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
         """Verify whether the model folder contains the right models used for ALI and other AI tool
 
         Args:

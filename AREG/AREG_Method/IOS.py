@@ -170,17 +170,17 @@ class Auto_IOS(Method):
             out = None
         return out
 
-    def TestModel(self, model_folder: str, lineEditName) -> str:
+    def TestModel(self, model_folder: str, line_edit_name) -> str:
         out = None
         if model_folder == "":
             out = "Please five folder with one .pht file"
         else:
-            if "lineEditModel1" == lineEditName:
+            if "lineEditModel1" == line_edit_name:
                 files = self.search(model_folder, ".pth")[".pth"]
                 if len(files) != 1:
                     out = "Please give folder with only one .pth file \n"
 
-            elif "lineEditModel3" == lineEditName:
+            elif "lineEditModel3" == line_edit_name:
                 files = self.search(model_folder, ".ckpt")[".ckpt"]
                 if len(files) != 1:
                     out = "Please give folder with only one .ckpt file \n"

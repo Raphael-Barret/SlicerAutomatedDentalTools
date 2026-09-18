@@ -2010,7 +2010,7 @@ def SplitT2(t2_folder, transform):
     
     return t2_files
 
-def TranslateModels(listeModels, mask=False):
+def TranslateModels(liste_models, mask=False):
     dic_translate = {
         "Models": {
             "Mandible": "MAND",
@@ -2030,8 +2030,8 @@ def TranslateModels(listeModels, mask=False):
     }
 
     translate = ""
-    for i, model in enumerate(listeModels):
-        if i < len(listeModels) - 1:
+    for i, model in enumerate(liste_models):
+        if i < len(liste_models) - 1:
             if mask:
                 translate += dic_translate["Masks"][model] + ","
             else:

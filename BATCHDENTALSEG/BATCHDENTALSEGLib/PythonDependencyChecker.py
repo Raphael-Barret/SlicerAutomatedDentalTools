@@ -15,13 +15,13 @@ import traceback
 
 logger = get_logger("BatchDentalSeg_pythonDependency")
 
-def hasInternetConnection(timeOut_sec=2) -> bool:
+def hasInternetConnection(time_out_sec=2) -> bool:
     """
     Check if user has access to the internet.
     """
     import requests
     try:
-        requests.get("https://www.github.com", timeout=timeOut_sec)
+        requests.get("https://www.github.com", timeout=time_out_sec)
         return True
     except requests.ConnectionError:
         return False
@@ -62,9 +62,9 @@ class PythonDependencyChecker:
         except ImportError:
             return False
 
-    def downloadWeightsIfNeeded(self, progressCallback):
+    def downloadWeightsIfNeeded(self, progress_callback):
         if self.areWeightsMissing():
-            return self.downloadWeights(progressCallback)
+            return self.downloadWeights(progress_callback)
 
         elif self.areWeightsOutdated():
             if qt.QMessageBox.question(
@@ -72,7 +72,7 @@ class PythonDependencyChecker:
                     "New weights are available",
                     "New weights are available. Would you like to download them?"
             ):
-                return self.downloadWeights(progressCallback)
+                return self.downloadWeights(progress_callback)
         return True
 
     def areWeightsMissing(self):
@@ -119,7 +119,7 @@ class PythonDependencyChecker:
         with open(self.getWeightDownloadInfoPath(), "r") as f:
             return json.loads(f.read()).get("download_url")
 
-    def downloadWeights(self, progressCallback) -> bool:
+    def downloadWeights(self, progress_callback) -> bool:
         """
         Removes the weight folder and tries to download the weights from the GitHub page.
         If an internet connection is not available, keeps the current weights unchanged.
@@ -128,7 +128,7 @@ class PythonDependencyChecker:
         """
         import requests
 
-        progressCallback("Downloading model weights...")
+        progress_callback("Downloading model weights...")
         if not self.hasInternetConnectionF():
             self.errorDisplay(
                 "Failed to download weights (no internet connection). "
@@ -166,8 +166,8 @@ class PythonDependencyChecker:
             )
             return False
 
-    def extractWeightsToWeightsFolder(self, zipPath):
-        with zipfile.ZipFile(zipPath, "r") as f:
+    def extractWeightsToWeightsFolder(self, zip_path):
+        with zipfile.ZipFile(zip_path, "r") as f:
             f.extractall(self.destWeightFolder)
 
     def writeDownloadInfoURL(self, download_url):

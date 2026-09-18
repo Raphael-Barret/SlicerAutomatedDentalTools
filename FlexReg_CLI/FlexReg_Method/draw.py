@@ -10,12 +10,12 @@ from ADTLib.logging_setup import get_logger
 
 logger = get_logger("FlexReg_draw")
 
-def drawPatch(outlinePoints: list,polydata,mid,index:int):
+def drawPatch(outline_points: list,polydata,mid,index:int):
     step = 0.2
     radius = 0.5
     radius = 1.1
-    P0 = torch.tensor(np.array(outlinePoints)).unsqueeze(0).cuda()
-    P1 = torch.tensor(np.array(outlinePoints[1:] + [outlinePoints[0]])).unsqueeze(0).cuda()
+    P0 = torch.tensor(np.array(outline_points)).unsqueeze(0).cuda()
+    P1 = torch.tensor(np.array(outline_points[1:] + [outline_points[0]])).unsqueeze(0).cuda()
 
 
     T = torch.arange(0,1+step,step).unsqueeze(0).unsqueeze(0).permute(2,1,0).cuda()

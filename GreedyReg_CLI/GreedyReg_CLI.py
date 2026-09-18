@@ -33,6 +33,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit_fraction
 
 logger = get_logger("GreedyReg_CLI")
 
@@ -158,7 +159,7 @@ def main(args):
 
     for i, (patientId, fixedPath, movingPath, maskPath, initPath) in enumerate(pairs):
         progress = i / total
-        print(f"<filter-progress>{progress:.2f}</filter-progress>", flush=True)
+        emit_fraction(progress)
         print(f"<filter-comment>Registering {patientId} ({i + 1}/{total})...</filter-comment>", flush=True)
         logger.info(f"Processing {patientId} ({i + 1}/{total})")
 
@@ -188,7 +189,7 @@ def main(args):
         finally:
             shutil.rmtree(caseTmpDir, ignore_errors=True)
 
-    print("<filter-progress>1.00</filter-progress>", flush=True)
+    emit_fraction(1.00)
     print(f"<filter-comment>Batch complete! {total} case(s) registered.</filter-comment>", flush=True)
     logger.info(f"Batch complete! {total} case(s) registered.")
 

@@ -17,3 +17,7 @@ slicer_add_python_unittest(SCRIPT test_fs.py)
 # Le tableau de numerotation des dents : la preference etait ignoree des
 # qu elle n etait pas le dernier tableau du maillage.
 slicer_add_python_unittest(SCRIPT test_labels.py)
+
+# Le canal <filter-progress> : ce sont les octets emis qui comptent, la
+# fenetre comparant la valeur recue a des entiers en dur.
+slicer_add_python_unittest(SCRIPT test_progress_protocol.py)

@@ -46,6 +46,7 @@ from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
+from ADTLib.format import format_timer
 
 
 def check_lib_installed(lib_name, required_version=None):
@@ -1067,12 +1068,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def onProcessUpdate(self, caller, event):
         # timer = f"Time : {time.time()-self.startTime:.2f}s"
         currentTime = time.time() - self.startTime
-        if currentTime < 60:
-            timer = f"Time : {int(currentTime)}s"
-        elif currentTime < 3600:
-            timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-        else:
-            timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+        timer = format_timer(currentTime)
 
         self.ui.TimerLabel.setText(timer)
         progress = caller.GetProgress()
@@ -1234,12 +1230,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if gap>0.3:
           currentTime = time.time() - self.startTime
           previous_time = currentTime
-          if currentTime < 60:
-            timer = f"Time : {int(currentTime)}s"
-          elif currentTime < 3600:
-            timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-          else:
-            timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+          timer = format_timer(currentTime)
           
           self.ui.TimerLabel.setText(timer)
       
@@ -1274,12 +1265,7 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if gap>0.3:
           currentTime = time.time() - self.startTime
           previous_time = currentTime
-          if currentTime < 60:
-            timer = f"Time : {int(currentTime)}s"
-          elif currentTime < 3600:
-            timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-          else:
-            timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+          timer = format_timer(currentTime)
             
           self.ui.TimerLabel.setText(timer)
 

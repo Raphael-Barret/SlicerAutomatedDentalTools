@@ -1,6 +1,6 @@
 #!/usr/bin/env python-real
 import argparse
-import sys, os, time
+import sys, os
 import SimpleITK as sitk
 
 
@@ -24,6 +24,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
     sys.path.append(os.path.join(_adt_root, "ADT"))
 
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import PATIENT_DONE, emit_event
 
 logger = get_logger("AREG_CBCT")
 
@@ -86,15 +87,7 @@ def _register_one_patient(Approx, SegLabel, add_name, data, failed_patients, out
 
         # ===== PROGRESS REPORTING =====
         try:
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{2}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
+            emit_event(PATIENT_DONE)
             logger.debug("Progress reported")
         except Exception as e:
             logger.warning(f"Error reporting progress: {e}")

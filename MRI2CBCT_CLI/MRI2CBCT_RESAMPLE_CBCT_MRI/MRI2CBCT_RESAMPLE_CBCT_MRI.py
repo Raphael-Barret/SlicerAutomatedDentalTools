@@ -23,6 +23,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import emit_fraction
 
 logger = get_logger("MRI2CBCT_CLI_Approx")
 
@@ -122,7 +123,7 @@ def main(input_folder,output_folder,resample_size,spacing,center,iso_spacing,is_
             if total_patients > 0:
                 patient_count += 1
                 progress = patient_count / total_patients
-                print(f"<filter-progress>{progress}</filter-progress>")
+                emit_fraction(progress)
                 sys.stdout.flush()
                 time.sleep(0.5)
             

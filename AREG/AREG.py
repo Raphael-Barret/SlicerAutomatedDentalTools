@@ -87,6 +87,7 @@ from ADTLib.env.conda import (
     check_pythonpath, conda_quote, give_pythonpath,
     init_conda as init_conda_call, check_lib_wsl as wsl_libraries_present,
     windows_to_linux_path as windows_to_linux_path_shared)
+from ADTLib.format import format_timer
 
 
 def _get_installed_version(lib_name):
@@ -1791,12 +1792,7 @@ class AREGWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         currentTime = time.time() - self.startTime
-        if currentTime < 60:
-            timer = f"Time : {int(currentTime)}s"
-        elif currentTime < 3600:
-            timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-        else:
-            timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+        timer = format_timer(currentTime)
 
         self.ui.LabelTimer.setText(timer)
         progress = caller.GetProgress()
@@ -2693,12 +2689,7 @@ qMRMLNodeComboBox:focus {
                     if gap>0.3:
                         currentTime = time.time() - self.startTime
                         previous_time = currentTime
-                        if currentTime < 60:
-                            timer = f"Time : {int(currentTime)}s"
-                        elif currentTime < 3600:
-                            timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-                        else:
-                            timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+                        timer = format_timer(currentTime)
                         
                         self.ui.LabelTimer.setText(timer)
 
@@ -2739,12 +2730,7 @@ qMRMLNodeComboBox:focus {
                 if gap>0.3:
                     currentTime = time.time() - self.startTime
                     previous_time = currentTime
-                    if currentTime < 60:
-                        timer = f"Time : {int(currentTime)}s"
-                    elif currentTime < 3600:
-                        timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-                    else:
-                        timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+                    timer = format_timer(currentTime)
                     
                     self.ui.LabelTimer.setText(timer)
 
@@ -2783,12 +2769,7 @@ qMRMLNodeComboBox:focus {
                 if gap>0.3:
                     currentTime = time.time() - self.startTime
                     previous_time = currentTime
-                    if currentTime < 60:
-                        timer = f"Time : {int(currentTime)}s"
-                    elif currentTime < 3600:
-                        timer = f"Time : {int(currentTime/60)}min and {int(currentTime%60)}s"
-                    else:
-                        timer = f"Time : {int(currentTime/3600)}h, {int(currentTime%3600/60)}min and {int(currentTime%60)}s"
+                    timer = format_timer(currentTime)
 
                     self.ui.LabelTimer.setText(timer)
 

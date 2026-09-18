@@ -2,7 +2,6 @@
 
 import sys
 import os
-import time
 import argparse
 import SimpleITK as sitk
 
@@ -19,6 +18,7 @@ if os.path.join(_adt_root, "ADT") not in sys.path:
 
 # --- LOGGING CONFIGURATION ---
 from ADTLib.logging_setup import get_logger
+from ADTLib.progress_protocol import PATIENT_DONE, emit_event
 
 logger = get_logger("SEMI_ASO_CBCT")
 
@@ -122,15 +122,7 @@ def _register_one_patient(args, data, failed_patients, gold_file, gold_json_file
 
         # ===== PROGRESS REPORTING =====
         try:
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{2}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
-            print(f"""<filter-progress>{0}</filter-progress>""")
-            sys.stdout.flush()
-            time.sleep(0.2)
+            emit_event(PATIENT_DONE)
             logger.debug("Progress reported")
         except Exception as e:
             logger.warning(f"Error reporting progress: {e}")

@@ -48,6 +48,7 @@ from pathlib import Path
 from slicer import vtkMRMLScalarVolumeNode
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
+from ADTLib.model_registry import SLICER_TESTING_DATA
 
 # ===== Logging Configuration =====
 logger = get_logger("MRI2CBCT")
@@ -183,7 +184,7 @@ def registerSampleData():
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
         thumbnailFileName=os.path.join(iconsPath, "MRI2CBCT1.png"),
         # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
+        uris=f"{SLICER_TESTING_DATA}/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         fileNames="MRI2CBCT1.nrrd",
         # Checksum to ensure file integrity. Can be computed by this command:
         checksums="SHA256:998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
@@ -198,7 +199,7 @@ def registerSampleData():
         sampleName="MRI2CBCT2",
         thumbnailFileName=os.path.join(iconsPath, "MRI2CBCT2.png"),
         # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
+        uris=f"{SLICER_TESTING_DATA}/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         fileNames="MRI2CBCT2.nrrd",
         checksums="SHA256:1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
         # This node name will be used when the data set is loaded

@@ -10,6 +10,7 @@ import platform
 from ADTLib.logging_setup import get_logger
 from ADTLib.model_registry import ADT_MODELS
 from ADTLib.naming import patient_id as read_patient_id, AREG_IOSCBCT_MARKERS
+from ADTLib.model_registry import ASO_CBCT_GOLD, ASO_IOS_GOLD
 
 logger = get_logger("AREG_Method_IOSCBCT")
 
@@ -49,8 +50,8 @@ class IOSCBCT(Method):
 
     def getReferenceList(self):
         return {
-            "Occlusal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Occlusal_Midsagittal_Plane.zip",
-            "Frankfurt Horizontal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Frankfurt_Horizontal_Midsagittal_Plane.zip",
+            "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
+            "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
         }
 
     def TestReference(self, ref_folder: str):
@@ -502,9 +503,9 @@ class Auto_IOSCBCT(IOSCBCT):
         return {
             "Orientation": {
                 "PreASO": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_preASOmodels/PreASOModels.zip",
-                "Occlusal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Occlusal_Midsagittal_Plane.zip",
-                "Frankfurt Horizontal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Frankfurt_Horizontal_Midsagittal_Plane.zip",
-                "IOS":"https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip"
+                "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
+                "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
+                "IOS":f"{ASO_IOS_GOLD}/Gold_file.zip"
             },
             "CBCT": {
                 "Cranial Base": f"{ADT_MODELS}/Cranial_Base.zip",
@@ -521,8 +522,8 @@ class Auto_IOSCBCT(IOSCBCT):
     
     def getReferenceList(self):
         return {
-            "Occlusal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Occlusal_Midsagittal_Plane.zip",
-            "Frankfurt Horizontal and Midsagittal Plane": "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels/Frankfurt_Horizontal_Midsagittal_Plane.zip",
+            "Occlusal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Occlusal_Midsagittal_Plane.zip",
+            "Frankfurt Horizontal and Midsagittal Plane": f"{ASO_CBCT_GOLD}/Frankfurt_Horizontal_Midsagittal_Plane.zip",
         }
 
     def ReferenceLandmarks(self, name_reference):

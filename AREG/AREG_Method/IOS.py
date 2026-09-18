@@ -11,6 +11,7 @@ import csv
 from ADTLib.env.conda import windows_to_linux_path as windows_to_linux_path_shared
 # ===== Logging Configuration =====
 from ADTLib.logging_setup import get_logger
+from ADTLib.model_registry import ASO_IOS_GOLD
 
 logger = get_logger("AREG_Method_CBCT")
 
@@ -256,15 +257,15 @@ class Auto_IOS(Method):
     def getModelUrl(self):
         return {
             "Registration": "https://github.com/HUTIN1/AREG/releases/download/v1.0.0/AREG_model.zip",
-            "Reference": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip",
-            "Segmentation": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/segmentation_model.zip",
+            "Reference": f"{ASO_IOS_GOLD}/Gold_file.zip",
+            "Segmentation": f"{ASO_IOS_GOLD}/segmentation_model.zip",
             # MGL reads its landmarks from the ALI models, not from a palatal checkpoint
             "ALI": "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/ALI_IOS_models/Models.zip",
         }
 
     def getReferenceList(self):
         return {
-            "Gold_Files": "https://github.com/HUTIN1/ASO/releases/download/v1.0.0/Gold_file.zip"
+            "Gold_Files": f"{ASO_IOS_GOLD}/Gold_file.zip"
         }
 
     def getALIModelList(self):

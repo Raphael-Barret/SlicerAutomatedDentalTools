@@ -23,3 +23,18 @@ WSL2_INSTALLER = (
     "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools"
     "/releases/download/wsl2_windows/installer_WSL2.zip"
 )
+
+
+#: Les modèles de plans de référence d'ASO_CBCT, que quatre modules proposent.
+#: Seize littéraux portaient cette base ; la sélection, elle, reste chez chacun.
+ASO_CBCT_GOLD = (
+    "https://github.com/lucanchling/ASO_CBCT/releases/download/v01_goldmodels"
+)
+
+#: Les références et modèles d'ASO_IOS, partagés par ALI, ASO et AREG.
+ASO_IOS_GOLD = "https://github.com/HUTIN1/ASO/releases/download/v1.0.0"
+
+#: Les jeux d'essai publiés par Slicer, utilisés par `registerSampleData`.
+SLICER_TESTING_DATA = (
+    "https://github.com/Slicer/SlicerTestingData/releases/download/SHA256"
+)

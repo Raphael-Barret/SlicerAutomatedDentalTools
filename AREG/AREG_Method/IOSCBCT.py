@@ -93,7 +93,7 @@ class IOSCBCT(Method):
         if kwargs["input_t2_folder"] == "":
             out += "Please select an input folder for CBCT scans\n"
             
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -164,7 +164,7 @@ class Semi_IOSCBCT(IOSCBCT):
         if kwargs["input_t2_folder"] == "":
             out += "Please select an input folder for CBCT scans\n"
             
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["model_folder_2"] == "":
@@ -248,7 +248,7 @@ class Semi_IOSCBCT(IOSCBCT):
           input_csv = self.create_csv(kwargs["input_t1_folder"],"liste_csv_file")
           vtk_folder = kwargs["input_t1_folder"]
 
-        seg_ios_folder_path = os.path.join(kwargs["folder_output"],"Seg IOS")
+        seg_ios_folder_path = os.path.join(kwargs["output_folder"],"Seg IOS")
         os.makedirs(seg_ios_folder_path, exist_ok=True)
 
         parameter_seg = {
@@ -276,12 +276,12 @@ class Semi_IOSCBCT(IOSCBCT):
                 "ReviewId": "ios_segmented",
                 "ReviewFolder": seg_ios_folder_path,
                 "Display": DisplayCrownSeg(
-                    nb_scan, kwargs["logPath"],"Segmentation Patient"
+                    nb_scan, kwargs["log_path"],"Segmentation Patient"
                 ),
             }]
         
         temp_ali_cbct_folder = slicer.util.tempDirectory()
-        cbct_landmarks_folder_path = os.path.join(kwargs["folder_output"],"CBCT Landmarks")
+        cbct_landmarks_folder_path = os.path.join(kwargs["output_folder"],"CBCT Landmarks")
         os.makedirs(cbct_landmarks_folder_path, exist_ok=True)
 
         parameter_ali_cbct = {
@@ -290,7 +290,7 @@ class Semi_IOSCBCT(IOSCBCT):
             "lm_type": "'LL1O','LL3O','LL6O','LR1O','LR3O','LR6O','UL1O','UL3O','UL6O','UR1O','UR3O','UR6O'",
             "output_dir": cbct_landmarks_folder_path,
             "temp_fold": temp_ali_cbct_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
             "agent_FOV": "[64,64,64]",
@@ -315,7 +315,7 @@ class Semi_IOSCBCT(IOSCBCT):
         )
         
         temp_ali_ios_folder = os.path.join(slicer.util.tempDirectory(), "process.log")
-        ios_landmarks_folder_path = os.path.join(kwargs["folder_output"],"IOS Landmarks")
+        ios_landmarks_folder_path = os.path.join(kwargs["output_folder"],"IOS Landmarks")
         os.makedirs(ios_landmarks_folder_path, exist_ok=True)
 
         # Key order matters: the values are passed positionally to the ALI_IOS CLI
@@ -348,7 +348,7 @@ class Semi_IOSCBCT(IOSCBCT):
                 ),
             })
         
-        registered_ios_folder_path = os.path.join(kwargs["folder_output"],"Registered IOS")
+        registered_ios_folder_path = os.path.join(kwargs["output_folder"],"Registered IOS")
         os.makedirs(registered_ios_folder_path, exist_ok=True)
 
         parameter_areg_IOSCBCT = {
@@ -404,7 +404,7 @@ class Reg_IOSCBCT(IOSCBCT):
         if kwargs["input_t2_landmarks"] == "":
             out += "Please select an input folder for CBCT Landmarks\n"
             
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -434,7 +434,7 @@ class Reg_IOSCBCT(IOSCBCT):
             "CBCT_folder": kwargs["input_t2_folder"],
             "IOS_lm_folder": kwargs["input_t1_mask"],
             "CBCT_lm_folder": kwargs["input_t2_landmarks"],
-            "output": kwargs["folder_output"]
+            "output": kwargs["output_folder"]
         }
         logger.info(f"Parameter reg: {parameter_areg_IOSCBCT}")
 
@@ -446,7 +446,7 @@ class Reg_IOSCBCT(IOSCBCT):
                 "Parameter": parameter_areg_IOSCBCT,
                 "Module": "AREG IOSCBCT",
                 "ReviewId": "ioscbct_registration",
-                "ReviewFolder": kwargs["folder_output"],
+                "ReviewFolder": kwargs["output_folder"],
                 "Display": DisplayAREGIOSCBCT(0),
             }
         ]
@@ -475,7 +475,7 @@ class Auto_IOSCBCT(IOSCBCT):
         if kwargs["input_t2_folder"] == "":
             out += "Please select an input folder for CBCT scans\n"
             
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["model_folder_1"] == "":
@@ -577,7 +577,7 @@ class Auto_IOSCBCT(IOSCBCT):
 
         nb_scan = self.NumberScan(kwargs["input_t1_folder"],kwargs["input_t2_folder"])
 
-        resample_folder_path = os.path.join(kwargs["folder_output"],"CBCT Resampled")
+        resample_folder_path = os.path.join(kwargs["output_folder"],"CBCT Resampled")
         os.makedirs(resample_folder_path, exist_ok=True)
 
         parameter_resample_cbct = {
@@ -611,7 +611,7 @@ class Auto_IOSCBCT(IOSCBCT):
             }
         ]
 
-        pre_aso_cbct_folder_path = os.path.join(kwargs["folder_output"],"PRE ASO CBCT")
+        pre_aso_cbct_folder_path = os.path.join(kwargs["output_folder"],"PRE ASO CBCT")
         os.makedirs(pre_aso_cbct_folder_path, exist_ok=True)
         temp_pre_aso_folder = slicer.util.tempDirectory()
 
@@ -621,7 +621,7 @@ class Auto_IOSCBCT(IOSCBCT):
             "model_folder": os.path.join(kwargs["model_folder_1"], "PreASO"),
             "SmallFOV": False,
             "temp_folder": temp_pre_aso_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
 
         list_lmrk_str, nb_landmark = self.ReferenceLandmarks(kwargs["OrientReference"])
@@ -640,7 +640,7 @@ class Auto_IOSCBCT(IOSCBCT):
             "spawn_radius": "10",
         }
 
-        oriented_cbct_folder_path = os.path.join(kwargs["folder_output"],"Oriented CBCT")
+        oriented_cbct_folder_path = os.path.join(kwargs["output_folder"],"Oriented CBCT")
         os.makedirs(oriented_cbct_folder_path, exist_ok=True)
 
         parameter_semi_aso_cbct = {
@@ -704,10 +704,10 @@ class Auto_IOSCBCT(IOSCBCT):
           input_csv = self.create_csv(kwargs["input_t1_folder"],"liste_csv_file")
           vtk_folder = kwargs["input_t1_folder"]
 
-        seg_ios_folder_path = os.path.join(kwargs["folder_output"],"Seg IOS")
+        seg_ios_folder_path = os.path.join(kwargs["output_folder"],"Seg IOS")
         os.makedirs(seg_ios_folder_path, exist_ok=True)
 
-        pre_aso_ios_folder_path = os.path.join(kwargs["folder_output"],"PRE ASO IOS")
+        pre_aso_ios_folder_path = os.path.join(kwargs["output_folder"],"PRE ASO IOS")
         os.makedirs(pre_aso_ios_folder_path, exist_ok=True)
 
         parameter_seg = {
@@ -757,7 +757,7 @@ class Auto_IOSCBCT(IOSCBCT):
             "occlusion": "false",
             "jaw": "Upper/Lower",
             "folder_error": path_error,
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
 
         logger.info(f"Parameter CrownSegmentation :  {parameter_seg}")
@@ -776,7 +776,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 "ReviewId": "ios_segmented",
                 "ReviewFolder": seg_ios_folder_path,
                 "Display": DisplayCrownSeg(
-                    nb_scan, kwargs["logPath"],"Segmentation Patient"
+                    nb_scan, kwargs["log_path"],"Segmentation Patient"
                 ),
             })
         list_process.append({
@@ -789,12 +789,12 @@ class Auto_IOSCBCT(IOSCBCT):
                 # driven by one log line per arch: counting mouths made it read
                 # 200% by the end of the step.
                 "Display": DisplayASOIOS(
-                    2 * nb_scan, kwargs["logPath"],"Orient IOS Patient"
+                    2 * nb_scan, kwargs["log_path"],"Orient IOS Patient"
                 ),
             })
         
         temp_ali_cbct_folder = slicer.util.tempDirectory()
-        cbct_landmarks_folder_path = os.path.join(kwargs["folder_output"],"CBCT Landmarks")
+        cbct_landmarks_folder_path = os.path.join(kwargs["output_folder"],"CBCT Landmarks")
         os.makedirs(cbct_landmarks_folder_path, exist_ok=True)
 
         parameter_ali_cbct_2 = {
@@ -803,7 +803,7 @@ class Auto_IOSCBCT(IOSCBCT):
             "lm_type": "'LL1O','LL3O','LL6O','LR1O','LR3O','LR6O','UL1O','UL3O','UL6O','UR1O','UR3O','UR6O'",
             "output_dir": cbct_landmarks_folder_path,
             "temp_fold": temp_ali_cbct_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
             "agent_FOV": "[64,64,64]",
@@ -827,7 +827,7 @@ class Auto_IOSCBCT(IOSCBCT):
         )
         
         temp_ali_ios_folder = os.path.join(slicer.util.tempDirectory(), "process.log")
-        ios_landmarks_folder_path = os.path.join(kwargs["folder_output"],"IOS Landmarks")
+        ios_landmarks_folder_path = os.path.join(kwargs["output_folder"],"IOS Landmarks")
         os.makedirs(ios_landmarks_folder_path, exist_ok=True)
 
         # Key order matters: the values are passed positionally to the ALI_IOS CLI
@@ -860,7 +860,7 @@ class Auto_IOSCBCT(IOSCBCT):
                 ),
             })
         
-        registered_ios_folder_path = os.path.join(kwargs["folder_output"],"Registered IOS")
+        registered_ios_folder_path = os.path.join(kwargs["output_folder"],"Registered IOS")
         os.makedirs(registered_ios_folder_path, exist_ok=True)
 
         parameter_areg_IOSCBCT = {

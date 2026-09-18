@@ -164,7 +164,7 @@ class Auto_IOS(Method):
         if isinstance(reference, str):
             out = out + f"{reference},"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out = out + "Please select output folder,"
 
         testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
@@ -240,9 +240,9 @@ class Auto_IOS(Method):
         os.makedirs(path_input, exist_ok=True)
         os.makedirs(path_seg, exist_ok=True)
         os.makedirs(path_preor, exist_ok=True)
-        os.makedirs(kwargs["folder_output"], exist_ok=True)
+        os.makedirs(kwargs["output_folder"], exist_ok=True)
 
-        path_error = os.path.join(kwargs["folder_output"], "Error")
+        path_error = os.path.join(kwargs["output_folder"], "Error")
 
         number_scan_toseg = self.__BypassCrownseg__(
             kwargs["input_folder"], path_input, path_seg
@@ -280,13 +280,13 @@ class Auto_IOS(Method):
         parameter_pre_aso = {
             "input": path_seg,
             "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "add_inname": kwargs["add_in_namefile"],
             "list_teeth": ",".join(list_teeth),
             "occlusion": occlusion,
             "jaw": "/".join(jaw),
             "folder_error": path_error,
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
         logger.info(f"Parameter pre aso: {parameter_pre_aso}")
         logger.info(f"Parameter seg: {parameter_seg}")
@@ -302,7 +302,7 @@ class Auto_IOS(Method):
                 "Parameter": parameter_seg,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
-                    number_scan_toseg, kwargs["logPath"]
+                    number_scan_toseg, kwargs["log_path"]
                 ),
             },
             {
@@ -312,7 +312,7 @@ class Auto_IOS(Method):
                 "Display": DisplayASOIOS(
                     numberscan if len(jaw) == 1 else int(numberscan / 2),
                     jaw,
-                    kwargs["logPath"],
+                    kwargs["log_path"],
                 ),
             },
         ]
@@ -524,7 +524,7 @@ class Semi_IOS(Auto_IOS):
         if isinstance(reference, str):
             out = out + f"{reference},"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out = out + "Give output folder,"
 
         testcheckbox = self.TestCheckbox(kwargs["dic_checkbox"])
@@ -576,18 +576,18 @@ class Semi_IOS(Auto_IOS):
         teeth, landmark, mix, jaw, occlusion = self.__CheckboxisChecked(
             kwargs["dic_checkbox"]
         )
-        path_error = os.path.join(kwargs["folder_output"], "Error")
+        path_error = os.path.join(kwargs["output_folder"], "Error")
 
         parameter = {
             "input": kwargs["input_folder"],
             "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "add_inname": kwargs["add_in_namefile"],
             "list_landmark": ",".join(mix),
             "occlusion": occlusion,
             "jaw": "/".join(jaw),
             "folder_error": path_error,
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
 
         logger.info(f"SEMI_ASO_IOS parameter: {parameter}")
@@ -601,7 +601,7 @@ class Semi_IOS(Auto_IOS):
                 "Display": DisplayASOIOS(
                     numberscan if len(jaw) == 1 else int(numberscan / 2),
                     jaw,
-                    kwargs["logPath"],
+                    kwargs["log_path"],
                 ),
             },
         ]

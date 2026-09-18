@@ -155,10 +155,10 @@ class Auto_IOS(Method):
         if isinstance(scan, str):
             out = out + f"{scan}\n"
 
-        if kwargs["output_dir"] == "":
+        if kwargs["output_folder"] == "":
             out = out + "Please select output folder\n"
 
-        if kwargs["dir_models"] == "":
+        if kwargs["model_folder"] == "":
             out = out + "Please select folder for the landmark identification model\n"
 
         if out != "":
@@ -222,9 +222,9 @@ class Auto_IOS(Method):
         
         os.makedirs(path_seg, exist_ok=True)
         os.makedirs(path_input, exist_ok=True)
-        os.makedirs(kwargs["output_dir"], exist_ok=True)
+        os.makedirs(kwargs["output_folder"], exist_ok=True)
 
-        path_error = os.path.join(kwargs["output_dir"], "Error")
+        path_error = os.path.join(kwargs["output_folder"], "Error")
 
         number_scan_toseg = self.__BypassCrownseg__(
             kwargs["input_folder"], path_input, path_seg
@@ -261,15 +261,15 @@ class Auto_IOS(Method):
         # Key order matters: values are passed positionally to the ALI_IOS CLI
         parameter_ali = {
             "input": path_seg,
-            "dir_models": kwargs["dir_models"],
+            "dir_models": kwargs["model_folder"],
             "lm_type": kwargs["lm_type"],
             "teeth": kwargs["teeth"],
             "teeth_mg": kwargs.get("teeth_mg", "None"),
-            "output_dir": kwargs["output_dir"],
+            "output_dir": kwargs["output_folder"],
             "image_size": "224",
             "blur_radius": "0",
             "faces_per_pixel": "1",
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
 
         logger.debug("=" * 70)
@@ -307,7 +307,7 @@ class Auto_IOS(Method):
                 "Parameter": parameter_segteeth,
                 "Module": "CrownSegmentationcli",
                 "Display": DisplayCrownSeg(
-                    number_scan_toseg, kwargs["logPath"]
+                    number_scan_toseg, kwargs["log_path"]
                 ),
             })
         else:

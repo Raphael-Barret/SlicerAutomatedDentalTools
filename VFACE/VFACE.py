@@ -1237,8 +1237,8 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.CliStartTime = time.time()
         slicer.app.processEvents()
 
-        self.list_process = CreateListProcess(InputFolder = self._parameterNode.InputFolder
-                               ,OutputFolder = self._parameterNode.OutputFolder
+        self.list_process = CreateListProcess(input_folder = self._parameterNode.InputFolder
+                               ,output_folder = self._parameterNode.OutputFolder
                                ,model_folder = os.path.join(self.SlicerDownloadPath,"AREG/AREG_CBCT/Models/Segmentation"),
                                model_folder_ali = os.path.join(self.SlicerDownloadPath,"ALI/ALI_CBCT/Models/Landmark"),
                                reg_type = self.ui.comboBox.currentText,

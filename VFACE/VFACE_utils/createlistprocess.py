@@ -123,7 +123,7 @@ def CreateListProcess(**kwargs):
     AsymProcess = slicer.modules.vface_cli
 
     # NumberScan is just len(GetPatients(...)), so scan the input folder once.
-    patients = GetPatients(kwargs["InputFolder"], time_point="T1")
+    patients = GetPatients(kwargs["input_folder"], time_point="T1")
     nb_scan = len(patients)
 
     if kwargs["bool_quantification"]:
@@ -154,7 +154,7 @@ def CreateListProcess(**kwargs):
         tempAMASSS_folder = os.path.join(documents, slicer.app.applicationName + "_temp_AMASSS")
 
         if kwargs["mode2"] != "Longitudinal studies":
-            t2scan_folder_path = os.path.join(kwargs["OutputFolder"],"T2_Scan")
+            t2scan_folder_path = os.path.join(kwargs["output_folder"],"T2_Scan")
             os.makedirs(t2scan_folder_path, exist_ok=True)
 
             t2scan_max_folder_path = os.path.join(t2scan_folder_path,"MAX")
@@ -163,10 +163,10 @@ def CreateListProcess(**kwargs):
             t2scan_cb_folder_path = os.path.join(t2scan_folder_path,"CB")
             os.makedirs(t2scan_cb_folder_path, exist_ok=True)
         else:
-            t2_centered_folder_path = os.path.join(kwargs["OutputFolder"],"T2 Centered")
+            t2_centered_folder_path = os.path.join(kwargs["output_folder"],"T2 Centered")
             os.makedirs(t2_centered_folder_path, exist_ok=True)
 
-    orientation_folder_path = os.path.join(kwargs["OutputFolder"],"Oriented T1 Scans")
+    orientation_folder_path = os.path.join(kwargs["output_folder"],"Oriented T1 Scans")
     os.makedirs(orientation_folder_path, exist_ok=True)
 
     orientation_cb_folder_path = os.path.join(orientation_folder_path,"CB")
@@ -176,7 +176,7 @@ def CreateListProcess(**kwargs):
     os.makedirs(orientation_max_folder_path, exist_ok=True)
 
     if kwargs["mode"] != "Full pipeline":
-        oriented_files = SplitOriented(kwargs["InputFolder"])
+        oriented_files = SplitOriented(kwargs["input_folder"])
 
         if oriented_files:
             for file_info in oriented_files:
@@ -190,10 +190,10 @@ def CreateListProcess(**kwargs):
 
     else:
 
-        resample_folder_path = os.path.join(kwargs["OutputFolder"],"T1 Resample")
+        resample_folder_path = os.path.join(kwargs["output_folder"],"T1 Resample")
         os.makedirs(resample_folder_path, exist_ok=True)
 
-        preaso_folder_path = os.path.join(kwargs["OutputFolder"],"Centered T1 Scans")
+        preaso_folder_path = os.path.join(kwargs["output_folder"],"Centered T1 Scans")
         os.makedirs(preaso_folder_path, exist_ok=True)
 
         preaso_CB_folder_path = os.path.join(preaso_folder_path,"CB")
@@ -205,7 +205,7 @@ def CreateListProcess(**kwargs):
         parameter_resample = {
             "input_folder_MRI": "None",
             "input_folder_T2_MRI": "None",
-            "input_folder_CBCT": kwargs["InputFolder"],
+            "input_folder_CBCT": kwargs["input_folder"],
             "input_folder_T2_CBCT": "None",
             "input_folder_Seg": "None",
             "input_folder_T2_Seg": "None",
@@ -397,7 +397,7 @@ def CreateListProcess(**kwargs):
 
         if kwargs["mode2"] == "Longitudinal studies":
 
-            t2_resample_folder_path = os.path.join(kwargs["OutputFolder"],"T2 Resample")
+            t2_resample_folder_path = os.path.join(kwargs["output_folder"],"T2 Resample")
             os.makedirs(t2_resample_folder_path, exist_ok=True)
 
             parameter_resample = {
@@ -443,7 +443,7 @@ def CreateListProcess(**kwargs):
                 }
             )
 
-        mask_folder_path = os.path.join(kwargs["OutputFolder"],"T1 Masks")
+        mask_folder_path = os.path.join(kwargs["output_folder"],"T1 Masks")
         os.makedirs(mask_folder_path, exist_ok=True)
 
         full_reg_struct = ["Cranial Base","Mandible"]
@@ -509,7 +509,7 @@ def CreateListProcess(**kwargs):
         )
         if kwargs["mode2"] == "Asymmetry Assesment":
             if kwargs["reg_type"] == "CMFReg":
-                t2mask_folder_path = os.path.join(kwargs["OutputFolder"],"T2_Masks")
+                t2mask_folder_path = os.path.join(kwargs["output_folder"],"T2_Masks")
                 os.makedirs(t2mask_folder_path, exist_ok=True)
 
                 parameter_automatrix_mask = {
@@ -603,7 +603,7 @@ def CreateListProcess(**kwargs):
                 },
             )
 
-        registeredscan_folder_path = os.path.join(kwargs["OutputFolder"],"Registered Scan")
+        registeredscan_folder_path = os.path.join(kwargs["output_folder"],"Registered Scan")
         os.makedirs(registeredscan_folder_path, exist_ok=True)
 
         parameter_areg_cbct = {
@@ -714,7 +714,7 @@ def CreateListProcess(**kwargs):
             },
         )
     else:
-        registeredscan_folder_path = os.path.join(kwargs["OutputFolder"],"Registered Scan")
+        registeredscan_folder_path = os.path.join(kwargs["output_folder"],"Registered Scan")
         os.makedirs(registeredscan_folder_path, exist_ok=True)
 
         if kwargs["bool_visualization"] and not kwargs["bool_quantification"]:
@@ -739,7 +739,7 @@ def CreateListProcess(**kwargs):
     # a single point.
     if kwargs["bool_quantification"]:
 
-        landmarks_folder_path = os.path.join(kwargs["OutputFolder"],"T1 Landmarks")
+        landmarks_folder_path = os.path.join(kwargs["output_folder"],"T1 Landmarks")
         os.makedirs(landmarks_folder_path, exist_ok=True)
 
         landmarks_cb_folder_path = os.path.join(landmarks_folder_path,"CB")
@@ -838,7 +838,7 @@ def CreateListProcess(**kwargs):
             },
         )
         if kwargs["mode2"] == "Asymmetry Assesment":
-            mirrored_landmarks_folder_path = os.path.join(kwargs["OutputFolder"],"Mirrored Landmarks")
+            mirrored_landmarks_folder_path = os.path.join(kwargs["output_folder"],"Mirrored Landmarks")
             os.makedirs(mirrored_landmarks_folder_path, exist_ok=True)
 
             mirrored_landmarks_cb_folder_path = os.path.join(mirrored_landmarks_folder_path,"CB")
@@ -894,7 +894,7 @@ def CreateListProcess(**kwargs):
                 },
             )
 
-            mirrored_registered_landmarks_folder_path = os.path.join(kwargs["OutputFolder"],"Mirrored & Registered Landmarks")
+            mirrored_registered_landmarks_folder_path = os.path.join(kwargs["output_folder"],"Mirrored & Registered Landmarks")
             os.makedirs(mirrored_registered_landmarks_folder_path, exist_ok=True)
 
             mirrored_registered_cb_landmarks_folder_path = os.path.join(mirrored_registered_landmarks_folder_path,"CB")
@@ -980,7 +980,7 @@ def CreateListProcess(**kwargs):
                 },
             )
         else:
-            t2_landmarks_folder_path = os.path.join(kwargs["OutputFolder"],"T2 Landmarks")
+            t2_landmarks_folder_path = os.path.join(kwargs["output_folder"],"T2 Landmarks")
             os.makedirs(t2_landmarks_folder_path, exist_ok=True)
 
             t2_landmarks_cb_folder_path = os.path.join(t2_landmarks_folder_path,"CB")
@@ -1064,7 +1064,7 @@ def CreateListProcess(**kwargs):
                 },
             )
         
-        measurements_folder_path = os.path.join(kwargs["OutputFolder"],"Measurements")
+        measurements_folder_path = os.path.join(kwargs["output_folder"],"Measurements")
         os.makedirs(measurements_folder_path, exist_ok=True)
 
         if kwargs["mode2"] == "Asymmetry Assesment":
@@ -1156,7 +1156,7 @@ def CreateListProcess(**kwargs):
                     ),
                 },
             )
-            classification_folder_path = os.path.join(kwargs["OutputFolder"],"Classification")
+            classification_folder_path = os.path.join(kwargs["output_folder"],"Classification")
             os.makedirs(classification_folder_path, exist_ok=True)
 
             parameter_asymclass = {
@@ -1178,7 +1178,7 @@ def CreateListProcess(**kwargs):
 
     if kwargs["bool_visualization"]:
 
-        vtk_folder_path = os.path.join(kwargs["OutputFolder"],"VTK Files")
+        vtk_folder_path = os.path.join(kwargs["output_folder"],"VTK Files")
         os.makedirs(vtk_folder_path, exist_ok=True)
 
         BDSProcess = run_bds
@@ -1304,7 +1304,7 @@ def CreateListProcess(**kwargs):
             },
         )
 
-        heatmap_folder_path = os.path.join(kwargs["OutputFolder"],"Heatmaps")
+        heatmap_folder_path = os.path.join(kwargs["output_folder"],"Heatmaps")
         os.makedirs(heatmap_folder_path, exist_ok=True)
         HeatmapProcess = batch_process
 

@@ -961,8 +961,8 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     error = self.ActualMeth.TestProcess(
       input_folder=self.input_path,
-      dir_models=self.model_folder,
-      output_dir=self.ui.SaveFolderLineEdit.text,
+      model_folder=self.model_folder,
+      output_folder=self.ui.SaveFolderLineEdit.text,
     )
     if isinstance(error, str):
       qt.QMessageBox.warning(self.parent, "Warning", error.replace(",", "\n"))
@@ -970,13 +970,13 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     try:
       self.list_Processes_Parameters = self.ActualMeth.Process(
         input_folder=self.input_path,
-        dir_models=self.model_folder,
+        model_folder=self.model_folder,
         lm_type=self.selected_lm,
         teeth=self.selected_tooth,
         teeth_mg=self.selected_mg_tooth,
-        output_dir=self.ui.SaveFolderLineEdit.text,
-        logPath=self.log_path,
-        DCMInput=self.isDCMInput,
+        output_folder=self.ui.SaveFolderLineEdit.text,
+        log_path=self.log_path,
+        is_dicom_input=self.isDCMInput,
       )
     except RuntimeError as e:
       qt.QMessageBox.warning(self.parent, "Warning", str(e))

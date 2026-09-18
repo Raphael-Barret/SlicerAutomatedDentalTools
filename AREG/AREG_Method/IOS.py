@@ -61,7 +61,7 @@ def MGLProcess(method, numberscan, areg_mode, **kwargs):
                 "image_size": "224",
                 "blur_radius": "0",
                 "faces_per_pixel": "1",
-                "log_path": kwargs["logPath"],
+                "log_path": kwargs["log_path"],
             }
             logger.info(f"Parameter ALI_IOS {time}: {parameter_ali}")
             list_process.append({
@@ -78,10 +78,10 @@ def MGLProcess(method, numberscan, areg_mode, **kwargs):
     parameter_reg = {
         "T1": kwargs["input_t1_folder"],
         "T2": kwargs["input_t2_folder"],
-        "output": kwargs["folder_output"],
+        "output": kwargs["output_folder"],
         "model": "None",                       # the palatal model is not used
         "suffix": kwargs["add_in_namefile"],
-        "log_path": kwargs["logPath"],
+        "log_path": kwargs["log_path"],
         "areg_mode": areg_mode,
         "reg_type": "MGL",
         "patch_radius": kwargs.get("patch_radius", "5.0"),
@@ -94,9 +94,9 @@ def MGLProcess(method, numberscan, areg_mode, **kwargs):
         "Parameter": parameter_reg,
         "Module": "AREG_IOS",
         "ReviewId": "ios_registration",
-        "ReviewFolder": kwargs["folder_output"],
+        "ReviewFolder": kwargs["output_folder"],
         "ReviewReferenceFolder": kwargs["input_t1_folder"],
-        "Display": DisplayAREGIOS(numberscan, kwargs["logPath"]),
+        "Display": DisplayAREGIOS(numberscan, kwargs["log_path"]),
     })
 
     return list_process
@@ -364,7 +364,7 @@ class Auto_IOS(Method):
         if isinstance(scan, str):
             out = out + f"{scan}\n"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out = out + "Please select output folder\n"
 
         # MGL builds its patch from the landmarks, so it needs neither the
@@ -462,7 +462,7 @@ class Auto_IOS(Method):
         for folder in (path_seg, path_seg_T1, path_seg_T2,
                        path_input, path_input_T1, path_input_T2):
             os.makedirs(folder, exist_ok=True)
-        os.makedirs(kwargs["folder_output"], exist_ok=True)
+        os.makedirs(kwargs["output_folder"], exist_ok=True)
 
         number_scan_toseg_T1 = self.__BypassCrownseg__(
             kwargs["input_t1_folder"], path_input_T1, path_seg_T1
@@ -548,7 +548,7 @@ class Auto_IOS(Method):
             "Module": f"CrownSegmentationcli {timepoint}",
             "ReviewId": "ios_segmented",
             "ReviewFolder": parameter["out"],
-            "Display": DisplayCrownSeg(number, kwargs["logPath"], f"{timepoint} Scan"),
+            "Display": DisplayCrownSeg(number, kwargs["log_path"], f"{timepoint} Scan"),
         } for timepoint, number, parameter in to_segment]
 
         return processes, path_tmp, path_seg_T1, path_seg_T2
@@ -580,7 +580,7 @@ class Auto_IOS(Method):
         for folder in (path_or, path_or_T1, path_or_T2):
             os.makedirs(folder, exist_ok=True)
 
-        path_error = os.path.join(kwargs["folder_output"], "Error")
+        path_error = os.path.join(kwargs["output_folder"], "Error")
 
         numberscan = self.NumberScan(
             kwargs["input_t1_folder"], kwargs["input_t2_folder"]
@@ -609,7 +609,7 @@ class Auto_IOS(Method):
             "occlusion": "true" if self.IsLower(kwargs["input_t1_folder"]) else "false",
             "jaw": "Upper",
             "folder_error": path_error,
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
 
         parameter_pre_aso_T2 = {
@@ -621,16 +621,16 @@ class Auto_IOS(Method):
             "occlusion": "true" if self.IsLower(kwargs["input_t2_folder"]) else "false",
             "jaw": "Upper",
             "folder_error": path_error,
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
         }
 
         parameter_reg = {
             "T1": path_or_T1,
             "T2": path_or_T2,
-            "output": kwargs["folder_output"],
+            "output": kwargs["output_folder"],
             "model": self.getModel(kwargs["model_folder_3"], extension="ckpt"),
             "suffix": kwargs["add_in_namefile"],
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
             "areg_mode": "Auto_IOS",
         }
 
@@ -648,7 +648,7 @@ class Auto_IOS(Method):
                 "Module": "PRE_ASO_IOS T1",
                 "ReviewId": "ios_oriented_t1",
                 "ReviewFolder": path_or_T1,
-                "Display": DisplayASOIOS(numberscan, kwargs["logPath"], "T1 Patient"),
+                "Display": DisplayASOIOS(numberscan, kwargs["log_path"], "T1 Patient"),
             },
             {
                 "Process": PreOrientProcess,
@@ -656,16 +656,16 @@ class Auto_IOS(Method):
                 "Module": "PRE_ASO_IOS T2",
                 "ReviewId": "ios_oriented_t2",
                 "ReviewFolder": path_or_T2,
-                "Display": DisplayASOIOS(numberscan, kwargs["logPath"], "T2 Patient"),
+                "Display": DisplayASOIOS(numberscan, kwargs["log_path"], "T2 Patient"),
             },
             {
                 "Process": RegProcess,
                 "Parameter": parameter_reg,
                 "Module": "AREG_IOS",
                 "ReviewId": "ios_registration",
-                "ReviewFolder": kwargs["folder_output"],
+                "ReviewFolder": kwargs["output_folder"],
                 "ReviewReferenceFolder": path_or_T1,
-                "Display": DisplayAREGIOS(numberscan, kwargs["logPath"]),
+                "Display": DisplayAREGIOS(numberscan, kwargs["log_path"]),
             },
         ]
 
@@ -687,7 +687,7 @@ class Semi_IOS(Auto_IOS):
         if isinstance(scan, str):
             out = out + f"{scan}\n"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out = out + "Please select output folder\n"
 
         if kwargs.get("reg_type") == "MGL":
@@ -743,10 +743,10 @@ class Semi_IOS(Auto_IOS):
         parameter_reg = {
             "T1": kwargs["input_t1_folder"],
             "T2": kwargs["input_t2_folder"],
-            "output": kwargs["folder_output"],
+            "output": kwargs["output_folder"],
             "model": self.getModel(kwargs["model_folder_3"], extension="ckpt"),
             "suffix": kwargs["add_in_namefile"],
-            "log_path": kwargs["logPath"],
+            "log_path": kwargs["log_path"],
             "areg_mode": "Semi_IOS",
         }
 
@@ -758,9 +758,9 @@ class Semi_IOS(Auto_IOS):
                 "Parameter": parameter_reg,
                 "Module": "AREG_IOS",
                 "ReviewId": "ios_registration",
-                "ReviewFolder": kwargs["folder_output"],
+                "ReviewFolder": kwargs["output_folder"],
                 "ReviewReferenceFolder": kwargs["input_t1_folder"],
-                "Display": DisplayAREGIOS(numberscan, kwargs["logPath"]),
+                "Display": DisplayAREGIOS(numberscan, kwargs["log_path"]),
             }
         ]
         return processus

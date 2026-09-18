@@ -97,7 +97,7 @@ class Semi_CBCT(Method):
         if kwargs["input_t1_mask"] == "":
             out += "Please select an input folder for T1 masks\n"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -276,7 +276,7 @@ class Semi_CBCT(Method):
             ),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
         
         logger.info(f"PRE_ASO param: {parameter_pre_aso}\n")
@@ -301,7 +301,7 @@ class Semi_CBCT(Method):
                 "t1_folder": kwargs["input_t1_folder"],
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
+                "output_folder": kwargs["output_folder"],
                 "add_name": kwargs["add_in_namefile"],
                 "DCMInput": False,
                 "SegmentationLabel": kwargs["LabelSeg"],
@@ -321,7 +321,7 @@ class Semi_CBCT(Method):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        kwargs["output_folder"], full_reg_struct[i]
                     ),
                     "ReviewReferenceFolder": kwargs["input_t1_folder"],
                     "Display": DisplayAREGCBCT(nb_scan),
@@ -338,7 +338,7 @@ class Semi_CBCT(Method):
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": True,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -346,13 +346,13 @@ class Semi_CBCT(Method):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
+            "inputVolume": kwargs["output_folder"],
             "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
             "skullStructure": seg_struct,
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": True,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -376,7 +376,7 @@ class Semi_CBCT(Method):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation of T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": kwargs["output_folder"],
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),
@@ -411,7 +411,7 @@ class Auto_CBCT(Semi_CBCT):
         if kwargs["input_t2_folder"] == "":
             out += "Please select an input folder for T2 scans\n"
             
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -483,7 +483,7 @@ class Auto_CBCT(Semi_CBCT):
             ),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
 
         PreOrientProcess = slicer.modules.pre_aso_cbct
@@ -511,7 +511,7 @@ class Auto_CBCT(Semi_CBCT):
                 "t1_folder": kwargs["input_t1_folder"],
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
+                "output_folder": kwargs["output_folder"],
                 "add_name": kwargs["add_in_namefile"],
                 "DCMInput": False,
                 "SegmentationLabel": "0",
@@ -531,7 +531,7 @@ class Auto_CBCT(Semi_CBCT):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        kwargs["output_folder"], full_reg_struct[i]
                     ),
                     "ReviewReferenceFolder": kwargs["input_t1_folder"],
                     "Display": DisplayAREGCBCT(
@@ -552,7 +552,7 @@ class Auto_CBCT(Semi_CBCT):
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -560,13 +560,13 @@ class Auto_CBCT(Semi_CBCT):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
+            "inputVolume": kwargs["output_folder"],
             "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
             "skullStructure": seg_struct,
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -593,7 +593,7 @@ class Auto_CBCT(Semi_CBCT):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": kwargs["output_folder"],
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),
@@ -684,7 +684,7 @@ class Or_Auto_CBCT(Semi_CBCT):
         if kwargs["input_t2_folder"] == "":
             out += "Please select an input folder for T2 scans\n"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -733,7 +733,7 @@ class Or_Auto_CBCT(Semi_CBCT):
             "model_folder": os.path.join(kwargs["model_folder_2"], "PreASO"),
             "SmallFOV": False,
             "temp_folder": tempPREASO_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
 
         PreOrientProcess = slicer.modules.pre_aso_cbct
@@ -776,7 +776,7 @@ class Or_Auto_CBCT(Semi_CBCT):
 
         nb_scan = (
             self.NumberScan(kwargs["input_t1_folder"], kwargs["input_t2_folder"])
-            if not kwargs["isDCMInput"]
+            if not kwargs["is_dicom_input"]
             else self.NumberScanDCM(
                 kwargs["input_t1_folder"], kwargs["input_t2_folder"]
             )
@@ -848,7 +848,7 @@ class Or_Auto_CBCT(Semi_CBCT):
             "model_folder": os.path.join(kwargs["model_folder_2"], "PreASO"),
             "SmallFOV": False,
             "temp_folder": "../",
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
         logger.info(f"Centering T2 Parameters: {parameter_pre_aso}\n")
 
@@ -875,9 +875,9 @@ class Or_Auto_CBCT(Semi_CBCT):
                 "t1_folder": ASO_T1_Oriented,
                 "t2_folder": centered_T2,
                 "reg_type": reg,
-                "output_folder": kwargs["folder_output"],
+                "output_folder": kwargs["output_folder"],
                 "add_name": kwargs["add_in_namefile"],
-                "DCMInput": kwargs["isDCMInput"],
+                "DCMInput": kwargs["is_dicom_input"],
                 "SegmentationLabel": "0",
                 "temp_folder": AReg_temp_folder,
                 "ApproxReg": kwargs["ApproxStep"],
@@ -895,7 +895,7 @@ class Or_Auto_CBCT(Semi_CBCT):
                     # too - and the displacement the user drags would be folded
                     # into whichever matrix turned up first, not this one's.
                     "ReviewFolder": os.path.join(
-                        kwargs["folder_output"], full_reg_struct[i]
+                        kwargs["output_folder"], full_reg_struct[i]
                     ),
                     "ReviewReferenceFolder": ASO_T1_Oriented,
                     "Display": DisplayAREGCBCT(nb_scan),
@@ -915,7 +915,7 @@ class Or_Auto_CBCT(Semi_CBCT):
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -923,13 +923,13 @@ class Or_Auto_CBCT(Semi_CBCT):
             "DCMInput": False,
         }
         parameter_amasss_seg_t2 = {
-            "inputVolume": kwargs["folder_output"],
+            "inputVolume": kwargs["output_folder"],
             "modelDirectory": os.path.join(kwargs["model_folder_1"], "AMASSS_Models"),
             "skullStructure": seg_struct,
             "merge": "MERGE" if kwargs["merge_seg"] else "SEPARATE",
             "genVtk": True,
             "save_in_folder": False,
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "vtk_smooth": 5,
             "prediction_ID": "seg",
             "temp_fold": self.tempAMASSS_folder,
@@ -953,7 +953,7 @@ class Or_Auto_CBCT(Semi_CBCT):
                     "Parameter": parameter_amasss_seg_t2,
                     "Module": "AMASSS_CBCT Segmentation for T2",
                     "ReviewId": "cbct_segmentation",
-                    "ReviewFolder": kwargs["folder_output"],
+                    "ReviewFolder": kwargs["output_folder"],
                     "Display": DisplayAMASSS(
                         nb_scan, len(full_seg_struct), len(full_reg_struct)
                     ),

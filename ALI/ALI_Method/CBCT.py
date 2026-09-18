@@ -74,10 +74,10 @@ class Auto_CBCT(Method):
         if kwargs["input_folder"] == "":
             out += "Please select an input folder for T1 scans\n"
 
-        if kwargs["output_dir"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
-        if kwargs["dir_models"] == "":
+        if kwargs["model_folder"] == "":
             out += "Please select a folder for segmentation models\n"
 
         if out == "":
@@ -184,15 +184,15 @@ class Auto_CBCT(Method):
         
         path_tmp = slicer.util.tempDirectory()
         os.makedirs(path_tmp, exist_ok=True)
-        os.makedirs(kwargs["output_dir"], exist_ok=True)
+        os.makedirs(kwargs["output_folder"], exist_ok=True)
         
         parameter_ali = {
             "input": kwargs["input_folder"],
-            "dir_models": kwargs["dir_models"],
+            "dir_models": kwargs["model_folder"],
             "lm_type": kwargs["lm_type"].split(" "),
-            "output_dir": kwargs["output_dir"],
+            "output_dir": kwargs["output_folder"],
             "temp_fold": path_tmp,
-            "DCMInput": kwargs["DCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
             "spacing": "[1,0.3]",
             "speed_per_scale": "[1,1]",
             "agent_FOV": "[64,64,64]",

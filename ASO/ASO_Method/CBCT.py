@@ -97,7 +97,7 @@ class CBCT(Method):
         if kwargs["gold_folder"] == "":
             out += "Please select a reference folder\n"
 
-        if kwargs["folder_output"] == "":
+        if kwargs["output_folder"] == "":
             out += "Please select an output folder\n"
 
         if kwargs["add_in_namefile"] == "":
@@ -374,7 +374,7 @@ class Semi_CBCT(CBCT):
         parameter_semi_aso = {
             "input": kwargs["input_folder"],
             "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "add_inname": kwargs["add_in_namefile"],
             "list_landmark": list_lmrk_str,
         }
@@ -489,7 +489,7 @@ class Auto_CBCT(CBCT):
             "model_folder": kwargs["model_folder_segor"],
             "SmallFOV": kwargs["smallFOV"],
             "temp_folder": tempPREASO_folder,
-            "DCMInput": kwargs["isDCMInput"],
+            "DCMInput": kwargs["is_dicom_input"],
         }
         
         parameter_ali = {
@@ -508,14 +508,14 @@ class Auto_CBCT(CBCT):
         parameter_semi_aso = {
             "input": temp_folder,
             "gold_folder": kwargs["gold_folder"],
-            "output_folder": kwargs["folder_output"],
+            "output_folder": kwargs["output_folder"],
             "add_inname": kwargs["add_in_namefile"],
             "list_landmark": list_lmrk_str,
         }
         
         nb_scan = (
             self.NumberScan(kwargs["input_folder"])
-            if not kwargs["isDCMInput"]
+            if not kwargs["is_dicom_input"]
             else self.NumberScanDCM(kwargs["input_folder"])
         )
 

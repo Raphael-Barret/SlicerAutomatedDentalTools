@@ -989,19 +989,13 @@ class ALIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.RunningUI(True)
 
-  def read_log_path(self):
-      with open(self.log_path, 'r') as f:
-          line = f.readline()
-          if line != '':
-              return line
-  
   def onCondaProcessUpdate(self):
       if os.path.isfile(self.log_path):
           self.ui.LabelProgressExtension.setText(
               f"Extension : {self.nb_extension_did} / {self.nb_extension_launch}"
           )
           time_progress = os.path.getmtime(self.log_path)
-          line = self.read_log_path()
+          line = self.logic.read_log_path(self.log_path)
           if (time_progress != self.time_log) and line:
               progress = line.strip()
           
@@ -2175,4 +2169,11 @@ class ALILogic(ScriptedLoadableModuleLogic):
     with open(file_path, 'r') as file:
         lines = file.readlines()
         return lines[-1] if lines else None
+  def read_log_path(self, log_path):
+      with open(log_path, 'r') as f:
+          line = f.readline()
+          if line != '':
+              return line
+  
+
       

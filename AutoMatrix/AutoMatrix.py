@@ -667,21 +667,6 @@ class AutoMatrixWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 except IndexError:
                     self.OnEndProcess()
 
-    def saveOutput(self, outputVolumeNode, outputFilePath)->None:
-        """
-        Saves the output volume in the specified file with the .nii.gz extension.
-
-        :param outputVolumeNode: The output volume node in Slicer MRML scene.
-        :param outputFilePath: The full path where the file is to be saved.
-        """
-        if not os.path.exists(os.path.dirname(outputFilePath)):
-            os.makedirs(os.path.dirname(outputFilePath))
-
-        slicer.util.exportNode(outputVolumeNode, outputFilePath,world=True)
-
-
-
-
     def UpdateTime(self)->None:
         '''
         Update the time since the beginning
@@ -906,6 +891,21 @@ class AutoMatrixLogic(ScriptedLoadableModuleLogic):
         """
 
         pass
+    def saveOutput(self, outputVolumeNode, outputFilePath)->None:
+        """
+        Saves the output volume in the specified file with the .nii.gz extension.
+
+        :param outputVolumeNode: The output volume node in Slicer MRML scene.
+        :param outputFilePath: The full path where the file is to be saved.
+        """
+        if not os.path.exists(os.path.dirname(outputFilePath)):
+            os.makedirs(os.path.dirname(outputFilePath))
+
+        slicer.util.exportNode(outputVolumeNode, outputFilePath,world=True)
+
+
+
+
 
 
 

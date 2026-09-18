@@ -37,6 +37,8 @@ from ADTLib.logging_setup import get_logger
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
 from ADTLib.model_registry import SLICER_TESTING_DATA
+from ADTLib.testdata import TestDataError, ensure
+from pathlib import Path
 import tempfile
 import zipfile
 #import Crop_Volumes_CLI.Crop_Volumes_utils as cpu
@@ -47,6 +49,12 @@ import zipfile
 
 # ===== Logging Configuration =====
 logger = get_logger("AutoCrop3D_UI")
+
+# Le jeu d'essai voyage avec le module : deux archives declarees par le
+# manifeste, decompressees a la demande dans le dossier de telechargement de
+# l'utilisateur. Rien a telecharger, donc rien qui depende du reseau.
+TEST_FILES_SCAN_ARCHIVE = "testfiles/AutoCrop3D/Segmentation.zip"
+TEST_FILES_ROI_ARCHIVE = "testfiles/AutoCrop3D/ROI.mrk.zip"
 
 
 class AutoCrop3D(ScriptedLoadableModule):
@@ -172,6 +180,7 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.SearchPathButtonF.connect("clicked(bool)", partial(self.SearchPath,"Folder_file"))
         self.ui.SearchPathButtonV.connect("clicked(bool)", partial(self.SearchPath,"ROI"))
         self.ui.SearchPathButtonOut.connect("clicked(bool)", partial(self.SearchPath,"Output"))
+        self.ui.testFilesButton.connect("clicked(bool)", self.onTestFiles)
         #self.ui.chooseType.connect("clicked(bool)", self.SearchPath)
 
         self.ui.checkBoxCV.toggled.connect(self.optionCheckBox)
@@ -541,6 +550,75 @@ class AutoCrop3DWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 
+    def testFilesRoot(self):
+        """Where the unpacked sample data set lives, once and for all users."""
+        documents = qt.QStandardPaths.writableLocation(qt.QStandardPaths.DocumentsLocation)
+        return os.path.join(documents, slicer.app.applicationName + "Downloads", "AutoCrop3D")
+
+    def unpackTestFiles(self, root):
+        """The two folders holding the sample scan and the sample ROI.
+
+        The archives travel with the module, so this never touches the network:
+        `ensure` is handed a `file://` URI and does the rest -- it unpacks once,
+        marks the folder complete, and returns it untouched the next time.
+        """
+        folders = []
+        for resource, name in ((TEST_FILES_SCAN_ARCHIVE, "TestScan"),
+                               (TEST_FILES_ROI_ARCHIVE, "TestROI")):
+            archive = self.resourcePath(resource)
+            if not os.path.isfile(archive):
+                raise TestDataError(
+                    "The sample data set is missing from this installation: %s was "
+                    "not installed next to the module." % archive)
+            folders.append(ensure(Path(archive).as_uri(), root, name))
+        return folders
+
+    def onTestFiles(self):
+        """Fill every required field with the sample scan and ROI.
+
+        The input selector keeps whatever the user set it to -- `Search` takes a
+        file as happily as a folder. The ROI selector does not: the single ROI
+        shipped is a generic one, and in Folder mode `ChangeKeyDict` pairs a ROI
+        with a scan by the first part of its file name, which would match no
+        patient. So this sets the ROI selector to File.
+        """
+        root = self.testFilesRoot()
+        try:
+            scan_folder, roi_folder = self.unpackTestFiles(root)
+        except TestDataError as error:
+            qt.QMessageBox.warning(self.parent, "Test files", str(error))
+            return
+        except (OSError, zipfile.BadZipFile) as error:
+            qt.QMessageBox.warning(
+                self.parent, "Test files",
+                "The sample data set could not be unpacked into %s: %s" % (root, error))
+            return
+
+        scans = self.logic.Search(scan_folder, ".nii.gz")[".nii.gz"]
+        rois = self.logic.Search(roi_folder, ".mrk.json")[".mrk.json"]
+        if not scans or not rois:
+            qt.QMessageBox.warning(
+                self.parent, "Test files",
+                "The sample data set unpacked into %s holds no scan or no ROI." % root)
+            return
+
+        # En mode Folder, le champ recoit le dossier qui porte vraiment le scan
+        # -- pas la racine du jeu : `saveOutput` reconstruit le chemin de sortie
+        # en remplacant le dossier d'entree par celui de sortie, et un
+        # sous-dossier de plus ferait ecrire dans un dossier inexistant.
+        self.ui.editPathF.setText(
+            scans[0] if self.ui.chooseType.currentIndex == 0 else os.path.dirname(scans[0]))
+        self.ui.chooseType_ROI.setCurrentIndex(0)
+        self.ui.editPathVolume.setText(rois[0])
+
+        if not self.ui.editPathOutput.text:
+            output = os.path.join(root, "TestOutput")
+            os.makedirs(output, exist_ok=True)
+            self.ui.editPathOutput.setText(output)
+
+        self.ui.applyButton.setEnabled(True)
+        logger.info("Test files ready in %s", root)
+
     def CheckInput(self):
         """
         function to check all input and put a pop "error" window
@@ -908,8 +986,8 @@ class AutoCrop3DTest(ScriptedLoadableModuleTest):
         your test should break so they know that the feature is needed.
         """
 def test_AutoCrop3D1(self):
-    # The segmentation (CBCT scan) is in the directory Testing/Test_data/Segmentation.zip
-    # The JSON file is in the directory Testing/Test_data/ROI.mrk.zip
+    # The segmentation (CBCT scan) is in Resources/testfiles/AutoCrop3D/Segmentation.zip
+    # The JSON file is in Resources/testfiles/AutoCrop3D/ROI.mrk.zip
     import os
     import slicer
     self.delayDisplay("Starting AutoCropCBCT test")
@@ -918,7 +996,7 @@ def test_AutoCrop3D1(self):
     # Load sample CBCT scans and JSON file
     # Unzip files
     temp_dir = tempfile.mkdtemp()
-    segmentation_zip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'Segmentation.zip')
+    segmentation_zip = os.path.join(os.path.dirname(__file__), 'Resources', 'testfiles', 'AutoCrop3D', 'Segmentation.zip')
     segmentation_dir = os.path.join(temp_dir, 'Segmentation')
     os.mkdir(segmentation_dir)
     with zipfile.ZipFile(segmentation_zip, 'r') as zip_ref:
@@ -931,7 +1009,7 @@ def test_AutoCrop3D1(self):
         raise ValueError("CBCT scan could not be loaded")
 
     #Try Load JSON file
-    json_zip = os.path.join(os.path.dirname(__file__), 'Testing', 'Test_data', 'ROI.mrk.zip')
+    json_zip = os.path.join(os.path.dirname(__file__), 'Resources', 'testfiles', 'AutoCrop3D', 'ROI.mrk.zip')
     json_dir = os.path.join(temp_dir, 'ROI.mrk')
     os.mkdir(json_dir)
     with zipfile.ZipFile(json_zip, 'r') as zip_ref:

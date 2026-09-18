@@ -2169,8 +2169,8 @@ def GetListFiles(folder_path, file_extension):
     # search() already returns every extension at once, and each of its keys walks
     # the tree: calling it once per extension walked the tree len(file_extension)**2
     # times and threw away all but one result each round.
-    # sort=True : la copie locale triait le parcours, et l'ordre de traitement
-    # des patients en depend.
+    # sort=True: the local copy sorted the walk, and the processing order of
+    # the patients depends on it.
     found = search(folder_path, file_extension, sort=True)
     file_list = []
     for extension_type in file_extension:
@@ -2355,8 +2355,8 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
                 if re.search(pattern_exact, patient_id_clean, re.IGNORECASE):
                     return True
             except re.error:
-                # Le nom du patient est echappe avant d etre compile : une erreur ici
-                # ne peut venir que d un motif que re refuse.
+                # The patient name is escaped before being compiled: an error here
+                # can only come from a pattern that re refuses.
                 pass
             if list_patient_clean.isdigit():
                 if patient_id_clean.lower() == f"pat{list_patient_clean}":
@@ -2428,8 +2428,8 @@ def batch_process(t1_dir, t2_dir, patient_list, output_dir, signed=True, output_
                     slicer_python = c
                     break
         except (AttributeError, NameError):
-            # Hors de Slicer, slicer.app n existe pas : on garde l interpreteur
-            # trouve autrement.
+            # Outside Slicer, slicer.app does not exist: we keep the interpreter
+            # found some other way.
             pass
     
     if slicer_python is None:

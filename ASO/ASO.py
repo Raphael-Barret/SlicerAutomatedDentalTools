@@ -792,7 +792,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if index == 1:  # Semi-Automated
             self.ui.label_3.setText("Scan / Landmark Folder")
             self.ui.label_6.setVisible(False)
-            self.ui.label_7.setVisible(False)
+            self.ui.labelModelFolder.setVisible(False)
             self.ui.lineEditModelAli.setVisible(False)
             self.ui.lineEditModelAli.setText(" ")
             self.ui.lineEditModelSegOr.setVisible(False)
@@ -808,12 +808,12 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.ButtonSearchModelAli.setVisible(False)
             self.ui.label_6.setVisible(False)
             if self.ActualMeth.uses_segmentation_model:
-                self.ui.label_7.setVisible(True)
+                self.ui.labelModelFolder.setVisible(True)
                 self.ui.lineEditModelSegOr.setVisible(True)
                 self.ui.ButtonSearchModelSegOr.setVisible(True)
                 self.ui.label_CBCTInputType.setVisible(False)
             else:
-                self.ui.label_7.setVisible(False)
+                self.ui.labelModelFolder.setVisible(False)
                 self.ui.lineEditModelSegOr.setVisible(False)
                 self.ui.ButtonSearchModelSegOr.setVisible(False)
                 self.ui.label_CBCTInputType.setVisible(True)
@@ -843,7 +843,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.label_LibsInstallation.setVisible(False)
         self.type = self.ActualMeth.scan_type
         if self.ActualMeth.model_label is not None:
-            self.ui.label_7.setText(self.ActualMeth.model_label)
+            self.ui.labelModelFolder.setText(self.ActualMeth.model_label)
 
         # UI Changes
         self.SwitchMode(self.ui.CbModeType.currentIndex)
@@ -1028,7 +1028,7 @@ class ASOWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         self.ui.lineEditModelAli.setVisible(True)
                         self.ui.ButtonSearchModelAli.setVisible(True)
                         self.ui.label_6.setVisible(True)
-                        self.ui.label_7.setVisible(True)
+                        self.ui.labelModelFolder.setVisible(True)
                         self.ui.lineEditModelSegOr.setVisible(True)
                         self.ui.ButtonSearchModelSegOr.setVisible(True)
 

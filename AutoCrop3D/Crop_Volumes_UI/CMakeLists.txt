@@ -9,6 +9,12 @@ set(MODULE_PYTHON_SCRIPTS
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/UI/${MODULE_NAME}.ui
+
+  # Le jeu d'essai du bouton « Test Files » et du self-test. Non declare, il
+  # existait en arbre de developpement -- ou tout est la -- et disparaissait de
+  # l'extension compilee, ou le bouton n'aurait rien trouve a decompresser.
+  Resources/testfiles/${MODULE_NAME}/Segmentation.zip
+  Resources/testfiles/${MODULE_NAME}/ROI.mrk.zip
 )
 
 #-----------------------------------------------------------------------------

@@ -34,8 +34,17 @@ from ADTLib.logging_setup import get_logger
 import gc
 import json
 from ADTLib.model_registry import NASOMAXILLA_DENT_SEG, PEDIATRIC_DENTAL_SEG, UNIVERSAL_LAB
+from ADTLib.testdata import TestDataError
 
 logger = get_logger("BatchDentalSeg_SegmentationWidget")
+
+# Le jeu d'essai est le CBCT « CBCTDentalSurgery » publie par Slicer, celui-la
+# meme dont `Testing/Utils.load_test_CT_volume` se sert. La release
+# TEST_FILES_BATCHDENTALSEG ne porte que des *segmentations* : ce sont les
+# sorties attendues des tests, pas des entrees -- ce module segmente des scans,
+# et son dossier d'entree doit donc en contenir. Les deux fichiers du jeu sont
+# des `.gipl.gz`, une extension que `listVolumes` reconnait deja.
+TEST_FILES_SAMPLE_NAME = "CBCTDentalSurgery"
 
 
 vtk.vtkObject.GlobalWarningDisplayOff()
@@ -156,6 +165,11 @@ class SegmentationWidget(qt.QWidget):
 
         folder_btn = createButton("Select Folder",        callback=self.selectFolder)
         out_btn    = createButton("Select Output Folder", callback=self.selectOutputFolder)
+        test_btn   = createButton(
+            "Test Files", callback=self.onTestFiles,
+            toolTip="Fill both folders with Slicer's CBCTDentalSurgery sample "
+                    "(two adult CBCT scans, about 70 MB, downloaded once).",
+            parent=self)
 
         self.inputWidget = qt.QWidget(self)
         input_layout      = qt.QFormLayout(self.inputWidget); input_layout.setContentsMargins(0,0,0,0)
@@ -163,6 +177,7 @@ class SegmentationWidget(qt.QWidget):
         input_layout.addRow("",               folder_btn)
         input_layout.addRow("Output Folder:", self.outputFolderLineEdit)
         input_layout.addRow("",               out_btn)
+        input_layout.addRow("",               test_btn)
 
         # ========================================================================
         # 2)  EXPORT FORMATS
@@ -1505,9 +1520,13 @@ class SegmentationWidget(qt.QWidget):
     def selectOutputFolder(self):
         folder_path = qt.QFileDialog.getExistingDirectory(self, "Select Folder to Save Segmentations")
         if folder_path:
-            self.outputFolderPath = folder_path
-            self.outputFolderLineEdit.setText(folder_path)
-            self._restoreQueueFromDisk()
+            self.setOutputFolder(folder_path)
+
+    def setOutputFolder(self, folder_path):
+        """Take a folder as the output, as picking it in the dialog would."""
+        self.outputFolderPath = folder_path
+        self.outputFolderLineEdit.setText(folder_path)
+        self._restoreQueueFromDisk()
 
     # ──────────────────────────────────────────────────────────────────────────────
     # 3)  _saveSegmentationAsNifti
@@ -1547,11 +1566,92 @@ class SegmentationWidget(qt.QWidget):
     def selectFolder(self):
         folder_path = qt.QFileDialog.getExistingDirectory(self, "Select Folder Containing Volumes")
         if folder_path:
-            self.folderPath = folder_path
-            self.folderPathLineEdit.text = folder_path
-            self.folderFiles = listVolumes(folder_path)
-            self.currentFileIndex = 0
-            self.onProgressInfo(f"Found {len(self.folderFiles)} file(s) in the folder.")
+            self.setInputFolder(folder_path)
+
+    def setInputFolder(self, folder_path):
+        """Take a folder as the input, as picking it in the dialog would."""
+        self.folderPath = folder_path
+        self.folderPathLineEdit.text = folder_path
+        self.folderFiles = listVolumes(folder_path)
+        self.currentFileIndex = 0
+        self.onProgressInfo(f"Found {len(self.folderFiles)} file(s) in the folder.")
+
+    # ─── Test files ────────────────────────────────────────────────────────────
+
+    def testFilesRoot(self):
+        """Where the sample data set lives, once and for all models."""
+        documents = qt.QStandardPaths.writableLocation(qt.QStandardPaths.DocumentsLocation)
+        return os.path.join(documents, slicer.app.applicationName + "Downloads", "BATCHDENTALSEG")
+
+    def _sampleDataLog(self, message, log_level=None):
+        """Show SampleData's download progress in this module's own log."""
+        document = qt.QTextDocument()
+        document.setHtml(message)      # SampleData formats its messages in HTML
+        self.onProgressInfo(document.toPlainText())
+        slicer.app.processEvents()
+
+    def downloadTestScans(self, scans_dir):
+        """The folder holding the sample CBCTs, fetched only if they are missing.
+
+        Slicer's own fetcher is used rather than the extension's: it is what
+        publishes this data set, it knows its URLs and its SHA256, and it keeps
+        the published file names -- which `listVolumes` needs, since it matches
+        on the extension. A file already there whose checksum matches is reused;
+        one left half-written by an interrupted download does not match, and is
+        fetched again.
+        """
+        import SampleData
+        logic = SampleData.SampleDataLogic(logMessage=self._sampleDataLog)
+        source = logic.sourceForSampleName(TEST_FILES_SAMPLE_NAME)
+        if source is None:
+            raise TestDataError(
+                "This Slicer installation does not publish the %s sample data set."
+                % TEST_FILES_SAMPLE_NAME)
+
+        os.makedirs(scans_dir, exist_ok=True)
+        for uri, name, checksum in zip(source.uris, source.fileNames, source.checksums):
+            try:
+                path = logic.downloadFile(uri, scans_dir, name, checksum)
+            except (OSError, ValueError) as error:
+                raise TestDataError("%s could not be downloaded from %s: %s"
+                                    % (name, uri, error))
+            # Checksum refuse : downloadFile efface le fichier et rend son
+            # chemin quand meme. Sans ce controle, le dossier d'entree serait
+            # rempli avec un scan qui n'existe pas.
+            if not os.path.isfile(path):
+                raise TestDataError(
+                    "%s was downloaded from %s but its checksum did not match."
+                    % (name, uri))
+        return scans_dir
+
+    def onTestFiles(self):
+        """Fill the input and output folders with a data set ready to segment.
+
+        Every model in the list segments a CBCT, so the same scans serve them
+        all; the weights are downloaded on their own when the run starts.
+        """
+        root = self.testFilesRoot()
+        scans_dir = os.path.join(root, "Scans")
+        failure = None
+        qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+        try:
+            self.downloadTestScans(scans_dir)
+        except TestDataError as error:
+            failure = str(error)
+        except OSError as error:
+            failure = ("The sample data set could not be written into %s: %s"
+                       % (scans_dir, error))
+        finally:
+            qt.QApplication.restoreOverrideCursor()
+        if failure:
+            qt.QMessageBox.warning(self, "Test files", failure)
+            return
+
+        self.setInputFolder(scans_dir)
+        if not self.outputFolderLineEdit.text:
+            output_dir = os.path.join(root, "Output")
+            os.makedirs(output_dir, exist_ok=True)
+            self.setOutputFolder(output_dir)
 
     # ──────────────────────────────────────────────────────────────────────────────
     # 2)  onSceneChanged

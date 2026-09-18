@@ -1,7 +1,7 @@
 import os
 import sys
 from typing import Annotated
-from qt import QDoubleSpinBox, QHeaderView,QSpinBox, QCheckBox, QFileDialog,QMessageBox, QApplication, QProgressDialog
+from qt import QDoubleSpinBox, QHeaderView,QSpinBox, QCheckBox, QFileDialog,QMessageBox
 import qt
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
 # already has on sys.path. A source tree has no such entry -- a module search
@@ -39,19 +39,77 @@ from slicer.parameterNodeWrapper import (
     WithinRange,
 )
 
-import shutil
 import urllib
-import zipfile
 from pathlib import Path
 
 
 from slicer import vtkMRMLScalarVolumeNode
 
 from ADTLib.theming import apply_dark_mode, update_line_edit_and_combo_box
-from ADTLib.model_registry import SLICER_TESTING_DATA, TMJ_CROP_MODEL
+from ADTLib import testdata
+from ADTLib.model_registry import (
+    MRI2CBCT_TEST_FILES,
+    SLICER_TESTING_DATA,
+    TMJ_CROP_MODEL,
+)
 
 # ===== Logging Configuration =====
 logger = get_logger("MRI2CBCT")
+
+#: Le dossier, sous les téléchargements de Slicer, où le jeu d'essai est
+#: déposé, et celui où les sorties d'essai sont écrites.
+TEST_FILES_DIRECTORY = "MRI2CBCT_TestFiles"
+TEST_OUTPUT_DIRECTORY = "MRI2CBCT_TestFiles_output"
+
+#: Ce que le jeu d'essai publié nourrit, étape par étape.
+#:
+#: `inputs` donne, pour chaque champ d'entrée de l'étape, le sous-dossier de
+#: l'archive qui le remplit ; `output` donne le champ de sortie et le nom du
+#: dossier qu'il reçoit ; `model` nomme le champ de modèle, quand l'étape en
+#: demande un. L'étape est choisie par le bouton, et non devinée en comparant
+#: `objectName` : ajouter un champ se fait ici, en un seul endroit.
+#:
+#: L'archive ne porte pas tout : elle n'a ni segmentation d'origine -- la
+#: sienne est déjà prétraitée -- ni second temps, donc `lineEditResampleSeg`
+#: et les trois champs T2 du rééchantillonnage restent vides. Ni l'un ni les
+#: autres ne sont obligatoires : `resampleMRICBCT` passe « None » au CLI pour
+#: un champ vide.
+TEST_FILE_STEPS = {
+    "Resample": {
+        "inputs": (("lineEditResampleMRI", ("MRI_ori",)),
+                   ("lineEditResampleCBCT", ("CBCT_ori",))),
+        "output": ("lineEditOuputResample", "Resample"),
+    },
+    "Orient": {
+        "inputs": (("LineEditMRI", ("MRI_ori",)),),
+        "output": ("lineEditOutputOrientMRI", "Orient"),
+    },
+    "LRCrop": {
+        "inputs": (("lineEditSepMRI", ("REG", "MRI")),
+                   ("lineEditSepCBCT", ("REG", "CBCT")),
+                   ("lineEditSepSeg", ("REG", "Seg"))),
+        "output": ("lineEditSepOut", "LR_crop"),
+    },
+    "Approx": {
+        "inputs": (("lineEditApproxMRI", ("REG", "MRI")),
+                   ("lineEditApproxCBCT", ("REG", "CBCT"))),
+        "output": ("lineEditOutputApprox", "Approx"),
+    },
+    "TMJCrop": {
+        "inputs": (("lineEditCropTMJMRI", ("REG", "MRI")),
+                   ("lineEditCropTMJCBCT", ("REG", "CBCT")),
+                   ("lineEditCropTMJSeg", ("REG", "Seg"))),
+        "output": ("lineEditCropTMJOut", "TMJ_crop"),
+        "model": "lineEditTMJModel",
+    },
+    "Registration": {
+        "inputs": (("lineEditRegMRI", ("REG", "MRI")),
+                   ("lineEditRegCBCT", ("REG", "CBCT")),
+                   ("lineEditRegLabel", ("REG", "Seg"))),
+        "output": ("LineEditOutput", "Registration"),
+    },
+}
+
 
 def pathFromVolumeNode(node):
     """Returns the on-disk file path a volume node was loaded from, or None
@@ -311,6 +369,8 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.SearchButtonApproxMRI.connect("clicked(bool)",partial(self.openFinder,"InputMRIApprox"))
         self.ui.SearchButtonOutputApprox.connect("clicked(bool)",partial(self.openFinder,"OutputApprox"))
         self.ui.pushButtonApproximateMRI.connect("clicked(bool)", self.approximateMRI)
+        self.ui.pushButtonTestFileApprox.connect(
+            "clicked(bool)", partial(self.fillWithTestFiles, "Approx"))
         self._setupApproxSceneInputs()
         self.manual_approx_mri2cbct.injectUI(self.ui.approxCollapsibleButton)
 
@@ -325,7 +385,9 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.lineEditSepMRI.textChanged.connect(self.updateSepLabel)
         self.ui.lineEditSepSeg.textChanged.connect(self.updateSepLabel)
         self.ui.pushButtonCropLR.connect("clicked(bool)", self.lrCropMRI2CBCT)
-        
+        self.ui.pushButtonTestFileSep.connect(
+            "clicked(bool)", partial(self.fillWithTestFiles, "LRCrop"))
+
         
         ### TMJ Cropping ###
         self.ui.SearchButtonTMJCBCT.connect("clicked(bool)",partial(self.openFinder,"InputCBCTTMJ"))
@@ -339,6 +401,8 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         )
         self.ui.pushButtonSearchModelTMJ.connect("clicked(bool)",partial(self.openFinder,"InputTMJModel"))
         self.ui.pushButtonCropTMJ.connect("clicked(bool)", self.tmjCropMRI2CBCT)
+        self.ui.pushButtonTestFileTMJ.connect(
+            "clicked(bool)", partial(self.fillWithTestFiles, "TMJCrop"))
         
         
         
@@ -362,6 +426,8 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.CheckBoxT2Seg.connect("clicked(bool)",self.toggleT2)
         
         self.ui.pushButtonResample.connect("clicked(bool)",self.resampleMRICBCT)
+        self.ui.pushButtonTestFileResample.connect(
+            "clicked(bool)", partial(self.fillWithTestFiles, "Resample"))
         
         
         
@@ -375,16 +441,22 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.SearchButtonMRI.connect("clicked(bool)",partial(self.openFinder,"InputMRI"))
         self.ui.SearchOutputFolderOrientMRI.connect("clicked(bool)",partial(self.openFinder,"OutputOrientMRI"))
         self.ui.pushButtonOrientMRI.connect("clicked(bool)",self.orientCenterMRI)
+        self.ui.pushButtonTestFilePreMRI.connect(
+            "clicked(bool)", partial(self.fillWithTestFiles, "Orient"))
         
         
         
         
         ### Registration ###
         self.ui.SearchButtonOutput.connect("clicked(bool)",partial(self.openFinder,"OutputReg"))
-        self.ui.pushButtonTestFilePreMRI.connect("clicked(bool)",partial(self.downloadModel,self.ui.LineEditMRI, "MRI2CBCT", True))
-        self.ui.pushButtonTestFileRegMRI.connect("clicked(bool)",partial(self.downloadModel,self.ui.lineEditRegMRI, "MRI2CBCT", True))
-        self.ui.pushButtonTestFileRegCBCT.connect("clicked(bool)",partial(self.downloadModel,self.ui.lineEditRegCBCT, "MRI2CBCT", True))
-        self.ui.pushButtonTestFileRegSeg.connect("clicked(bool)",partial(self.downloadModel,self.ui.lineEditRegLabel, "MRI2CBCT", True))
+        # Les trois boutons de l'étape remplissent la même chose : l'étape
+        # entière. Lequel on presse ne change rien -- un jeu d'essai ne se
+        # choisit pas champ par champ.
+        for button in (self.ui.pushButtonTestFileRegMRI,
+                       self.ui.pushButtonTestFileRegCBCT,
+                       self.ui.pushButtonTestFileRegSeg):
+            button.connect("clicked(bool)",
+                           partial(self.fillWithTestFiles, "Registration"))
         self.ui.SearchButtonRegMRI.connect("clicked(bool)",partial(self.openFinder,"InputRegMRI"))
         self.ui.SearchButtonRegCBCT.connect("clicked(bool)",partial(self.openFinder,"InputRegCBCT"))
         self.ui.SearchButtonRegLabel.connect("clicked(bool)",partial(self.openFinder,"InputRegLabel"))
@@ -1004,7 +1076,8 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         fold_path, is_installed = self.install_nnunet()
         if is_installed:
-            self.ui.lineEditTMJModel.setText(fold_path)
+            # install_nnunet answers a pathlib.Path; setText wants a string.
+            self.ui.lineEditTMJModel.setText(str(fold_path))
         else:
             slicer.util.errorDisplay("Failed to download TMJ model.")
             
@@ -1183,119 +1256,63 @@ class MRI2CBCTWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.lineEditTMJModel.setText(surface_folder)
         
         
-    def downloadModel(self, lineEdit, name, test,_):
-        """
-        Download model files from the URL(s) provided by the getModelUrl function.
-
-        Parameters:
-        - lineEdit: The QLineEdit widget to update with the model folder path.
-        - name: The name of the model to download.
-        - test: A flag for testing purposes (unused in this function).
-        - _: Unused parameter for compatibility.
-
-        This function fetches the model URL(s) using getModelUrl, downloads the files,
-        unzips them to the appropriate directory, and updates the lineEdit with the model
-        folder path. It also runs a test on the downloaded model and shows a warning message
-        if any errors occur.
-        """
-        install_function()
-        url = "https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools/releases/download/test_files/TestFile.zip"
-
+    def testFilesRoot(self):
+        """Where the test dataset is kept: Slicer's download directory."""
         documents_location = qt.QStandardPaths.DocumentsLocation
         self.documents = qt.QStandardPaths.writableLocation(documents_location)
-        self.SlicerDownloadPath = os.path.join(
-            self.documents,
-            slicer.app.applicationName + "Downloads",
-        )
-        self.isDCMInput = False
-        if not os.path.exists(self.SlicerDownloadPath):
-            os.makedirs(self.SlicerDownloadPath)
+        return os.path.join(self.documents, slicer.app.applicationName + "Downloads")
 
-        scan_folder = self.DownloadUnzip(
-                url=url,
-                directory=os.path.join(self.SlicerDownloadPath),
-                folder_name=os.path.join(name)
-                if not self.isDCMInput
-                else os.path.join(name),
-            )
-        
-        scan_folder = os.path.join(scan_folder,"TestFile")
-        if lineEdit.objectName=="LineEditMRI":
-            lineEdit.setText(os.path.join(scan_folder,"MRI_ori"))
-        elif lineEdit.objectName=="lineEditRegMRI":
-            lineEdit.setText(os.path.join(scan_folder,"REG","MRI"))
-        elif lineEdit.objectName=="lineEditRegCBCT":
-            lineEdit.setText(os.path.join(scan_folder,"REG","CBCT"))
-        elif lineEdit.objectName=="lineEditRegLabel":
-            lineEdit.setText(os.path.join(scan_folder,"REG","Seg"))
+    def fillWithTestFiles(self, step, _=None):
+        """Fill every field of one step of the module with the test dataset.
 
-    def DownloadUnzip(
-        self, url, directory, folder_name=None, num_downl=1, total_downloads=1
-    ):
+        `step` is a key of `TEST_FILE_STEPS`, given by the button that was
+        pressed -- the fields to fill are named there, not guessed from the
+        `objectName` of a widget handed over one at a time.
+
+        The dataset is downloaded only when it is missing, and the download is
+        checked: an interrupted one does not count as present, and a release
+        link that answers with a web page is named as such instead of failing
+        later on « not a zip file ». Input fields are always rewritten, that
+        being what the button is for; the output folder is only filled when
+        the user has not chosen one.
         """
-        Download and unzip a file from a given URL to a specified directory.
+        fields = TEST_FILE_STEPS[step]
+        root = self.testFilesRoot()
 
-        Parameters:
-        - url: The URL of the zip file to download.
-        - directory: The directory where the file should be downloaded and unzipped.
-        - folder_name: The name of the folder to create and unzip the contents into.
-        - num_downl: The current download number (for progress display).
-        - total_downloads: The total number of downloads (for progress display).
+        try:
+            dataset = testdata.ensure_with_progress(
+                MRI2CBCT_TEST_FILES, root, TEST_FILES_DIRECTORY,
+                parent=self.parent,
+                title="Downloading the MRI2CBCT test files...")
+        except testdata.TestDataError as error:
+            self.showMessage(str(error))
+            return
+        except OSError as error:
+            self.showMessage(
+                "The MRI2CBCT test files could not be downloaded from\n%s\n\n%s"
+                % (MRI2CBCT_TEST_FILES, error))
+            return
 
-        Returns:
-        - out_path: The path to the unzipped folder.
-        """
-        
-        out_path = os.path.join(directory, folder_name)
+        scans = os.path.join(dataset, "TestFile")
+        for name, parts in fields["inputs"]:
+            getattr(self.ui, name).setText(os.path.join(scans, *parts))
 
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        if "model" in fields:
+            model_folder, is_installed = self.install_nnunet()
+            if not is_installed:
+                self.showMessage(
+                    "The test scans are in place, but the nnU-Net model this "
+                    "step needs could not be downloaded.")
+                return
+            getattr(self.ui, fields["model"]).setText(str(model_folder))
 
-            temp_path = os.path.join(directory, "temp.zip")
+        output_name, folder = fields["output"]
+        output_field = getattr(self.ui, output_name)
+        if not output_field.text:
+            destination = os.path.join(root, TEST_OUTPUT_DIRECTORY, folder)
+            os.makedirs(destination, exist_ok=True)
+            output_field.setText(destination)
 
-            # Download the zip file from the url
-            with urllib.request.urlopen(url) as response, open(
-                temp_path, "wb"
-            ) as out_file:
-                # Pop up a progress bar with a QProgressDialog
-                progress = QProgressDialog(
-                    "Downloading {} (File {}/{})".format(
-                        folder_name.split(os.sep)[0], num_downl, total_downloads
-                    ),
-                    "Cancel",
-                    0,
-                    100,
-                    self.parent,
-                )
-                progress.setCancelButton(None)
-                progress.setWindowModality(qt.Qt.WindowModal)
-                progress.setWindowTitle(
-                    "Downloading {}...".format(folder_name.split(os.sep)[0])
-                )
-                # progress.setWindowFlags(qt.Qt.WindowStaysOnTopHint)
-                progress.show()
-                length = response.info().get("Content-Length")
-                if length:
-                    length = int(length)
-                    blocksize = max(4096, length // 100)
-                    read = 0
-                    while True:
-                        buffer = response.read(blocksize)
-                        if not buffer:
-                            break
-                        read += len(buffer)
-                        out_file.write(buffer)
-                        progress.setValue(read * 100.0 / length)
-                        QApplication.processEvents()
-                shutil.copyfileobj(response, out_file)
-
-            with zipfile.ZipFile(temp_path, "r") as zip:
-                zip.extractall(out_path)
-
-            os.remove(temp_path)
-
-        return out_path
-    
     def tmjCropMRI2CBCT(self)->None:
         """
         This function is called when the button "pushButtonCropTMJ" is clicked.

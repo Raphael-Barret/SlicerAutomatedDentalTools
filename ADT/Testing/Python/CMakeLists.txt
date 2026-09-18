@@ -42,3 +42,7 @@ slicer_add_python_unittest(SCRIPT test_ali_cbct_bounds.py)
 # secondes de mur. Le meme scan doit rendre le meme repere sur une machine
 # chargee comme sur une machine au repos.
 slicer_add_python_unittest(SCRIPT test_ali_cbct_budget.py)
+
+# Un repere qu ALI CBCT n a pas trouve est absent du fichier de sortie,
+# sans rien pour le dire : la liste part desormais a cote des predictions.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_missing.py)

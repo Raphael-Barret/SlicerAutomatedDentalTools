@@ -189,6 +189,9 @@ class Agent :
             self.ground = set()
             self.steps_on_known_ground = 0
 
+            # Why the last Search returned -1, in words. See Search.
+            self.failure_reason = None
+
             logger.debug(f"Agent initialized for landmark: {targeted_landmark}")
         except Exception as e:
             logger.error(f"Error initializing Agent for landmark '{targeted_landmark}': {e}")
@@ -340,8 +343,15 @@ class Agent :
         return final_pos/len(explore_pos)
 
     def Search(self):
-        """Search for landmark with comprehensive error handling."""
+        """Search for landmark with comprehensive error handling.
+
+        Returns the number of steps it took, or -1 when the landmark was not
+        placed. On -1 `self.failure_reason` says which of the ways it was --
+        the caller puts that in front of the operator, since a landmark that
+        is simply absent from the output file is a result nobody can read.
+        """
         tic = time.time()
+        self.failure_reason = None
         logger.info(f"Starting search for landmark: {self.target}")
         
         try:
@@ -375,6 +385,9 @@ class Agent :
                         "for the budget it was given -- see ALI_SEARCH_MAX_STEPS "
                         "and ALI_SEARCH_TIME_GUARD.")
                     self.search_atempt = 0
+                    self.failure_reason = (
+                        f"the {time_guard}s guard rail fired after "
+                        f"{tot_step} steps")
                     return -1
 
                 try:
@@ -408,6 +421,10 @@ class Agent :
                     if self.search_atempt > 2:
                         logger.warning(f"Landmark {self.target} not found after {self.search_atempt} attempts")
                         self.search_atempt = 0
+                        self.failure_reason = (
+                            f"gave up after {tot_step} steps and three "
+                            "respawns: the agent kept leaving the zone it "
+                            "can read, or going round in circles")
                         return -1
                         
                 except Exception as e:
@@ -423,6 +440,7 @@ class Agent :
                     logger.error(
                         f"Search for {self.target} failed at step {tot_step}, "
                         f"scale {self.scale_state}, position {self.position}: {e}")
+                    self.failure_reason = f"failed at step {tot_step}: {e}"
                     raise
 
             if not found:  # Spent its whole budget without settling
@@ -430,6 +448,8 @@ class Agent :
                     f"Landmark {self.target} not found within its budget of "
                     f"{max_steps} steps")
                 self.search_atempt = 0
+                self.failure_reason = (
+                    f"never settled within its budget of {max_steps} steps")
                 return -1
 
             try:
@@ -439,10 +459,13 @@ class Agent :
                 return tot_step
             except Exception as e:
                 logger.error(f"Error in focus phase for {self.target}: {e}")
+                self.failure_reason = f"found, but the focus phase failed: {e}"
                 return -1
-                
+
         except Exception as e:
             logger.error(f"Fatal error during search for {self.target}: {e}")
+            if self.failure_reason is None:
+                self.failure_reason = str(e)
             return -1
 
     def Cycling(self):

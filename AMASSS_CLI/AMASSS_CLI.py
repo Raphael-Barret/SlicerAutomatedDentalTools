@@ -632,7 +632,7 @@ def AssembleScanOutputs(record, predictions, args, temp_folder):
 
 # -- Main adapt for nnUNet v2 ---
 def _write_one_scan(args, failed_scans, predictions, processed_scans, record, tmp):
-    """Assemble les predictions d un scan et les ecrit."""
+    """Assemble the predictions of one scan and write them out."""
     scan_context = f"scan {record['case_id']}: {record['name']}"
     logger.info(f"Saving outputs for {scan_context}")
     try:
@@ -657,7 +657,7 @@ def _write_one_scan(args, failed_scans, predictions, processed_scans, record, tm
     return processed_scans
 
 def _predict_one_structure(device, failed_structures, model_folder, nnunet_input, predictions, scan_count, struct, struct_idx, tmp, total_steps, total_struct):
-    """Fait tourner un modele sur tous les scans a la fois."""
+    """Run one model over every scan at once."""
     logger.info(f"Processing structure {struct_idx}/{total_struct}: {struct}")
     outp = os.path.join(tmp, f"pred_{struct}")
     try:
@@ -681,7 +681,7 @@ def _predict_one_structure(device, failed_structures, model_folder, nnunet_input
         logger.warning(f"Error reporting progress: {e}")
 
 def _read_one_scan(args, base_output, nnunet_input, scan_idx, scan_records, volume_file):
-    """Lit un volume et le prepare au format que nnUNet attend."""
+    """Read a volume and prepare it in the format nnUNet expects."""
     case_id = f"{scan_idx:03d}"
     basename = os.path.basename(volume_file)
     base, ext = os.path.splitext(basename)
@@ -716,7 +716,7 @@ def _read_one_scan(args, base_output, nnunet_input, scan_idx, scan_records, volu
     scan_records.append(record)
 
 def _find_models(args, device):
-    """Les modeles nnUNet presents, et les structures qui n en ont pas."""
+    """The nnUNet models that are present, and the structures that have none."""
     logger.debug("Searching for nnUNet models")
     nnunet_models = {}
     missing_structures = []
@@ -746,7 +746,7 @@ def _find_models(args, device):
     return missing_structures, nnunet_models
 
 def _resolve_inputs(args):
-    """Les volumes a segmenter, fichier unique ou dossier."""
+    """The volumes to segment, single file or folder."""
     logger.debug("Discovering input files")
     input_path = args["inputVolume"]
     extensions = (".nii", ".nii.gz", ".nrrd", ".nrrd.gz")

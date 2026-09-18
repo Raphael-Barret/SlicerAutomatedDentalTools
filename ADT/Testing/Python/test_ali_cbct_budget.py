@@ -29,6 +29,7 @@ sys.modules.setdefault("dicom2nifti", types.ModuleType("dicom2nifti"))
 
 import numpy as np  # noqa: E402
 
+from ALI_CBCT_utils import agent as agent_module  # noqa: E402
 from ALI_CBCT_utils.agent import (  # noqa: E402
     Agent, DEFAULT_MAX_STEPS, SearchStepBudget, SearchTimeGuard,
 )
@@ -174,6 +175,82 @@ class FailedStepTest(unittest.TestCase):
         self.assertTrue(
             any("out of bounds" in line for line in logged.output),
             f"le message d'origine doit remonter : {logged.output}")
+
+
+class RingWalkingBrain:
+    """Un cerveau qui fait tourner l'agent sur un anneau de quarante pas.
+
+    `Visited()` ne compare qu'aux DIX dernieres positions : sur un anneau
+    plus long, aucune position ne revient assez vite, la recherche ne se
+    pose jamais et depensait tout son budget a tourner.
+    """
+
+    RING = 40
+
+    def __init__(self):
+        self.calls = 0
+
+    def Predict(self, dim, state):
+        phase = self.calls % self.RING
+        self.calls += 1
+        if phase < 10:
+            return 0   # +x
+        if phase < 20:
+            return 2   # +y
+        if phase < 30:
+            return 1   # -x
+        return 3       # -y
+
+
+class CyclingTest(unittest.TestCase):
+    """Un agent qui tourne en rond est arrete bien avant la fin du budget."""
+
+    BUDGET = 2000
+
+    def setUp(self):
+        os.environ["ALI_SEARCH_MAX_STEPS"] = str(self.BUDGET)
+
+    def tearDown(self):
+        os.environ.pop("ALI_SEARCH_MAX_STEPS", None)
+
+    def test_the_ring_is_longer_than_the_short_memory(self):
+        """Sinon le cas ne prouverait rien : `Visited()` s'en chargerait."""
+        self.assertGreater(RingWalkingBrain.RING, Agent(
+            targeted_landmark="Me", movements=MOVEMENTS, scale_keys=[SCALE],
+            FOV=FOV).shortmem_size)
+
+    def test_without_the_detection_the_whole_budget_goes_to_the_ring(self):
+        """L'etat d'avant, mesure : le budget entier part en rond."""
+        saved = agent_module.STALL_STEPS
+        agent_module.STALL_STEPS = 10 ** 9
+        try:
+            brain = RingWalkingBrain()
+            result = an_agent(brain).Search()
+        finally:
+            agent_module.STALL_STEPS = saved
+        self.assertEqual(brain.calls, self.BUDGET)
+        self.assertEqual(result, -1)
+
+    def test_with_it_the_search_stops_far_earlier(self):
+        brain = RingWalkingBrain()
+        result = an_agent(brain).Search()
+        self.assertEqual(result, -1)
+        self.assertLess(brain.calls, self.BUDGET // 2,
+                        "arrete bien avant la fin du budget")
+
+    def test_the_diagnosis_says_what_happened(self):
+        with self.assertLogs("ADT.ALI_CBCT_Agent", level="WARNING") as logged:
+            an_agent(RingWalkingBrain()).Search()
+        self.assertTrue(
+            any("going in circles" in line for line in logged.output),
+            f"le diagnostic doit etre lisible : {logged.output}")
+
+    def test_a_converging_search_is_never_called_cycling(self):
+        """FakeBrain ne repasse jamais sur une position : jamais d'alerte."""
+        os.environ["ALI_SEARCH_MAX_STEPS"] = "300"
+        agent = an_agent(FakeBrain())
+        agent.Search()
+        self.assertEqual(agent.steps_on_known_ground, 0)
 
 
 class BudgetSettingTest(unittest.TestCase):

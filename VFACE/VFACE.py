@@ -8,6 +8,7 @@ import urllib.request
 import shutil
 import zipfile
 import sys
+import importlib.metadata as importlib_metadata
 
 # ===== Logging Configuration =====
 # ADTLib sits next to the modules in an installed build, in the directory Slicer
@@ -63,6 +64,97 @@ from ADTLib.testdata import TestDataError, ensure_with_progress
 from ADTLib.theming import apply_button_style
 import time
 import traceback
+
+
+# VFACE drives the CLIs of the other modules (PRE_ASO_CBCT, ALI_CBCT, AMASSS_CLI,
+# AREG_CBCT, AUTOMATRIX_CLI, VFACE_CLI). Each of them imports its own third-party
+# stack at module level, so a missing package is not a degraded run: the CLI dies
+# on the import line and VFACE reports the step as failed. Until now this module
+# only installed its own joblib and lightgbm and relied on the user having opened
+# AMASSS, ASO or AREG first; on a fresh Slicer the first CLI step always failed
+# with ModuleNotFoundError.
+# The versions mirror the lists those modules install themselves.
+CLI_LIBRARIES = [
+    # (distribution name, pip requirement)
+    ("joblib", "joblib"),
+    ("lightgbm", "lightgbm"),
+    ("psutil", "psutil"),
+    ("itk", "itk==5.4.0"),
+    ("itk-elastix", "itk-elastix==0.19.2"),
+    ("dicom2nifti", "dicom2nifti==2.6.2"),
+    ("einops", "einops"),
+    ("nibabel", "nibabel"),
+    ("connected-components-3d", "connected-components-3d>=3.13.0"),
+    ("pandas", "pandas"),
+    ("blosc2", "blosc2"),
+    ("monai", "monai==1.3.2"),
+    ("pytorch_lightning", "pytorch_lightning"),
+    ("nnunetv2", "nnunetv2==2.8.0"),
+]
+
+# torch, torchvision and torchaudio have to be resolved together against the same
+# CUDA build, hence a single pip call, exactly like AMASSS does.
+TORCH_REQUIREMENT = (
+    "torch>=2.2.0 torchvision torchaudio "
+    "--extra-index-url https://download.pytorch.org/whl/cu118"
+)
+
+# torch 2.2.0 is compiled against numpy 1.x: numpy>=2 breaks every torch import
+# with "_ARRAY_API not found", including in the nnUNet subprocesses.
+NUMPY_PINNED_VERSION = "1.26.4"
+
+
+def is_lib_installed(distribution_name):
+    """
+    True if the distribution is installed in Slicer's Python.
+
+    The distribution name is used rather than an import: itk-elastix has no
+    module of its own (it grafts itself onto itk), and importing torch or monai
+    just to test their presence costs seconds every time the button is pressed.
+    """
+    try:
+        importlib_metadata.version(distribution_name)
+        return True
+    except importlib_metadata.PackageNotFoundError:
+        return False
+
+
+def fix_numpy_version():
+    """
+    Restore the numpy version torch was built against.
+    pip resolves each install independently, so a package installed afterwards
+    (nnunetv2 requires numpy>=1.24) can silently pull numpy 2.x and break torch.
+    Has to be re-checked once every package is installed.
+    """
+    from packaging.version import Version
+
+    # Both versions are read from the distribution metadata on disk, never from
+    # an imported module: numpy is already imported when Slicer starts, so
+    # numpy.__version__ still reports whatever was there before pip replaced it,
+    # and this check runs precisely after pip has been at work. Importing torch
+    # is no better - with a mismatched numpy it imports fine and merely warns,
+    # so nothing raises for an except clause to catch.
+    def version_on_disk(distribution):
+        try:
+            return Version(importlib_metadata.version(distribution).split("+")[0])
+        except importlib_metadata.PackageNotFoundError:
+            return None
+
+    installed_version = version_on_disk("numpy")
+    torch_version = version_on_disk("torch")
+    torch_needs_numpy1 = torch_version is None or torch_version < Version("2.3.0")
+
+    if not torch_needs_numpy1:
+        return False
+
+    if installed_version is None or installed_version >= Version("2.0.0"):
+        logger.info(
+            f"numpy {installed_version} is incompatible with torch: "
+            f"reinstalling numpy=={NUMPY_PINNED_VERSION}"
+        )
+        slicer.util.pip_install(f"numpy=={NUMPY_PINNED_VERSION}")
+        return True
+    return False
 
 
 #
@@ -916,38 +1008,75 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not os.path.exists(self.SlicerDownloadPath):
             os.makedirs(self.SlicerDownloadPath)
 
+        # Flattened first so the progress dialog can say which archive of how many
+        # is running. The ALI landmarks alone are 8 archives and 13 GB: shown as
+        # "File 1/1" each, they read as one download restarting for ever.
+        archives = []
         for name, url_or_dict in dic_url.items():
             if isinstance(url_or_dict, str):
-                self.DownloadUnzip(
-                    url=url_or_dict,
-                    directory=self.SlicerDownloadPath,
-                    folder_name=name,
-                    check_file=check_files.get(name),
-                )
+                archives.append((name, url_or_dict, check_files.get(name)))
             elif isinstance(url_or_dict, dict):
                 for subfolder_name, url in url_or_dict.items():
-                    self.DownloadUnzip(
-                        url=url,
-                        directory=self.SlicerDownloadPath,
-                        folder_name=os.path.join(name, subfolder_name),
+                    archives.append(
+                        (os.path.join(name, subfolder_name), url, check_files.get(subfolder_name))
                     )
             else:
                 logger.warning(f"Warning: Unknown type for {name}: {type(url_or_dict)}")
+
+        for i, (folder_name, url, check_file) in enumerate(archives):
+            self.DownloadUnzip(
+                url=url,
+                directory=self.SlicerDownloadPath,
+                folder_name=folder_name,
+                num_downl=i + 1,
+                total_downloads=len(archives),
+                check_file=check_file,
+            )
             
+    # Written inside the folder once the archive is fully extracted. The folder
+    # alone cannot answer "is this installed": it is created before the download
+    # starts, so a Slicer killed mid-download (or a failed request) leaves it
+    # behind empty and the model is then skipped for ever.
+    DOWNLOAD_MARKER = ".adt_download_complete"
+
+    def IsDownloaded(self, out_path, check_file=None):
+        """True if the archive already lies fully extracted in out_path."""
+        if os.path.exists(os.path.join(out_path, self.DOWNLOAD_MARKER)):
+            return True
+
+        # Folders downloaded before the marker existed: accept them, on the same
+        # evidence as before (non-empty, and containing check_file when given),
+        # and stamp them so the test is cheap from now on.
+        if not os.path.isdir(out_path) or not os.listdir(out_path):
+            return False
+        if check_file and not os.path.exists(os.path.join(out_path, check_file)):
+            return False
+        self.MarkDownloaded(out_path)
+        return True
+
+    def MarkDownloaded(self, out_path):
+        try:
+            with open(os.path.join(out_path, self.DOWNLOAD_MARKER), "w") as marker:
+                marker.write("")
+        except OSError as e:
+            logger.warning(f"Could not write the download marker in {out_path}: {e}")
+
     def DownloadUnzip(self, url, directory, folder_name=None, num_downl=1, total_downloads=1, check_file=None):
 
         out_path = os.path.join(directory, folder_name)
-        # The folder alone is a poor "already installed" test: another feature may
-        # have created it (Default List creates V_FACE/DefaultList, hence V_FACE),
-        # and a download that fails leaves it behind empty. Either way this skipped
-        # the download for ever. check_file names something the archive contains.
-        installed = os.path.join(out_path, check_file) if check_file else out_path
-        if not os.path.exists(installed):
-            logger.info("Downloading {}...".format(folder_name.split(os.sep)[-1]))
-            os.makedirs(out_path, exist_ok=True)
+        if self.IsDownloaded(out_path, check_file):
+            return
 
-            temp_path = os.path.join(directory, "temp.zip")
+        label = folder_name.split(os.sep)[-1]
+        logger.info(f"Downloading {label} ({num_downl}/{total_downloads})...")
+        # V_FACE is created by the Default List button before its models exist, so
+        # a failure there must not take the folder down with it.
+        created_here = not os.path.isdir(out_path)
+        os.makedirs(out_path, exist_ok=True)
 
+        temp_path = os.path.join(directory, "temp.zip")
+
+        try:
             # Download the zip file from the url
             with urllib.request.urlopen(url) as response, open(
                 temp_path, "wb"
@@ -955,7 +1084,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # Pop up a progress bar with a QProgressDialog
                 progress = qt.QProgressDialog(
                     "Downloading {} (File {}/{})".format(
-                        folder_name.split(os.sep)[0], num_downl, total_downloads
+                        label, num_downl, total_downloads
                     ),
                     "Cancel",
                     0,
@@ -965,7 +1094,7 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 progress.setCancelButton(None)
                 progress.setWindowModality(qt.Qt.WindowModal)
                 progress.setWindowTitle(
-                    "Downloading {}...".format(folder_name.split(os.sep)[0])
+                    "Downloading {} ({}/{})...".format(label, num_downl, total_downloads)
                 )
                 # progress.setWindowFlags(qt.Qt.WindowStaysOnTopHint)
                 progress.show()
@@ -987,57 +1116,87 @@ class VFACEWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Unzip the file
             with zipfile.ZipFile(temp_path, "r") as zip:
                 zip.extractall(out_path)
+        except BaseException:
+            # Leave nothing that could pass for an installed model on the next run.
+            if created_here:
+                shutil.rmtree(out_path, ignore_errors=True)
+            raise
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
-            # Delete the zip file
-            os.remove(temp_path)
-
-            logger.info(f"{folder_name} has been successfully installed")
+        self.MarkDownloaded(out_path)
+        logger.info(f"{folder_name} has been successfully installed")
 
     def CheckDependency(self) -> None:
         """
-        Check and install required Python dependencies for VFACE module.
-        
-        Verifies installation of joblib and lightgbm, installs if missing,
-        and downloads required model files.
+        Check and install the Python dependencies the VFACE pipeline needs.
+
+        VFACE runs its steps through the CLIs of the other modules, and those
+        import their third-party stack at module level: anything missing kills
+        the CLI on its import line. The whole set is therefore installed here,
+        not only the joblib and lightgbm VFACE itself imports.
         """
         try:
             logger.info("=== Checking and installing Python dependencies ===")
-            
-            # Check and install joblib
-            try:
-                import joblib
-                logger.info(f"joblib is already installed (version: {joblib.__version__})")
-            except ImportError:
-                logger.warning("joblib not found, installing...")
+
+            missing = [
+                (distribution, requirement)
+                for distribution, requirement in CLI_LIBRARIES
+                if not is_lib_installed(distribution)
+            ]
+            torch_missing = not is_lib_installed("torch")
+
+            total = len(missing) + (1 if torch_missing else 0)
+            if total == 0:
+                logger.info("All required libraries are already installed")
+            else:
+                logger.info(f"{total} librarie(s) to install")
+
+            installed = 0
+            if torch_missing:
+                installed += 1
+                logger.warning("torch not found, installing...")
+                logger.info(
+                    f"Installing torch, torchvision and torchaudio "
+                    f"({installed}/{total})... (this may take a while)"
+                )
                 try:
-                    logger.info("Installing joblib...")
-                    slicer.util.pip_install('joblib')
-                    import joblib
-                    logger.info(f"joblib successfully installed (version: {joblib.__version__})")
+                    slicer.util.pip_install(TORCH_REQUIREMENT)
                 except Exception as e:
-                    logger.error(f"Failed to install joblib: {str(e)}")
+                    logger.error(f"Failed to install torch: {str(e)}")
                     raise
-            
-            # Check and install lightgbm
-            try:
-                import lightgbm
-                logger.info(f"lightgbm is already installed (version: {lightgbm.__version__})")
-            except ImportError:
-                logger.warning("lightgbm not found, installing...")
+
+            for distribution, requirement in missing:
+                installed += 1
+                logger.warning(f"{distribution} not found, installing...")
+                logger.info(f"Installing {requirement} ({installed}/{total})...")
                 try:
-                    logger.info("Installing lightgbm... (this may take a while)")
-                    slicer.util.pip_install('lightgbm')
-                    import lightgbm
-                    logger.info(f"lightgbm successfully installed (version: {lightgbm.__version__})")
+                    slicer.util.pip_install(requirement)
                 except Exception as e:
-                    logger.error(f"Failed to install lightgbm: {str(e)}")
+                    logger.error(f"Failed to install {requirement}: {str(e)}")
                     raise
-            
+
+            # Has to come last: any install above can have pulled numpy 2.x back in.
+            fix_numpy_version()
+
+            still_missing = [
+                distribution
+                for distribution, _ in CLI_LIBRARIES + [("torch", "torch")]
+                if not is_lib_installed(distribution)
+            ]
+            if still_missing:
+                raise RuntimeError(
+                    "These libraries are still missing after installation: "
+                    + ", ".join(still_missing)
+                    + ".\nRestart Slicer and run the check again."
+                )
+
             logger.info("=== Python dependencies check completed ===")
             logger.info("--- Downloading model files ---")
             self.DownloadAllFiles()
             logger.info("All dependencies have been successfully installed")
-            
+
         except Exception as e:
             logger.error(f"Error during dependency check: {e}")
             raise

@@ -2,7 +2,7 @@ import os
 import json
 import glob
 
-# Le meme corps que les quatorze autres copies, a l'espacement pres.
+# The same body as the fourteen other copies, down to the spacing.
 from ADTLib.io.fs import search  # noqa: F401  (re-exporte)
 
 def GenControlPoint(groupe_data):

@@ -1,13 +1,12 @@
-# Un repere qu'ALI CBCT n'a pas trouve doit se voir.
+# A landmark ALI CBCT did not find has to be visible.
 #
-# Quand `Agent.Search` rend -1, aucun `AddPredictedLandmark` n'est fait : le
-# repere est simplement ABSENT du `.mrk.json` de sortie. Rien ne distingue
-# alors un repere qu'on n'a pas demande d'un repere que la recherche n'a pas
-# su placer, et le seul signe etait une ligne d'avertissement perdue au
-# milieu du journal du CLI.
+# When `Agent.Search` returns -1, no `AddPredictedLandmark` is made: the
+# landmark is simply ABSENT from the output `.mrk.json`. Nothing then tells a
+# landmark nobody asked for apart from one the search could not place, and the
+# only sign was a warning line lost in the middle of the CLI log.
 #
-# Desormais la liste part dans un fichier pose a cote des predictions, avec
-# la raison pour chacun, et un bloc encadre part sur la sortie du CLI.
+# The list now goes into a file placed beside the predictions, with the reason
+# for each, and a boxed block goes to the CLI output.
 import json
 import os
 import shutil
@@ -25,8 +24,8 @@ for _path in (os.path.join(_ROOT, "ADT"), os.path.join(_ROOT, "ALI_CBCT")):
 # Voir test_ali_cbct_bounds : dicom2nifti ne s'importe pas hors de Slicer.
 sys.modules.setdefault("dicom2nifti", types.ModuleType("dicom2nifti"))
 
-# `ALI_CBCT/ALI_CBCT.py`, le point d'entree, et non le dossier du meme nom :
-# c'est le dossier qui est sur sys.path, pas la racine du depot.
+# `ALI_CBCT/ALI_CBCT.py`, the entry point, and not the folder of the same
+# name: it is the folder that sits on sys.path, not the repository root.
 from ALI_CBCT import _report_missing_landmarks  # noqa: E402
 
 
@@ -44,7 +43,7 @@ class MissingLandmarkReportTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.out), [])
 
     def test_the_report_sits_next_to_the_predictions(self):
-        """Meme dossier, meme prefixe de patient que les .mrk.json."""
+        """Same folder, same patient prefix as the .mrk.json files."""
         path = _report_missing_landmarks(
             "C_0001_T1.nii.gz", {"Me": "never settled"}, self.out)
         self.assertEqual(os.path.basename(path), "C_0001_T1_lm_NotFound.json")
@@ -64,7 +63,7 @@ class MissingLandmarkReportTest(unittest.TestCase):
             self.assertEqual(entry["reason"], missing[entry["landmark"]])
 
     def test_the_cli_output_names_them_too(self):
-        """Le journal du CLI est ce que Slicer montre pendant la course."""
+        """The CLI log is what Slicer shows while the run is going."""
         with self.assertLogs("ADT.ALI_CBCT", level="WARNING") as logged:
             _report_missing_landmarks("C_0001_T1.nii.gz",
                                       {"Me": "never settled"}, self.out)
@@ -74,14 +73,14 @@ class MissingLandmarkReportTest(unittest.TestCase):
         self.assertIn("never settled", text)
 
     def test_an_unwritable_folder_does_not_sink_the_run(self):
-        """Les predictions deja ecrites valent mieux qu'une pile d'appels."""
-        blocked = os.path.join(self.out, "un-fichier")
+        """Predictions already written are worth more than a stack trace."""
+        blocked = os.path.join(self.out, "a-file")
         with open(blocked, "w", encoding="utf-8") as handle:
-            handle.write("pas un dossier")
+            handle.write("not a folder")
         with self.assertLogs("ADT.ALI_CBCT", level="WARNING") as logged:
             path = _report_missing_landmarks(
                 "C_0001_T1.nii.gz", {"Me": "never settled"},
-                os.path.join(blocked, "sortie"))
+                os.path.join(blocked, "output"))
         self.assertIsNone(path)
         self.assertIn("Me", "\n".join(logged.output))
 

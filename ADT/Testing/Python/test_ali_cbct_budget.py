@@ -1,17 +1,17 @@
-# Ce qui arrete une recherche d'ALI CBCT : du travail, pas des secondes.
+# What stops an ALI CBCT search: work, not seconds.
 #
-# La boucle s'arretait sur `time.time() - tic < max_time`, avec 15 secondes
-# sur GPU et 60 sinon. Le meme scan convergeait donc ou non selon que le GPU
-# etait occupe, le disque lent, ou qu'un autre module tournait : pour un
-# outil clinique, un resultat qu'on ne peut pas reproduire.
+# The loop stopped on `time.time() - tic < max_time`, with 15 seconds on a GPU
+# and 60 otherwise. The same scan therefore converged or not depending on
+# whether the GPU was busy, the disk slow, or another module running: for a
+# clinical tool, a result nobody can reproduce.
 #
-# La borne porte desormais sur le nombre de PAS -- une passe avant du reseau
-# chacun. C'est la meme quantite de travail partout, donc le meme resultat.
-# Ces cas le montrent en ralentissant artificiellement un pas : le compte de
-# pas ne bouge pas, alors qu'un budget en secondes en aurait rendu moins.
+# The bound is now on the number of STEPS -- one forward pass of the network
+# each. That is the same amount of work everywhere, so the same result. These
+# cases show it by slowing one step down on purpose: the step count does not
+# move, where a budget in seconds would have returned fewer.
 #
-# Ni modele ni GPU ici : le cerveau et l'environnement sont des doublures,
-# seule la boucle de Agent.Search est sous test.
+# No model and no GPU here: the brain and the environment are stand-ins, and
+# only the loop in Agent.Search is under test.
 import os
 import sys
 import time
@@ -24,7 +24,7 @@ for _path in (os.path.join(_ROOT, "ADT"), os.path.join(_ROOT, "ALI_CBCT")):
     if os.path.isdir(_path) and _path not in sys.path:
         sys.path.insert(0, _path)
 
-# Voir test_ali_cbct_bounds : dicom2nifti ne s'importe pas hors de Slicer.
+# dicom2nifti does not import outside Slicer, so the module is stubbed.
 sys.modules.setdefault("dicom2nifti", types.ModuleType("dicom2nifti"))
 
 import numpy as np  # noqa: E402
@@ -37,12 +37,12 @@ from ALI_CBCT_utils.constants import MOVEMENTS  # noqa: E402
 
 FOV = [64, 64, 64]
 SCALE = "1"
-# Assez grand pour que la marche des doublures ne touche jamais un bord.
+# Large enough that the stand-ins' walk never reaches an edge.
 SIZE = np.array([10000, 10000, 10000])
 
 
 class FakeEnvironment:
-    """Un volume qui ne contient rien : seules les bornes sont lues."""
+    """A volume holding nothing: only its bounds are ever read."""
 
     scale_nbr = 1
 
@@ -66,11 +66,11 @@ class FakeEnvironment:
 
 
 class FakeBrain:
-    """Un cerveau qui compte ses passes et peut en rendre une lente.
+    """A brain that counts its passes and can make one of them slow.
 
-    Les deplacements alternent sur deux axes : l'agent ne repasse jamais sur
-    une position, donc `Visited()` n'est jamais vrai et la recherche va au
-    bout de son budget. C'est le cas qu'il faut mesurer.
+    The moves alternate on two axes: the agent never revisits a position, so
+    `Visited()` is never true and the search runs to the end of its budget.
+    That is the case worth measuring.
     """
 
     def __init__(self, delay=0.0):
@@ -93,7 +93,7 @@ def an_agent(brain):
 
 
 def steps_for(budget, delay=0.0):
-    """Les passes avant reellement faites, sous ce budget."""
+    """The forward passes actually made, under this budget."""
     os.environ["ALI_SEARCH_MAX_STEPS"] = str(budget)
     try:
         brain = FakeBrain(delay=delay)
@@ -114,12 +114,12 @@ class StepBudgetTest(unittest.TestCase):
         self.assertEqual(steps_for(40), steps_for(40))
 
     def test_a_slow_machine_does_not_shorten_the_search(self):
-        """Le coeur de l'affaire.
+        """The heart of the matter.
 
-        Avec 2 ms par pas, quarante pas prennent plus de quarante fois ce que
-        prend un pas instantane. Sous un budget en secondes, la course lente
-        se serait arretee bien avant la rapide ; sous un budget en pas, les
-        deux font exactement le meme travail.
+        At 2 ms a step, forty steps take more than forty times what an
+        instant step takes. Under a budget in seconds the slow run would have
+        stopped well before the fast one; under a budget in steps, the two do
+        exactly the same work.
         """
         fast_calls, fast_result = steps_for(40)
         tic = time.time()
@@ -129,7 +129,7 @@ class StepBudgetTest(unittest.TestCase):
         self.assertEqual(slow_calls, fast_calls)
         self.assertEqual(slow_result, fast_result)
         self.assertGreater(slow_seconds, 0.04,
-                           "la course lente doit vraiment etre plus lente")
+                           "the slow run really has to be slower")
 
     def test_the_budget_is_what_changes_the_work(self):
         self.assertEqual(steps_for(7)[0], 7)
@@ -137,7 +137,7 @@ class StepBudgetTest(unittest.TestCase):
 
 
 class BrokenBrain:
-    """Un cerveau qui echoue, comme le ferait un tenseur mal forme."""
+    """A brain that fails, the way a malformed tensor would."""
 
     def __init__(self):
         self.calls = 0
@@ -148,12 +148,11 @@ class BrokenBrain:
 
 
 class FailedStepTest(unittest.TestCase):
-    """Une erreur de pas etait avalee et devenait un « timeout ».
+    """A failed step was swallowed and turned into a "timeout".
 
-    Le `except ... continue` rejouait le meme pas sur le meme etat jusqu'a
-    epuisement du budget : l'operateur lisait « pas trouve », jamais la
-    cause. Rien ne change entre deux tentatives, donc il n'y a rien a
-    reessayer.
+    The `except ... continue` replayed the same step on the same state until
+    the budget ran out: the operator read "not found", never the cause.
+    Nothing changes between two attempts, so there is nothing to retry.
     """
 
     def setUp(self):
@@ -165,7 +164,7 @@ class FailedStepTest(unittest.TestCase):
     def test_a_failing_step_is_not_replayed_until_the_budget_runs_out(self):
         brain = BrokenBrain()
         result = an_agent(brain).Search()
-        self.assertEqual(brain.calls, 1, "un seul essai, pas cinq cents")
+        self.assertEqual(brain.calls, 1, "one attempt, not five hundred")
         self.assertEqual(result, -1)
 
     def test_the_cause_reaches_the_log(self):
@@ -174,15 +173,15 @@ class FailedStepTest(unittest.TestCase):
             an_agent(brain).Search()
         self.assertTrue(
             any("out of bounds" in line for line in logged.output),
-            f"le message d'origine doit remonter : {logged.output}")
+            f"the original message has to surface: {logged.output}")
 
 
 class RingWalkingBrain:
-    """Un cerveau qui fait tourner l'agent sur un anneau de quarante pas.
+    """A brain that walks the agent round a ring of forty steps.
 
-    `Visited()` ne compare qu'aux DIX dernieres positions : sur un anneau
-    plus long, aucune position ne revient assez vite, la recherche ne se
-    pose jamais et depensait tout son budget a tourner.
+    `Visited()` compares against the last TEN positions only: on a longer
+    ring no position comes back soon enough, the search never settles, and it
+    used to spend its whole budget going round.
     """
 
     RING = 40
@@ -203,7 +202,7 @@ class RingWalkingBrain:
 
 
 class CyclingTest(unittest.TestCase):
-    """Un agent qui tourne en rond est arrete bien avant la fin du budget."""
+    """An agent going in circles is stopped well before the budget ends."""
 
     BUDGET = 2000
 
@@ -214,13 +213,13 @@ class CyclingTest(unittest.TestCase):
         os.environ.pop("ALI_SEARCH_MAX_STEPS", None)
 
     def test_the_ring_is_longer_than_the_short_memory(self):
-        """Sinon le cas ne prouverait rien : `Visited()` s'en chargerait."""
+        """Otherwise the case would prove nothing: `Visited()` would catch it."""
         self.assertGreater(RingWalkingBrain.RING, Agent(
             targeted_landmark="Me", movements=MOVEMENTS, scale_keys=[SCALE],
             FOV=FOV).shortmem_size)
 
     def test_without_the_detection_the_whole_budget_goes_to_the_ring(self):
-        """L'etat d'avant, mesure : le budget entier part en rond."""
+        """The state before, measured: the whole budget goes round the ring."""
         saved = agent_module.STALL_STEPS
         agent_module.STALL_STEPS = 10 ** 9
         try:
@@ -236,17 +235,17 @@ class CyclingTest(unittest.TestCase):
         result = an_agent(brain).Search()
         self.assertEqual(result, -1)
         self.assertLess(brain.calls, self.BUDGET // 2,
-                        "arrete bien avant la fin du budget")
+                        "stopped well before the budget ends")
 
     def test_the_diagnosis_says_what_happened(self):
         with self.assertLogs("ADT.ALI_CBCT_Agent", level="WARNING") as logged:
             an_agent(RingWalkingBrain()).Search()
         self.assertTrue(
             any("going in circles" in line for line in logged.output),
-            f"le diagnostic doit etre lisible : {logged.output}")
+            f"the diagnosis has to be readable: {logged.output}")
 
     def test_a_converging_search_is_never_called_cycling(self):
-        """FakeBrain ne repasse jamais sur une position : jamais d'alerte."""
+        """FakeBrain never revisits a position, so it is never flagged."""
         os.environ["ALI_SEARCH_MAX_STEPS"] = "300"
         agent = an_agent(FakeBrain())
         agent.Search()
@@ -280,7 +279,7 @@ class BudgetSettingTest(unittest.TestCase):
         self.assertEqual(SearchStepBudget(), DEFAULT_MAX_STEPS)
 
     def test_the_time_guard_stays_far_above_the_step_budget(self):
-        """Ce n'est plus lui qui decide dans le cas normal."""
+        """It is no longer what decides in the ordinary case."""
         self.assertGreater(SearchTimeGuard(), 60.0)
 
 

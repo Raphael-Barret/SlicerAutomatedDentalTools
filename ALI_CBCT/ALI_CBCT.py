@@ -46,39 +46,39 @@ except ImportError as e:
     sys.exit(1)
 
 def update_slicer_progress(value):
-    """Envoie une valeur sur le canal de progression.
+    """Send a value on the progress channel.
 
-    ATTENTION -- ce que ce CLI envoie n'arrive nulle part. Il passe des
-    pourcentages (5, 20, puis 20 a 100) alors que Slicer multiplie par cent ce
-    qu'il lit : la fenetre recoit donc 500, 2000, jusqu'a 10000. Or
+    WARNING -- what this CLI sends arrives nowhere. It passes percentages
+    (5, 20, then 20 to 100) while Slicer multiplies by a hundred what it
+    reads: the window therefore receives 500, 2000, up to 10000. But
     `DisplayALICBCT.isProgress`, a l'autre bout, ne reagit qu'a 100 et a 200 --
-    c'est-a-dire aux valeurs 1 et 2. **La barre de progression d'ALI CBCT et son
-    compteur de reperes ne bougent donc jamais.**
+    that is, to the values 1 and 2. **ALI CBCT's progress bar and its landmark
+    counter therefore never move.**
 
     Mesure a l'appui : un CLI qui imprime 0.42 donne `GetProgress() == 42`, 1
     donne 100, 2 donne 200, 20 donne 2000. Voir
     `DEBUG/adt-validation/probe_progress_scale/`.
 
-    Le corriger demande de decider ce que la barre doit montrer -- une fraction
-    d'avancement, ou un evenement par patient comme le font les quatre autres
-    CLI (`emit_event(PATIENT_DONE)`). C'est une decision, pas un nettoyage,
-    donc rien n'est change ici : les octets emis sont ceux d'avant.
+    Fixing it means deciding what the bar should show -- a fraction of
+    progress, or one event per patient as the four other CLIs do
+    (`emit_event(PATIENT_DONE)`). That is a decision, not a cleanup, so
+    nothing is changed here: the bytes emitted are the ones from before.
     """
     emit(value)
     time.sleep(0.05)
 
 def _report_missing_landmarks(patient_id, missing, out_dir):
-    """Rend visible ce que le fichier de sortie ne dit pas.
+    """Make visible what the output file does not say.
 
-    Quand `Search` rend -1, aucun `AddPredictedLandmark` n'est fait : le
-    repere est simplement ABSENT du `.mrk.json`, et rien ne distingue un
-    repere qu'on n'a pas demande d'un repere que la recherche n'a pas
-    trouve. Le seul signe etait une ligne d'avertissement perdue au milieu
-    du journal du CLI.
+    When `Search` returns -1, no `AddPredictedLandmark` is made: the landmark
+    is simply ABSENT from the `.mrk.json`, and nothing tells a landmark nobody
+    asked for apart from one the search did not find. The only sign was a
+    warning line lost in the middle
+    of the CLI log.
 
-    Ici la liste part dans un fichier pose a cote des predictions -- meme
-    dossier, meme prefixe de patient, donc on tombe dessus en allant
-    chercher ses resultats -- et un bloc encadre part sur la sortie du CLI,
+    Here the list goes into a file placed beside the predictions -- same
+    folder, same patient prefix, so you run into it on your way to your
+    results -- and a boxed block goes to the CLI output,
     ou Slicer l'affiche.
     """
     if not missing:
@@ -115,7 +115,7 @@ def _report_missing_landmarks(patient_id, missing, out_dir):
 
 
 def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size):
-    """Deplace les agents sur un scan jusqu a ce qu ils se posent."""
+    """Move the agents over one scan until they settle."""
     logger.info(f"Processing patient: {environment.patient_id}")
     missing = {}
 
@@ -185,7 +185,7 @@ def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, e
     return tot_step
 
 def _prepare_one_patient(data, p_name, patients, scale_spacing, temp_fold):
-    """Corrige l histogramme et reechantillonne un scan a chaque echelle."""
+    """Correct the histogram and resample one scan at every scale."""
     try:
         scan_path = data["scan"]
         # Correct Histogram

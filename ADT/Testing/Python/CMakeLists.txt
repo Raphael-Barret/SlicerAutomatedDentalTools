@@ -43,6 +43,6 @@ slicer_add_python_unittest(SCRIPT test_button_style.py)
 # one.
 slicer_add_python_unittest(SCRIPT test_ali_cbct_budget.py)
 
-# Un repere qu ALI CBCT n a pas trouve est absent du fichier de sortie,
-# sans rien pour le dire : la liste part desormais a cote des predictions.
+# A landmark ALI CBCT did not find is absent from the output file with
+# nothing to say so: the list now goes out beside the predictions.
 slicer_add_python_unittest(SCRIPT test_ali_cbct_missing.py)

@@ -202,11 +202,11 @@ class TorchCudaTest(unittest.TestCase):
         self.assertFalse(torch_cuda_builds_agree(lookup=INCOMPLETE))
 
     def test_a_plain_trio_is_not_a_conflict(self):
-        """Le cas qui a bloque AMASSS : trois roues PyPI, versions exactes.
+        """The case that blocked AMASSS: three PyPI wheels, exact versions.
 
-        `torch_cuda_builds_agree` repond non -- aucune etiquette -- et le
-        module proposait « mettre a jour torch 2.2.0 vers 2.2.0 ». La decision
-        doit se prendre sur un desaccord REEL, pas sur une absence d'etiquette.
+        `torch_cuda_builds_agree` answers no -- no label anywhere -- and the
+        module then offered to "update torch 2.2.0 to 2.2.0". The decision has
+        to rest on a REAL disagreement, not on a missing label.
         """
         self.assertIsNone(torch_cuda_conflict(lookup=PLAIN))
         self.assertFalse(torch_cuda_builds_agree(lookup=PLAIN))

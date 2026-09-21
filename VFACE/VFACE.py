@@ -3332,11 +3332,10 @@ class VFACELogic(ScriptedLoadableModuleLogic):
             return f"{seconds // 60}min and {seconds % 60}s"
         return f"{seconds // 3600}h, {seconds % 3600 // 60}min and {seconds % 60}s"
 
-    #: Assez court pour ne jamais remplir le tuyau dans lequel Slicer
-    #: capture sa propre sortie. Vivait sur le Widget, alors que seule
-    #: cette methode la lit : le deplacement vers le Logic l'a laissee
-    #: derriere, et `cls.MAX_CLI_OUTPUT_CHARS` levait un AttributeError
-    #: des le premier CLI termine.
+    #: Short enough never to fill the pipe Slicer captures its own output
+    #: into. It lived on the Widget while this method is its only reader: the
+    #: move to the Logic left it behind, and `cls.MAX_CLI_OUTPUT_CHARS` raised
+    #: an AttributeError on the first CLI that finished.
     MAX_CLI_OUTPUT_CHARS = 8000
 
     @classmethod

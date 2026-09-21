@@ -4,6 +4,7 @@ import sys
 import time
 import argparse
 import ast
+import json
 from pathlib import Path
 
 import numpy as np
@@ -45,30 +46,78 @@ except ImportError as e:
     sys.exit(1)
 
 def update_slicer_progress(value):
-    """Envoie une valeur sur le canal de progression.
+    """Send a value on the progress channel.
 
-    ATTENTION -- ce que ce CLI envoie n'arrive nulle part. Il passe des
-    pourcentages (5, 20, puis 20 a 100) alors que Slicer multiplie par cent ce
-    qu'il lit : la fenetre recoit donc 500, 2000, jusqu'a 10000. Or
+    WARNING -- what this CLI sends arrives nowhere. It passes percentages
+    (5, 20, then 20 to 100) while Slicer multiplies by a hundred what it
+    reads: the window therefore receives 500, 2000, up to 10000. But
     `DisplayALICBCT.isProgress`, a l'autre bout, ne reagit qu'a 100 et a 200 --
-    c'est-a-dire aux valeurs 1 et 2. **La barre de progression d'ALI CBCT et son
-    compteur de reperes ne bougent donc jamais.**
+    that is, to the values 1 and 2. **ALI CBCT's progress bar and its landmark
+    counter therefore never move.**
 
     Mesure a l'appui : un CLI qui imprime 0.42 donne `GetProgress() == 42`, 1
     donne 100, 2 donne 200, 20 donne 2000. Voir
     `DEBUG/adt-validation/probe_progress_scale/`.
 
-    Le corriger demande de decider ce que la barre doit montrer -- une fraction
-    d'avancement, ou un evenement par patient comme le font les quatre autres
-    CLI (`emit_event(PATIENT_DONE)`). C'est une decision, pas un nettoyage,
-    donc rien n'est change ici : les octets emis sont ceux d'avant.
+    Fixing it means deciding what the bar should show -- a fraction of
+    progress, or one event per patient as the four other CLIs do
+    (`emit_event(PATIENT_DONE)`). That is a decision, not a cleanup, so
+    nothing is changed here: the bytes emitted are the ones from before.
     """
     emit(value)
     time.sleep(0.05)
 
+def _report_missing_landmarks(patient_id, missing, out_dir):
+    """Make visible what the output file does not say.
+
+    When `Search` returns -1, no `AddPredictedLandmark` is made: the landmark
+    is simply ABSENT from the `.mrk.json`, and nothing tells a landmark nobody
+    asked for apart from one the search did not find. The only sign was a
+    warning line lost in the middle
+    of the CLI log.
+
+    Here the list goes into a file placed beside the predictions -- same
+    folder, same patient prefix, so you run into it on your way to your
+    results -- and a boxed block goes to the CLI output,
+    ou Slicer l'affiche.
+    """
+    if not missing:
+        return None
+
+    stem = str(patient_id).split(".")[0]
+    report = {
+        "patient": str(patient_id),
+        "not_found": [{"landmark": lm, "reason": reason}
+                      for lm, reason in sorted(missing.items())],
+    }
+
+    file_path = None
+    if out_dir:
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            file_path = os.path.join(out_dir, f"{stem}_lm_NotFound.json")
+            with open(file_path, "w", encoding="utf-8") as handle:
+                json.dump(report, handle, ensure_ascii=False, indent=4)
+        except OSError as e:
+            logger.error(f"Could not write the not-found report for "
+                         f"{patient_id}: {e}")
+            file_path = None
+
+    logger.warning("=" * 70)
+    logger.warning(f"{len(missing)} LANDMARK(S) NOT PLACED for {patient_id} "
+                   "-- they are absent from the output files:")
+    for lm, reason in sorted(missing.items()):
+        logger.warning(f"    {lm} : {reason}")
+    if file_path:
+        logger.warning(f"  listed in {file_path}")
+    logger.warning("=" * 70)
+    return file_path
+
+
 def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, environment_lst, fails, scale_keys, tot_step, transition_layer_size):
-    """Deplace les agents sur un scan jusqu a ce qu ils se posent."""
+    """Move the agents over one scan until they settle."""
     logger.info(f"Processing patient: {environment.patient_id}")
+    missing = {}
 
     for agent in agent_lst:
         try:
@@ -96,17 +145,26 @@ def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, e
 
                     if search_result == -1:
                         fails[agent.target] = fails.get(agent.target, 0) + 1
+                        missing[agent.target] = (
+                            agent.failure_reason or "the search did not place it")
                         logger.warning(f"Agent failed to find {agent.target}")
                     else:
                         tot_step += search_result
                 except Exception as e:
                     logger.error(f"Error loading model weights for {agent.target}: {e}")
                     fails[agent.target] = fails.get(agent.target, 0) + 1
+                    missing[agent.target] = f"could not load its model: {e}"
             else:
+                # Counted as a failure like the others: without it the
+                # end-of-run summary stayed silent about a landmark that was
+                # asked for and never even searched.
                 logger.error(f"No model found for landmark: {agent.target}")
+                fails[agent.target] = fails.get(agent.target, 0) + 1
+                missing[agent.target] = "no model for it in the model folder"
 
         except Exception as e:
             logger.error(f"Error during agent search for {agent.target}: {e}")
+            missing[agent.target] = f"the search raised: {e}"
         finally:
             # Cleanup to free GPU memory
             agent.SetBrain(None)
@@ -119,13 +177,15 @@ def _predict_one_patient(agent_lst, args, brain_weights, env_idx, environment, e
     except Exception as e:
         logger.error(f"Failed to save predictions for patient {environment.patient_id}: {e}")
 
+    _report_missing_landmarks(environment.patient_id, missing, args.output_dir)
+
     # Update Slicer Progress
     progress = 20 + int((env_idx + 1) / len(environment_lst) * 80)
     update_slicer_progress(progress)
     return tot_step
 
 def _prepare_one_patient(data, p_name, patients, scale_spacing, temp_fold):
-    """Corrige l histogramme et reechantillonne un scan a chaque echelle."""
+    """Correct the histogram and resample one scan at every scale."""
     try:
         scan_path = data["scan"]
         # Correct Histogram
@@ -275,8 +335,14 @@ def main(args):
     logger.info(f"Total steps taken: {tot_step}")
     logger.info(f"Execution time: {end_time - start_time:.2f}s")
     
-    for lm, count in fails.items():
-        logger.warning(f"Landmark '{lm}': {count}/{len(environment_lst)} failures")
+    if fails:
+        logger.warning(
+            f"{len(fails)} landmark(s) were not placed on at least one scan. "
+            "They are ABSENT from the output files, not misplaced in them; "
+            "each scan concerned has a <patient>_lm_NotFound.json next to "
+            "its predictions saying which and why.")
+        for lm, count in sorted(fails.items()):
+            logger.warning(f"Landmark '{lm}': {count}/{len(environment_lst)} failures")
 
 if __name__ == "__main__":
     try:

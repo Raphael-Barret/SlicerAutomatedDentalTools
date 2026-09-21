@@ -37,3 +37,12 @@ slicer_add_python_unittest(SCRIPT test_testdata.py)
 # The button sheet VFACE carried four times: one template, two accents.
 # Pinned because it is what the user sees.
 slicer_add_python_unittest(SCRIPT test_button_style.py)
+
+# What stops an ALI CBCT search: a number of steps, not wall-clock seconds.
+# The same scan must place the same landmark on a busy machine and on an idle
+# one.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_budget.py)
+
+# A landmark ALI CBCT did not find is absent from the output file with
+# nothing to say so: the list now goes out beside the predictions.
+slicer_add_python_unittest(SCRIPT test_ali_cbct_missing.py)

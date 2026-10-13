@@ -15,6 +15,11 @@ import traceback
 
 logger = get_logger("BatchDentalSeg_pythonDependency")
 
+#: The bundle this checker downloads, inside the shared model folder. Named
+#: once, because three places have to agree on it: what counts as missing,
+#: what is cleared before a download, and which folder nnUNet is pointed at.
+DENTALSEGMENTATOR_DATASET = "Dataset111_453CT"
+
 def hasInternetConnection(time_out_sec=2) -> bool:
     """
     Check if user has access to the internet.
@@ -120,9 +125,21 @@ class PythonDependencyChecker:
     def getDestWeightFolder(self):
         return self.destWeightFolder
 
+    @property
+    def _datasetFolder(self) -> Path:
+        """This model's own folder inside the shared one."""
+        return self.destWeightFolder / DENTALSEGMENTATOR_DATASET
+
     def getDatasetPath(self):
+        """The dataset.json of THIS model, never a neighbour's.
+
+        `destWeightFolder` is Resources/ML, which holds every model the
+        module can run. Searching it whole returned whichever dataset.json
+        came first: with the universal weights present, this answered "the
+        weights are there" while DentalSegmentator had none of its own.
+        """
         try:
-            return next(self.destWeightFolder.rglob("dataset.json"))
+            return next(self._datasetFolder.rglob("dataset.json"))
         except StopIteration:
             return None
 
@@ -155,8 +172,12 @@ class PythonDependencyChecker:
             )
             return False
 
-        if self.destWeightFolder.exists():
-            shutil.rmtree(self.destWeightFolder)
+        # Only this model's folder. It used to clear the whole of
+        # Resources/ML, so fetching the 236 MB of DentalSegmentator also
+        # deleted the 782 MB of universal weights sitting beside them, and
+        # the dataset.json and plans.json that ship with the extension.
+        if self._datasetFolder.exists():
+            shutil.rmtree(self._datasetFolder)
         self.destWeightFolder.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -184,8 +205,18 @@ class PythonDependencyChecker:
             return False
 
     def extractWeightsToWeightsFolder(self, zip_path):
+        """Unpack the archive, then remove it.
+
+        It was kept: 220 MB of zip left next to the weights it had already
+        been expanded into, inside the extension's own tree, and listed in
+        .gitignore rather than deleted.
+        """
         with zipfile.ZipFile(zip_path, "r") as f:
             f.extractall(self.destWeightFolder)
+        try:
+            Path(zip_path).unlink()
+        except OSError as error:
+            logger.debug(f"Could not remove {zip_path}: {error}")
 
     def writeDownloadInfoURL(self, download_url):
         with open(self.destWeightFolder / "download_info.json", "w") as f:

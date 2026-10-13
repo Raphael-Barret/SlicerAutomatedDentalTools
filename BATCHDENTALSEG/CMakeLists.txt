@@ -13,6 +13,7 @@ set(MODULE_PYTHON_SCRIPTS
   BATCHDENTALSEGLib/Utils.py
   Testing/__init__.py
   Testing/IntegrationTestCase.py
+  Testing/ModelFolderTestCase.py
   Testing/SegmentationWidgetTestCase.py
   Testing/Utils.py
 )

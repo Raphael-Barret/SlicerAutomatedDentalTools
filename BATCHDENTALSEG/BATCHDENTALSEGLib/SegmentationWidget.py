@@ -10,7 +10,11 @@ import sys
 import slicer
 import os
 from .IconPath import icon, iconPath
-from .PythonDependencyChecker import PythonDependencyChecker, hasInternetConnection
+from .PythonDependencyChecker import (
+    DENTALSEGMENTATOR_DATASET,
+    PythonDependencyChecker,
+    hasInternetConnection,
+)
 from .Queue import (
     SegmentationQueue,
     listVolumes,
@@ -298,7 +302,12 @@ class SegmentationWidget(qt.QWidget):
 
         self.stopButton = createButton("Stop", callback=self.onStopClicked, toolTip="Stop the segmentation.")
         self.loading    = qt.QMovie(iconPath("loading.gif")); self.loading.setScaledSize(qt.QSize(24,24))
-        self.loading.frameChanged.connect(self._updateStopIcon); self.loading.start()
+        # Started when a run starts, in _setApplyVisible, not here. Started
+        # here it never stopped: the spinner animated for the whole session
+        # and repainted a hidden button at every frame, and on teardown its
+        # next frame reached a QPushButton Qt had already destroyed, which
+        # takes Slicer down with it.
+        self.loading.frameChanged.connect(self._updateStopIcon)
 
         self.applyWidget = qt.QWidget(self)
         apply_layout = qt.QHBoxLayout(self.applyWidget); apply_layout.setContentsMargins(0,0,0,0)
@@ -1140,11 +1149,18 @@ class SegmentationWidget(qt.QWidget):
             "PediatricDentalsegmentator": "Dataset001_380CT",
             "NasoMaxillaDentSeg": "Dataset001_max4",
             "UniversalLabDentalsegmentator": "Dataset002_380CT",
+            # Named like the others rather than left to the shared folder.
+            # Resources/ML holds EVERY model, so handing it over whole let
+            # nnUNet pick the first dataset.json its glob returned, which is
+            # alphabetical: once the universal weights were downloaded,
+            # Dataset002 sorted before Dataset111 and asking for
+            # DentalSegmentator silently ran the 56 class model. Nothing on
+            # screen said so, and only five of its segments got named.
+            "DentalSegmentator": DENTALSEGMENTATOR_DATASET,
         }
         if modelName in datasets:
             return resources.joinpath(
                 datasets[modelName], "nnUNetTrainer__nnUNetPlans__3d_fullres")
-        # DentalSegmentator ships its own dataset folder under Resources/ML.
         return resources
 
     @staticmethod
@@ -1868,7 +1884,12 @@ class SegmentationWidget(qt.QWidget):
     # ─── UI helpers ────────────────────────────────────────────────────────────
 
     def _updateStopIcon(self):
-        self.stopButton.setIcon(qt.QIcon(self.loading.currentPixmap()))
+        try:
+            self.stopButton.setIcon(qt.QIcon(self.loading.currentPixmap()))
+        except ValueError:
+            # The widget went away under us. One more frame would abort the
+            # process, so the animation stops here rather than later.
+            self.loading.stop()
 
     def onStopClicked(self):
         self.isStopping = True
@@ -1928,10 +1949,31 @@ class SegmentationWidget(qt.QWidget):
         else:
             self._runSetupThenStartQueue()
 
+    @staticmethod
+    def _torchIsUsable():
+        """Whether this Slicer already has a torch we have no business replacing.
+
+        The first Apply of every session ran `light-the-torch install torch
+        torchvision`, unconditionally and on the UI thread. On an install
+        that already had torch it still reinstalled pip, downgrading it
+        (measured: 26.1.1 to 26.0.1, because light-the-torch pins pip<26.1),
+        and it can swap the torch Slicer was built against for another
+        build. That is the fix for a machine with NO torch, so the install
+        stays; it just stops firing on machines that do not need it.
+        """
+        try:
+            import torch  # noqa: F401  (sonde de disponibilite)
+            import torchvision  # noqa: F401  (sonde de disponibilite)
+        except ImportError:
+            return False
+        return True
+
     def _runSetupThenStartQueue(self):
         """Install the Python / nnUNet dependencies, then start the queue."""
-        slicer.util.pip_install("light-the-torch")
-        subprocess.check_call([sys.executable, "-m", "light_the_torch", "install", "torch", "torchvision"])
+        if not self._torchIsUsable():
+            slicer.util.pip_install("light-the-torch")
+            subprocess.check_call(
+                [sys.executable, "-m", "light_the_torch", "install", "torch", "torchvision"])
         slicer.util.pip_install("numexpr>=2.10.2")
         packages = ["numpy<2.0", "numexpr>=2.10.2","psutil"]
 
@@ -2095,7 +2137,8 @@ class SegmentationWidget(qt.QWidget):
         else:
             self.onProgressInfo(f"Selected Model: {selected_model}")
 
-            parameter = Parameter(folds="0", modelPath=self.nnUnetFolder(), device=self.deviceComboBox.currentText)
+            parameter = Parameter(folds="0", modelPath=self._modelBasePath(selected_model),
+                                  device=self.deviceComboBox.currentText)
                 
         parameter = self._withTorchProbabilityResampling(parameter, volumeNode, selected_model)
 
@@ -2858,6 +2901,7 @@ class SegmentationWidget(qt.QWidget):
     def _setApplyVisible(self, is_visible):
         self.applyWidget.setVisible(is_visible)
         self.stopWidgetContainer.setVisible(not is_visible)
+        self.loading.stop() if is_visible else self.loading.start()
         self.inputWidget.setEnabled(is_visible)
 
         self.batchCounterLabel.setVisible(not is_visible)

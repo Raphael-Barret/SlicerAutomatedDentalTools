@@ -4,5 +4,12 @@
 SlicerAutomatedDentalTools-debug/BATCHDENTALSEG/Resources/ML/Dataset111_453CT/nnUNetTrainer__nnUNetPlans__3d_fullres/fold_0/checkpoint_final.pth
 BATCHDENTALSEG/Resources/ML/Dataset111_453CT_v100.zip
 BATCHDENTALSEG/Resources/ML/**/*.pth
+# Model bundles the module downloads into its own source tree at run
+# time. Only Dataset111 ships with the extension, and of it only the
+# two JSON files; the rest arrives on first use and must never be
+# committed -- the universal bundle alone is 782 MB.
+BATCHDENTALSEG/Resources/ML/Dataset001_380CT/
+BATCHDENTALSEG/Resources/ML/Dataset001_max4/
+BATCHDENTALSEG/Resources/ML/Dataset002_380CT/
 VFACE/Resources/ML/**/*.pth
 ASO_IOS/ASO_IOS_utils/cache/

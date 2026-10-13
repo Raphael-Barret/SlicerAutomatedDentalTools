@@ -10,7 +10,11 @@ import sys
 import slicer
 import os
 from .IconPath import icon, iconPath
-from .PythonDependencyChecker import PythonDependencyChecker, hasInternetConnection
+from .PythonDependencyChecker import (
+    DENTALSEGMENTATOR_DATASET,
+    PythonDependencyChecker,
+    hasInternetConnection,
+)
 from .Queue import (
     SegmentationQueue,
     listVolumes,
@@ -298,7 +302,12 @@ class SegmentationWidget(qt.QWidget):
 
         self.stopButton = createButton("Stop", callback=self.onStopClicked, toolTip="Stop the segmentation.")
         self.loading    = qt.QMovie(iconPath("loading.gif")); self.loading.setScaledSize(qt.QSize(24,24))
-        self.loading.frameChanged.connect(self._updateStopIcon); self.loading.start()
+        # Started when a run starts, in _setApplyVisible, not here. Started
+        # here it never stopped: the spinner animated for the whole session
+        # and repainted a hidden button at every frame, and on teardown its
+        # next frame reached a QPushButton Qt had already destroyed, which
+        # takes Slicer down with it.
+        self.loading.frameChanged.connect(self._updateStopIcon)
 
         self.applyWidget = qt.QWidget(self)
         apply_layout = qt.QHBoxLayout(self.applyWidget); apply_layout.setContentsMargins(0,0,0,0)
@@ -1140,11 +1149,18 @@ class SegmentationWidget(qt.QWidget):
             "PediatricDentalsegmentator": "Dataset001_380CT",
             "NasoMaxillaDentSeg": "Dataset001_max4",
             "UniversalLabDentalsegmentator": "Dataset002_380CT",
+            # Named like the others rather than left to the shared folder.
+            # Resources/ML holds EVERY model, so handing it over whole let
+            # nnUNet pick the first dataset.json its glob returned, which is
+            # alphabetical: once the universal weights were downloaded,
+            # Dataset002 sorted before Dataset111 and asking for
+            # DentalSegmentator silently ran the 56 class model. Nothing on
+            # screen said so, and only five of its segments got named.
+            "DentalSegmentator": DENTALSEGMENTATOR_DATASET,
         }
         if modelName in datasets:
             return resources.joinpath(
                 datasets[modelName], "nnUNetTrainer__nnUNetPlans__3d_fullres")
-        # DentalSegmentator ships its own dataset folder under Resources/ML.
         return resources
 
     @staticmethod
@@ -1169,6 +1185,188 @@ class SegmentationWidget(qt.QWidget):
         except Exception as e:
             logger.debug(f"Could not read {path}: {e}")
             return None
+
+    # ─── Resampling of the probability map ────────────────────────────────────
+    #
+    # The name nnUNet gives its stock resampler. A bundle asking for anything
+    # else was configured that way on purpose and its geometry is not ours to
+    # reinterpret, so we leave it alone.
+    _STOCK_RESAMPLER = "resample_data_or_seg_to_shape"
+
+    def _withTorchProbabilityResampling(self, parameter, volumeNode, modelName):
+        """Resample the probability map with torch instead of scipy.
+
+        Measured on this module, one 42.8 megavoxel CBCT with the universal
+        model (56 classes), RTX 6000 Ada, nnUNet 2.8: prediction plus export
+        takes 128.5 s as shipped, of which the GPU spends 18 s. The remaining
+        110 s is nnUNet resampling the 56 channel probability map back onto
+        the scan's own grid, with scipy, on ONE core. Swapping that one
+        function for the torch equivalent nnUNet already ships takes the same
+        work to 40 s and drops peak RAM from 43.8 GB to 32.4 GB.
+
+        Only the PROBABILITIES are swapped. The plans already ask for order 1
+        there, and torch 'linear' is that same interpolation, so the output is
+        the same map: measured mean Dice 0.9996 over 32 structures, 0.003 % of
+        voxels changed, which is float arithmetic and nothing else. The INPUT
+        resampler is deliberately left on scipy: the plans ask for order 3 and
+        torch has no 3D cubic, so swapping it too would be faster again (27 s)
+        but moves small structures by a lot, measured mean Dice 0.982 with one
+        tooth at 0.73.
+
+        On the CPU rather than the GPU, though torch would take either: the
+        two measure the same (43.6 s against 44.0 s), and the GPU path needs
+        10 GB more VRAM, which a 139 megavoxel scan at 56 classes would not
+        have. The cheap device is also the safe one.
+
+        nnUNet is driven through its command line, which has no flag for this:
+        the resamplers are named in the model's own plans.json. So the model
+        folder is MIRRORED into a temporary directory, with symlinks for the
+        weights and a patched plans.json, and nnUNet is pointed at the mirror.
+        The downloaded bundle is never written to, which matters twice: it
+        lives inside the extension's own source tree, and one of the two
+        bundles is tracked by git.
+
+        Returns the parameter to use, unchanged when the swap does not apply.
+        """
+        configuration_folder = Path(parameter.modelPath)
+        plans_path = configuration_folder.joinpath("plans.json")
+        if not plans_path.is_file():
+            return parameter
+
+        try:
+            from nnunetv2.preprocessing.resampling.resample_torch import (  # noqa: F401
+                resample_torch_fornnunet,
+            )
+        except ImportError:
+            self.onProgressInfo("[INFO] This nnUNet has no torch resampler; keeping the scipy one.")
+            return parameter
+
+        plans = self._readJson(plans_path)
+        if not plans:
+            return parameter
+        configuration_name = configuration_folder.name.split("__")[-1]
+        configuration = (plans.get("configurations") or {}).get(configuration_name)
+        if not configuration:
+            return parameter
+
+        if configuration.get("resampling_fn_probabilities") != self._STOCK_RESAMPLER:
+            self.onProgressInfo("[INFO] Model plans request their own resampler; leaving it alone.")
+            return parameter
+        # Order 1 is what torch 'linear' does. Any other order would be a
+        # different interpolation, and silently changing it is exactly what
+        # this guard is here to prevent.
+        if (configuration.get("resampling_fn_probabilities_kwargs") or {}).get("order") != 1:
+            self.onProgressInfo("[INFO] Probability resampling is not order 1; leaving it alone.")
+            return parameter
+
+        if not self._torchResamplingFitsInRam(volumeNode, modelName):
+            return parameter
+
+        configuration["resampling_fn_probabilities"] = "resample_torch_fornnunet"
+        configuration["resampling_fn_probabilities_kwargs"] = {
+            "is_seg": False,
+            # A string, not a torch.device: this dict is written to JSON.
+            "device": "cpu",
+            "mode": "linear",
+            # 4 is the stock value. More helps a little and costs nothing:
+            # 40.2 s against 43.6 s on the measurement above.
+            "num_threads": max(4, min(16, os.cpu_count() or 4)),
+        }
+
+        try:
+            mirror = self._mirrorModelFolder(configuration_folder, plans)
+        except OSError as error:
+            self.onProgressInfo(f"[WARN] Could not prepare the model mirror ({error}); "
+                                "keeping the scipy resampler.")
+            return parameter
+
+        self.onProgressInfo("Resampling the probability map with torch on the CPU.")
+        parameter.modelPath = mirror
+        return parameter
+
+    def _torchResamplingFitsInRam(self, volumeNode, modelName):
+        """Whether the torch resampler has the room it needs on THIS machine.
+
+        It buys its speed with memory: scipy walks the probability map one
+        class at a time and writes half precision, torch interpolates all of
+        them at once in float32. The extra is therefore the destination
+        array, numClasses * originalVoxels * 4 bytes, which on a 139
+        megavoxel scan with 56 classes is 31 GB on its own.
+
+        Measured on the five scan batch: 65.5 GB peak as shipped, 81.3 GB
+        with the swap, on a machine with 125 GB. The same batch on a 64 GB
+        machine would have gone to swap, which costs far more than the
+        resampling ever saved. So the swap is offered, not imposed: it
+        applies when the whole estimate still fits the user's RAM budget,
+        and the shipped path stays for the scans that would not.
+        """
+        estimate = self._estimatePeakRamGb(volumeNode, modelName)
+        memory = self._virtualMemory()
+        if estimate is None or memory is None:
+            # Nothing measured means nothing promised: keep the light path.
+            return False
+
+        extra_gb = self._torchResamplingExtraGb(volumeNode, modelName)
+        if extra_gb is None:
+            return False
+
+        budget_gb = (memory.available / 2 ** 30) * (self.ramLimitSpinBox.value / 100.0)
+        if estimate + extra_gb > budget_gb:
+            self.onProgressInfo(
+                f"[RAM] Keeping the shipped resampler: torch would need "
+                f"{estimate + extra_gb:.0f} GB, budget is {budget_gb:.0f} GB.")
+            return False
+        return True
+
+    def _torchResamplingExtraGb(self, volumeNode, modelName):
+        """What torch costs over scipy: the float32 destination, in GB."""
+        try:
+            image_data = volumeNode.GetImageData()
+            if image_data is None:
+                return None
+            dims = image_data.GetDimensions()
+            config_folder = self._configurationFolder(self._modelBasePath(modelName))
+            if config_folder is None:
+                return None
+            dataset = self._readJson(config_folder.joinpath("dataset.json"))
+            labels = (dataset or {}).get("labels") or {}
+            if not labels:
+                return None
+            original_voxels = float(dims[0]) * dims[1] * dims[2]
+            # 4 bytes written by torch where scipy writes 2.
+            return (4.0 - 2.0) * len(labels) * original_voxels / 2 ** 30
+        except Exception as error:
+            logger.debug(f"torch resampling estimate unavailable: {error}")
+            return None
+
+    def _mirrorModelFolder(self, configuration_folder, plans):
+        """A copy of the model folder holding the patched plans, in a temp dir.
+
+        nnUNet reads the weights through `nnUNet_results`, which
+        SlicerNNUNetLib sets to the folder TWO levels above the configuration
+        (`<root>/Dataset<id>/<trainer>__<plans>__<configuration>`), and it
+        derives the dataset and configuration names from those two directory
+        names. The mirror therefore has to keep both names exactly, which is
+        why it is rebuilt rather than flattened.
+
+        Everything heavy is symlinked: the mirror costs the size of two JSON
+        files, whatever the checkpoint weighs.
+        """
+        dataset_folder = configuration_folder.parent
+        root = Path(slicer.util.tempDirectory(key="BatchDentalSegModel"))
+        mirror = root.joinpath(dataset_folder.name, configuration_folder.name)
+        mirror.mkdir(parents=True, exist_ok=True)
+
+        for entry in configuration_folder.iterdir():
+            if entry.name == "plans.json":
+                continue
+            link = mirror.joinpath(entry.name)
+            if not link.exists():
+                os.symlink(entry, link)
+
+        with open(mirror.joinpath("plans.json"), "w") as handle:
+            json.dump(plans, handle)
+        return mirror
 
     def _estimatePeakRamGb(self, volumeNode, modelName):
         """
@@ -1686,7 +1884,12 @@ class SegmentationWidget(qt.QWidget):
     # ─── UI helpers ────────────────────────────────────────────────────────────
 
     def _updateStopIcon(self):
-        self.stopButton.setIcon(qt.QIcon(self.loading.currentPixmap()))
+        try:
+            self.stopButton.setIcon(qt.QIcon(self.loading.currentPixmap()))
+        except ValueError:
+            # The widget went away under us. One more frame would abort the
+            # process, so the animation stops here rather than later.
+            self.loading.stop()
 
     def onStopClicked(self):
         self.isStopping = True
@@ -1746,10 +1949,31 @@ class SegmentationWidget(qt.QWidget):
         else:
             self._runSetupThenStartQueue()
 
+    @staticmethod
+    def _torchIsUsable():
+        """Whether this Slicer already has a torch we have no business replacing.
+
+        The first Apply of every session ran `light-the-torch install torch
+        torchvision`, unconditionally and on the UI thread. On an install
+        that already had torch it still reinstalled pip, downgrading it
+        (measured: 26.1.1 to 26.0.1, because light-the-torch pins pip<26.1),
+        and it can swap the torch Slicer was built against for another
+        build. That is the fix for a machine with NO torch, so the install
+        stays; it just stops firing on machines that do not need it.
+        """
+        try:
+            import torch  # noqa: F401  (sonde de disponibilite)
+            import torchvision  # noqa: F401  (sonde de disponibilite)
+        except ImportError:
+            return False
+        return True
+
     def _runSetupThenStartQueue(self):
         """Install the Python / nnUNet dependencies, then start the queue."""
-        slicer.util.pip_install("light-the-torch")
-        subprocess.check_call([sys.executable, "-m", "light_the_torch", "install", "torch", "torchvision"])
+        if not self._torchIsUsable():
+            slicer.util.pip_install("light-the-torch")
+            subprocess.check_call(
+                [sys.executable, "-m", "light_the_torch", "install", "torch", "torchvision"])
         slicer.util.pip_install("numexpr>=2.10.2")
         packages = ["numpy<2.0", "numexpr>=2.10.2","psutil"]
 
@@ -1913,8 +2137,11 @@ class SegmentationWidget(qt.QWidget):
         else:
             self.onProgressInfo(f"Selected Model: {selected_model}")
 
-            parameter = Parameter(folds="0", modelPath=self.nnUnetFolder(), device=self.deviceComboBox.currentText)
+            parameter = Parameter(folds="0", modelPath=self._modelBasePath(selected_model),
+                                  device=self.deviceComboBox.currentText)
                 
+        parameter = self._withTorchProbabilityResampling(parameter, volumeNode, selected_model)
+
         if not parameter.isSelectedDeviceAvailable():
             device_name = parameter.device.upper()
             # Asked once for the whole queue — never once per scan.
@@ -2674,6 +2901,7 @@ class SegmentationWidget(qt.QWidget):
     def _setApplyVisible(self, is_visible):
         self.applyWidget.setVisible(is_visible)
         self.stopWidgetContainer.setVisible(not is_visible)
+        self.loading.stop() if is_visible else self.loading.start()
         self.inputWidget.setEnabled(is_visible)
 
         self.batchCounterLabel.setVisible(not is_visible)

@@ -191,6 +191,57 @@ def CreateListProcess(request):
             logger.error("Issue, it seems to miss some oriented cbct T1 folder")
             return
 
+        if not any(f['type'] == 'MAX' for f in oriented_files):
+            # a single oriented scan has no MAX frame. Orient the
+            # maxilla from the scan we were given instead of failing at AMASSS.
+            preaso_max_folder_path = os.path.join(request.output_folder, "Centered T1 Scans", "MAX")
+            os.makedirs(preaso_max_folder_path, exist_ok=True)
+            for file_info in oriented_files:
+                shutil.copy2(file_info['path'], os.path.join(preaso_max_folder_path, os.path.basename(file_info['path'])))
+            logger.info(f"No MAX scan in {request.input_folder}: orienting the maxilla from the given scan")
+            # The given scan is its own CB frame, so the CB orientation transform that
+            # landmark derivation needs is the identity.
+            import SimpleITK as _sitk
+            for file_info in oriented_files:
+                if file_info['type'] != 'CB':
+                    continue
+                _base = os.path.basename(file_info['path'])
+                for _ext in (".nii.gz", ".nii", ".nrrd.gz", ".nrrd"):
+                    if _base.endswith(_ext):
+                        _base = _base[: -len(_ext)]
+                        break
+                _sitk.WriteTransform(_sitk.AffineTransform(3),
+                                     os.path.join(orientation_folder_path, "CB", _base + "_transform.tfm"))
+            list_process.append({
+                "Process": ali_process,
+                "Parameter": {
+                    "input": preaso_max_folder_path,
+                    "dir_models": request.model_folder_ali,
+                    "lm_type": "'ANS','IF','PNS','UL6O','UR1O','UR6O'",
+                    "output_dir": preaso_max_folder_path,
+                    "temp_fold": _unique_temp_dir("work"),
+                    "DCMInput": False,
+                    "spacing": "[1,0.3]",
+                    "speed_per_scale": "[1,1]",
+                    "agent_FOV": "[64,64,64]",
+                    "spawn_radius": "10",
+                },
+                "Module": "Orient T1 (MAX)",
+                "Display": DisplayALICBCT(6, nb_scan),
+            })
+            list_process.append({
+                "Process": semi_aso_process,
+                "Parameter": {
+                    "input": preaso_max_folder_path,
+                    "gold_folder": os.path.join(request.gold_folder, "Occlusal and Midsagittal Plane"),
+                    "output_folder": orientation_max_folder_path,
+                    "add_inname": "MAX_Or",
+                    "list_landmark": 'ANS IF PNS UL6O UR1O UR6O',
+                },
+                "Module": "Orient T1 (MAX)",
+                "Display": DisplayASOCBCT(nb_scan),
+            })
+
     else:
 
         resample_folder_path = os.path.join(request.output_folder,"T1 Resample")

@@ -443,6 +443,13 @@ class SegmentationWidget(qt.QWidget):
         self.itemTimeoutSpinBox.setToolTip(
             "A scan exceeding this delay is marked failed and the queue moves on.")
 
+        self.ramGuardCheckBox = qt.QCheckBox("Enable the RAM guard", self)
+        self.ramGuardCheckBox.setChecked(True)
+        self.ramGuardCheckBox.setToolTip(
+            "On by default: the limit below adapts to the RAM of this machine, so "
+            "nothing needs to be set. Uncheck only to let scans use all the memory, "
+            "at the risk of swapping or crashing the system on a large scan.")
+
         self.ramLimitSpinBox = qt.QSpinBox(self)
         self.ramLimitSpinBox.setRange(30, 99)
         self.ramLimitSpinBox.setValue(85)
@@ -458,6 +465,12 @@ class SegmentationWidget(qt.QWidget):
             "Estimate the peak memory of a scan from its field of view, the model "
             "target spacing and its number of labels, and skip it when it cannot fit. "
             "Uncheck to only rely on the runtime guard.")
+
+        self.ramLimitInfoLabel = qt.QLabel(self)
+        self.ramLimitInfoLabel.setWordWrap(True)
+        self.ramGuardCheckBox.toggled.connect(self._onRamGuardChanged)
+        self.ramLimitSpinBox.valueChanged.connect(self._onRamGuardChanged)
+        self._onRamGuardChanged()
 
         self.skipExistingCheckBox = qt.QCheckBox("Skip scans already segmented", self)
         self.skipExistingCheckBox.setChecked(True)
@@ -501,12 +514,39 @@ class SegmentationWidget(qt.QWidget):
         queue_layout.addRow(self.queueSummaryLabel)
         queue_layout.addRow("Deep cleanup every:", self.chunkSizeSpinBox)
         queue_layout.addRow("Timeout per scan:", self.itemTimeoutSpinBox)
-        queue_layout.addRow("RAM limit:", self.ramLimitSpinBox)
-        queue_layout.addRow(self.ramPreflightCheckBox)
         queue_layout.addRow(self.skipExistingCheckBox)
         queue_layout.addRow(self.unattendedCheckBox)
 
         addInCollapsibleLayout(queue_widget, layout, "Processing queue", isCollapsed=False)
+
+        # The RAM guard works with its defaults; these are only for a machine that needs
+        # something else, hence folded away.
+        advanced_widget = qt.QWidget(self)
+        advanced_layout = qt.QFormLayout(advanced_widget)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.addRow(self.ramGuardCheckBox)
+        advanced_layout.addRow("RAM limit:", self.ramLimitSpinBox)
+        advanced_layout.addRow(self.ramLimitInfoLabel)
+        advanced_layout.addRow(self.ramPreflightCheckBox)
+
+        addInCollapsibleLayout(advanced_widget, layout, "Advanced parameters", isCollapsed=True)
+
+    def _onRamGuardChanged(self, *_):
+        """Grey out the guard settings when it is off, and say what the limit means here."""
+        enabled = self.ramGuardCheckBox.isChecked()
+        self.ramLimitSpinBox.setEnabled(enabled)
+        self.ramPreflightCheckBox.setEnabled(enabled)
+        vm = self._virtualMemory()
+        if not enabled:
+            self.ramLimitInfoLabel.setText(
+                "RAM guard off: a large scan can swap or crash this machine.")
+        elif vm is None:
+            self.ramLimitInfoLabel.setText("")
+        else:
+            total_gb = vm.total / 2 ** 30
+            self.ramLimitInfoLabel.setText(
+                f"A scan is stopped above {self.ramLimitSpinBox.value}% of the "
+                f"{total_gb:.0f} GB of this machine ({total_gb * self.ramLimitSpinBox.value / 100:.0f} GB).")
 
     # ─── Queue edition ─────────────────────────────────────────────────────────
 
@@ -850,6 +890,8 @@ class SegmentationWidget(qt.QWidget):
         percent = vm.percent
         limit = self.ramLimitSpinBox.value
         self._ramPeakPercent = max(self._ramPeakPercent, percent)
+        if not self.ramGuardCheckBox.isChecked():
+            return
 
         if percent >= limit - 10 and not self._ramWarned:
             self._ramWarned = True
@@ -1434,6 +1476,9 @@ class SegmentationWidget(qt.QWidget):
 
         Skipping costs seconds; letting it run costs the machine.
         """
+        if not self.ramGuardCheckBox.isChecked():
+            self.onProgressInfo("[RAM] Guard disabled in the advanced parameters.")
+            return True
         estimate = self._estimatePeakRamGb(volumeNode, item.model)
         vm = self._virtualMemory()
         if estimate is None or vm is None:

@@ -377,6 +377,8 @@ class SegmentationWidget(qt.QWidget):
         self._ramHits = 0
         self._ramWarned = False
         self._ramPeakPercent = 0.0
+        self._ramGuardOffer = None
+        self._ramGuardOfferDeclined = False
 
         # Automatic crop state, set only for a scan re-queued with autoCrop.
         self._uncroppedVolumeNode = None
@@ -444,11 +446,12 @@ class SegmentationWidget(qt.QWidget):
             "A scan exceeding this delay is marked failed and the queue moves on.")
 
         self.ramGuardCheckBox = qt.QCheckBox("Enable the RAM guard", self)
-        self.ramGuardCheckBox.setChecked(True)
+        self.ramGuardCheckBox.setChecked(False)
         self.ramGuardCheckBox.setToolTip(
-            "On by default: the limit below adapts to the RAM of this machine, so "
-            "nothing needs to be set. Uncheck only to let scans use all the memory, "
-            "at the risk of swapping or crashing the system on a large scan.")
+            "Off by default: scans may use all the memory. Check it to skip a scan "
+            "that cannot fit in the RAM of this machine and to stop one that crosses "
+            "the limit below, instead of letting the system swap or crash. The limit "
+            "is a share of this machine's RAM, so nothing else needs to be set.")
 
         self.ramLimitSpinBox = qt.QSpinBox(self)
         self.ramLimitSpinBox.setRange(30, 99)
@@ -836,6 +839,53 @@ class SegmentationWidget(qt.QWidget):
                 details += f"\n  … and {len(failed) - 20} more"
             self.onProgressInfo(f"Failed scans:\n{details}")
         self._notify(f"Queue finished — {summary}")
+        if failed:
+            self._offerRamGuard(len(failed))
+
+    def _offerRamGuard(self, failedCount):
+        """
+        After a batch with failures and the RAM guard off, offer to switch it on.
+
+        Not modal: the queue is over, and a dialog that blocks would also hold up an
+        unattended run or an automated session. Asked once per session, since a "No"
+        is an answer.
+        """
+        if self.ramGuardCheckBox.isChecked() or self._ramGuardOfferDeclined:
+            return
+        if self._ramGuardOffer is not None:
+            return
+        where = "Advanced parameters > Enable the RAM guard (the limit is in the same section)"
+        self.onProgressInfo(
+            f"[RAM] {failedCount} scan(s) failed with the RAM guard off. It is managed in {where}.")
+
+        box = qt.QMessageBox(self)
+        box.setIcon(qt.QMessageBox.Question)
+        box.setWindowTitle("Enable the RAM guard?")
+        box.setText(
+            f"{failedCount} scan(s) failed.\n\n"
+            "If the cause is memory, the RAM guard skips a scan that cannot fit in this "
+            "machine and stops one that crosses the limit, instead of letting the system "
+            "swap or crash.\n\n"
+            f"You can change it at any time in:\n{where}.\n\n"
+            'Yes: enable the RAM guard (use "Retry failed" afterwards).        '
+            "No: keep it off.")
+        box.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
+        box.setDefaultButton(qt.QMessageBox.Yes)
+        box.setWindowModality(qt.Qt.NonModal)
+        box.connect("finished(int)", self._onRamGuardOfferAnswered)
+        self._ramGuardOffer = box
+        box.show()
+
+    def _onRamGuardOfferAnswered(self, result):
+        box, self._ramGuardOffer = self._ramGuardOffer, None
+        if result == qt.QMessageBox.Yes:
+            self.ramGuardCheckBox.setChecked(True)
+            self.onProgressInfo("[RAM] Guard enabled.")
+        else:
+            self._ramGuardOfferDeclined = True
+            self.onProgressInfo("[RAM] Guard kept off.")
+        if box is not None:
+            box.deleteLater()
 
     # ─── RAM guard ─────────────────────────────────────────────────────────────
     #
